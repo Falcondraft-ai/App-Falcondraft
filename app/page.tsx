@@ -1,61 +1,90 @@
 import Link from "next/link";
-import { FoundationShowcase } from "@/components/common/foundation-showcase";
+import { ArrowRight } from "lucide-react";
+import { BrandMark } from "@/components/common/brand-mark";
 import { AppHeader } from "@/components/layout/app-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { foundationPillars } from "@/data/foundation";
+
+const workflowSteps = [
+  {
+    label: "Opportunité",
+    description: "Centraliser le contexte commercial et les notes d’échange.",
+  },
+  {
+    label: "Proposition",
+    description: "Structurer un document clair, relisible et maîtrisé.",
+  },
+  {
+    label: "Validation",
+    description: "Contrôler le fond, le chiffrage et la version finale.",
+  },
+  {
+    label: "Envoi",
+    description: "Préparer la signature, le PDF final et le message client.",
+  },
+] as const;
 
 export default function Home() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
-        <section className="flex flex-col justify-center">
-          <Badge variant="secondary" className="mb-6 w-fit">
-            Fondation technique
-          </Badge>
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
-            FalconDraft prépare la production commerciale premium.
+      <main className="mx-auto grid min-h-[calc(100dvh-4rem)] w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-16">
+        <section>
+          <BrandMark size="lg" className="mb-10" />
+          <p className="text-muted-foreground text-sm font-medium">
+            Espace commercial premium
+          </p>
+          <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.045em] text-balance sm:text-5xl">
+            Produire des propositions commerciales avec rigueur, vitesse et
+            contrôle.
           </h1>
-          <p className="text-muted-foreground mt-6 max-w-2xl text-lg leading-8">
-            Cette première étape installe un socle propre pour créer un deal,
-            générer une proposition professionnelle, la valider puis l’envoyer
-            avec confiance.
+          <p className="text-muted-foreground mt-6 max-w-2xl text-base leading-7 sm:text-lg">
+            FalconDraft organise le passage d’une opportunité qualifiée vers une
+            proposition professionnelle, un document final validé et un envoi
+            prêt pour le client.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/dashboard">Voir le dashboard</Link>
+              <Link href="/login">
+                Accéder à FalconDraft
+                <ArrowRight className="size-4" strokeWidth={1.75} />
+              </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/login">Tester la page de connexion</Link>
+              <Link href="/dashboard">Voir l’espace client</Link>
             </Button>
           </div>
         </section>
 
-        <FoundationShowcase />
+        <section className="border-l bg-card/70 p-5 lg:p-6">
+          <div className="border-b pb-5">
+            <p className="text-sm font-semibold">Flux de production</p>
+            <p className="text-muted-foreground mt-2 text-sm leading-6">
+              Un parcours conçu pour les équipes qui doivent produire des
+              documents commerciaux précis, personnalisés et cohérents.
+            </p>
+          </div>
+          <ol className="divide-y">
+            {workflowSteps.map((step, index) => (
+              <li
+                key={step.label}
+                className="grid grid-cols-[2.25rem_1fr] gap-4 py-5"
+              >
+                <span className="text-muted-foreground font-mono text-xs leading-6">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold">
+                    {step.label}
+                  </span>
+                  <span className="text-muted-foreground mt-1 block text-sm leading-6">
+                    {step.description}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
       </main>
-
-      <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6">
-        <Separator className="mb-8" />
-        <div className="grid gap-4 md:grid-cols-4">
-          {foundationPillars.map((pillar) => (
-            <Card key={pillar.title} className="bg-card/70">
-              <CardContent className="pt-6">
-                <pillar.icon
-                  className="text-primary mb-4 size-5"
-                  aria-hidden="true"
-                />
-                <h2 className="text-sm font-semibold">{pillar.title}</h2>
-                <p className="text-muted-foreground mt-2 text-sm leading-6">
-                  {pillar.description}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
     </>
   );
 }

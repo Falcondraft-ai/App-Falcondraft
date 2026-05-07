@@ -1,32 +1,12 @@
-import { MoreHorizontal } from "lucide-react";
-import { AppHeader } from "@/components/layout/app-header";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { ActivityLog } from "@/components/common/activity-log";
+import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
+import { DealStatusBadge } from "@/components/common/deal-status-badge";
+import { PageHeader } from "@/components/common/page-header";
+import { PageTransition } from "@/components/common/page-transition";
+import { WorkflowTimeline } from "@/components/common/workflow-timeline";
+import { DashboardActivityChart } from "@/components/dashboard/dashboard-activity-chart";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -35,127 +15,159 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { dashboardPreviewRows } from "@/data/foundation";
+import { mockActivity } from "@/data/mock-activity";
+import { dashboardChartData, mockDeals } from "@/data/mock-deals";
+import { formatCurrency, formatDate } from "@/lib/format";
+
+const activeDeals = mockDeals.filter((deal) => deal.status !== "completed");
+const readyDeals = mockDeals.filter((deal) =>
+  ["proposal_ready", "final_document_ready", "signature_ready"].includes(
+    deal.status,
+  ),
+);
+const pipelineValue = activeDeals.reduce(
+  (total, deal) => total + deal.amountEstimate,
+  0,
+);
 
 export default function DashboardPage() {
+  const featuredDeal = mockDeals[0];
+
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <Badge variant="secondary" className="mb-4">
-              Dashboard placeholder
-            </Badge>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Pilotage commercial
-            </h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              Une page minimale pour vérifier le socle UI. Les écrans métier
-              seront conçus à l’étape suivante.
-            </p>
-          </div>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline">Voir le périmètre</Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Step 1 uniquement</SheetTitle>
-                <SheetDescription>
-                  Cette base prépare les composants, les routes minimales et les
-                  intégrations futures sans construire le produit complet.
-                </SheetDescription>
-              </SheetHeader>
-            </SheetContent>
-          </Sheet>
+    <PageTransition>
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Tableau de bord"
+          title="Pilotage des propositions"
+          description="Vue de travail pour suivre les opportunités, les documents et les étapes de validation."
+          actions={
+            <Button asChild>
+              <Link href="/dashboard/deals/new">Créer une opportunité</Link>
+            </Button>
+          }
+        />
+
+        <section className="grid gap-3 md:grid-cols-4">
+          <DashboardStatCard
+            label="Opportunités actives"
+            value={String(activeDeals.length)}
+            detail="Hors dossiers terminés"
+            tone="accent"
+          />
+          <DashboardStatCard
+            label="Documents prêts"
+            value={String(readyDeals.length)}
+            detail="À valider ou envoyer"
+            tone="success"
+          />
+          <DashboardStatCard
+            label="Valeur estimée"
+            value={formatCurrency(pipelineValue)}
+            detail="Pipeline en cours"
+          />
+          <DashboardStatCard
+            label="Cycle moyen"
+            value="9,4 j"
+            detail="Création à document final"
+          />
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+          <section className="border bg-card/75">
+            <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold">
+                  Opportunités récentes
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Dossiers qui demandent une attention commerciale.
+                </p>
+              </div>
+              <Button asChild variant="outline">
+                <Link href="/dashboard/deals">Tout voir</Link>
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Opportunité</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Montant</TableHead>
+                  <TableHead>Échéance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockDeals.slice(0, 5).map((deal) => (
+                  <TableRow key={deal.id}>
+                    <TableCell>
+                      <Link
+                        href={`/dashboard/deals/${deal.id}`}
+                        className="hover:text-primary font-medium transition-colors"
+                      >
+                        {deal.name}
+                      </Link>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {deal.clientCompanyName}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <DealStatusBadge status={deal.status} />
+                    </TableCell>
+                    <TableCell className="font-mono">
+                      {formatCurrency(deal.amountEstimate)}
+                    </TableCell>
+                    <TableCell>{formatDate(deal.expectedCloseDate)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </section>
+
+          <section className="border bg-card/75">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">Statut du flux</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Progression du dossier prioritaire.
+              </p>
+            </div>
+            <div className="p-4">
+              <div className="mb-4">
+                <p className="text-sm font-medium">{featuredDeal.name}</p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {featuredDeal.clientCompanyName}
+                </p>
+              </div>
+              <WorkflowTimeline status={featuredDeal.status} compact />
+            </div>
+          </section>
         </div>
 
-        <Tabs defaultValue="deals" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="deals">Deals</TabsTrigger>
-            <TabsTrigger value="status">Statut</TabsTrigger>
-          </TabsList>
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="border bg-card/75">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">Activité de génération</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Volume mensuel des propositions et documents finaux.
+              </p>
+            </div>
+            <div className="p-4">
+              <DashboardActivityChart data={dashboardChartData} />
+            </div>
+          </section>
 
-          <TabsContent value="deals">
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
-                  <CardTitle>Pipeline de démonstration</CardTitle>
-                  <CardDescription>
-                    Données fictives, sans connexion externe.
-                  </CardDescription>
-                </div>
-                <Avatar>
-                  <AvatarFallback>FD</AvatarFallback>
-                </Avatar>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Deal</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Responsable</TableHead>
-                      <TableHead className="w-10" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dashboardPreviewRows.map((row) => (
-                      <TableRow key={row.deal}>
-                        <TableCell className="font-medium">
-                          {row.deal}
-                        </TableCell>
-                        <TableCell>{row.status}</TableCell>
-                        <TableCell>{row.owner}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label="Options"
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem disabled>
-                                Action future
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="status">
-            <Card>
-              <CardHeader>
-                <CardTitle>Fondation technique</CardTitle>
-                <CardDescription>
-                  Les principaux blocs sont installés et prêts à être connectés.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <Progress value={72} />
-                <Separator />
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Skeleton className="h-20 rounded-2xl" />
-                  <Skeleton className="h-20 rounded-2xl" />
-                  <Skeleton className="h-20 rounded-2xl" />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </>
+          <section className="border bg-card/75">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">Journal récent</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Derniers changements significatifs.
+              </p>
+            </div>
+            <div className="p-4">
+              <ActivityLog items={mockActivity.slice(0, 4)} />
+            </div>
+          </section>
+        </div>
+      </div>
+    </PageTransition>
   );
 }

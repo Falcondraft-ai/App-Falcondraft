@@ -1,28 +1,18 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/common/brand-mark";
 import { Button } from "@/components/ui/button";
 
 export function AppHeader() {
   return (
-    <header className="border-border/70 bg-background/80 sticky top-0 z-40 border-b backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b bg-background">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-xl font-semibold tracking-tight">
-            FD
-          </span>
-          <span className="text-sm font-semibold tracking-tight">
-            FalconDraft
-          </span>
-          <Badge variant="secondary" className="hidden sm:inline-flex">
-            Step 1
-          </Badge>
-        </Link>
+        <BrandMark href="/" size="sm" showDescriptor={false} />
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost">
             <Link href="/login">Connexion</Link>
           </Button>
           <Button asChild>
-            <Link href="/dashboard">Dashboard</Link>
+            <Link href="/dashboard">Espace client</Link>
           </Button>
         </nav>
       </div>
