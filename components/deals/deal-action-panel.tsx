@@ -38,7 +38,7 @@ const dealActions = [
   },
 ] as const;
 
-function handleMockWorkflowAction(label: string, message: string) {
+function handleWorkflowAction(label: string, message: string) {
   toast.success(message, {
     description: `${label} · action enregistrée.`,
   });
@@ -53,7 +53,7 @@ export function DealActionPanel() {
           type="button"
           variant={index === 0 ? "default" : "outline"}
           className="w-full justify-start"
-          onClick={() => handleMockWorkflowAction(action.label, action.message)}
+          onClick={() => handleWorkflowAction(action.label, action.message)}
         >
           {action.label}
         </Button>

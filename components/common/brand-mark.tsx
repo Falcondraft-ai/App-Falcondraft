@@ -11,17 +11,17 @@ type BrandMarkProps = {
 
 const sizeStyles = {
   sm: {
-    mark: "size-8",
+    mark: "h-8 w-9",
     wordmark: "text-sm",
     descriptor: "text-[11px]",
   },
   md: {
-    mark: "size-9",
+    mark: "h-11 w-12",
     wordmark: "text-base",
     descriptor: "text-xs",
   },
   lg: {
-    mark: "size-11",
+    mark: "h-14 w-16",
     wordmark: "text-xl",
     descriptor: "text-xs",
   },
@@ -29,18 +29,13 @@ const sizeStyles = {
 
 function BrandSymbol({ className }: { className?: string }) {
   return (
-    <span
-      className={cn(
-        "relative flex shrink-0 items-center justify-center rounded-lg border bg-card",
-        className,
-      )}
-    >
+    <span className={cn("relative flex shrink-0 items-center", className)}>
       <Image
         src="/falcondraft-logo.png"
-        alt=""
-        width={44}
-        height={36}
-        className="h-[78%] w-[78%] object-contain"
+        alt="FalconDraft"
+        width={363}
+        height={384}
+        className="h-full w-auto object-contain"
         priority
       />
     </span>
@@ -73,7 +68,7 @@ function BrandContent({
             )}
             data-slot="brand-descriptor"
           >
-            Espace de propositions
+            Espace client
           </span>
         ) : null}
       </span>

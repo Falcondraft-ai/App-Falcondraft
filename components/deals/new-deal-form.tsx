@@ -1,6 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import * as React from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -16,6 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const newDealSchema = z.object({
   name: z.string().min(3, "Indiquez un nom d’opportunité."),
@@ -41,23 +44,79 @@ const defaultValues: NewDealFormValues = {
   emailInstructions: "",
 };
 
-export function NewDealForm() {
+export function NewDealForm({
+  organizationId,
+  ownerProfileId,
+}: {
+  organizationId: string | null;
+  ownerProfileId: string;
+}) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const form = useForm<NewDealFormValues>({
     resolver: zodResolver(newDealSchema),
     defaultValues,
   });
 
-  function onSubmit(values: NewDealFormValues) {
+  async function onSubmit(values: NewDealFormValues) {
+    if (!organizationId) {
+      toast.error("Aucun espace client associé.");
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      toast.error("Création indisponible", {
+        description: "La configuration Supabase est manquante.",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const { data, error } = await supabase
+      .from("deals")
+      .insert({
+        organization_id: organizationId,
+        owner_profile_id: ownerProfileId,
+        title: values.name,
+        company_name: values.clientCompanyName,
+        contact_name: values.clientContactName,
+        status: "draft",
+        source_notes: values.transcript,
+        metadata: {
+          clientEmail: values.clientEmail,
+          clientPhone: values.phone,
+          additionalContext: values.additionalContext,
+          emailInstructions: values.emailInstructions,
+          lastAction: "Opportunité créée",
+        },
+      })
+      .select("id")
+      .single();
+
+    setIsSubmitting(false);
+
+    if (error || !data) {
+      toast.error("Création impossible", {
+        description: "Vérifiez les informations puis réessayez.",
+      });
+      return;
+    }
+
     toast.success("Opportunité créée.", {
       description: `${values.name} est prête pour le compte-rendu.`,
     });
     form.reset(defaultValues);
+    router.push(`/dashboard/deals/${data.id}`);
+    router.refresh();
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <section className="rounded-lg border bg-card">
+        <section className="border bg-card/80">
           <div className="border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Informations principales</h2>
             <p className="text-muted-foreground mt-1 text-sm">
@@ -140,7 +199,7 @@ export function NewDealForm() {
           </div>
         </section>
 
-        <section className="rounded-lg border bg-card">
+        <section className="border bg-card/80">
           <div className="border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Contexte commercial</h2>
             <p className="text-muted-foreground mt-1 text-sm">
@@ -203,7 +262,9 @@ export function NewDealForm() {
         </section>
 
         <div className="flex justify-end">
-          <Button type="submit">Créer l’opportunité</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Création..." : "Créer l’opportunité"}
+          </Button>
         </div>
       </form>
     </Form>

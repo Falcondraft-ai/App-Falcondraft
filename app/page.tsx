@@ -1,25 +1,24 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { BrandMark } from "@/components/common/brand-mark";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 
-const workflowSteps = [
+const operatingSteps = [
   {
     label: "Opportunité",
-    description: "Centraliser le contexte commercial et les notes d’échange.",
+    detail: "Centraliser le contexte client, les contraintes et le besoin.",
   },
   {
     label: "Proposition",
-    description: "Structurer un document clair, relisible et maîtrisé.",
+    detail: "Structurer une réponse commerciale claire et relisible.",
   },
   {
     label: "Validation",
-    description: "Contrôler le fond, le chiffrage et la version finale.",
+    detail: "Contrôler le contenu avant document final et envoi.",
   },
   {
     label: "Envoi",
-    description: "Préparer la signature, le PDF final et le message client.",
+    detail: "Préparer signature, PDF final et brouillon email.",
   },
 ] as const;
 
@@ -27,57 +26,54 @@ export default function Home() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto grid min-h-[calc(100dvh-4rem)] w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-16">
-        <section>
-          <BrandMark size="lg" className="mb-10" />
-          <p className="text-muted-foreground text-sm font-medium">
-            Espace commercial premium
+      <main className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:py-20">
+        <section className="flex flex-col justify-center">
+          <BrandMark size="lg" />
+          <p className="text-muted-foreground mt-8 text-sm font-medium tracking-[0.18em] uppercase">
+            Espace client FalconDraft
           </p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.045em] text-balance sm:text-5xl">
-            Produire des propositions commerciales avec rigueur, vitesse et
-            contrôle.
+          <h1 className="mt-3 max-w-3xl text-4xl leading-[1.02] font-semibold tracking-[-0.055em] text-balance sm:text-6xl">
+            Le poste de travail des propositions commerciales exigeantes.
           </h1>
           <p className="text-muted-foreground mt-6 max-w-2xl text-base leading-7 sm:text-lg">
-            FalconDraft organise le passage d’une opportunité qualifiée vers une
-            proposition professionnelle, un document final validé et un envoi
-            prêt pour le client.
+            FalconDraft organise le passage d’une opportunité qualifiée à une
+            proposition professionnelle, validée puis prête à être envoyée.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/login">
-                Accéder à FalconDraft
-                <ArrowRight className="size-4" strokeWidth={1.75} />
-              </Link>
+              <Link href="/login">Se connecter</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/dashboard">Voir l’espace client</Link>
+              <Link href="/dashboard">Accéder à l’espace client</Link>
             </Button>
           </div>
         </section>
 
-        <section className="border-l bg-card/70 p-5 lg:p-6">
-          <div className="border-b pb-5">
-            <p className="text-sm font-semibold">Flux de production</p>
-            <p className="text-muted-foreground mt-2 text-sm leading-6">
-              Un parcours conçu pour les équipes qui doivent produire des
-              documents commerciaux précis, personnalisés et cohérents.
-            </p>
+        <section className="self-center border bg-card">
+          <div className="grid grid-cols-[6px_1fr] border-b">
+            <div className="bg-primary" aria-hidden="true" />
+            <div className="px-5 py-4">
+              <p className="text-sm font-semibold">Chaîne de production</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Un flux clair pour garder la proposition sous contrôle.
+              </p>
+            </div>
           </div>
           <ol className="divide-y">
-            {workflowSteps.map((step, index) => (
+            {operatingSteps.map((step, index) => (
               <li
                 key={step.label}
-                className="grid grid-cols-[2.25rem_1fr] gap-4 py-5"
+                className="grid grid-cols-[4.25rem_1fr] items-start"
               >
-                <span className="text-muted-foreground font-mono text-xs leading-6">
+                <span className="border-r px-5 py-5 font-mono text-xs text-muted-foreground">
                   {String(index + 1).padStart(2, "0")}
                 </span>
-                <span>
+                <span className="px-5 py-4">
                   <span className="block text-sm font-semibold">
                     {step.label}
                   </span>
                   <span className="text-muted-foreground mt-1 block text-sm leading-6">
-                    {step.description}
+                    {step.detail}
                   </span>
                 </span>
               </li>

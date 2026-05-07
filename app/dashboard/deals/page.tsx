@@ -3,9 +3,13 @@ import { DealsTable } from "@/components/deals/deals-table";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { Button } from "@/components/ui/button";
-import { mockDeals } from "@/data/mock-deals";
+import { requireCurrentUserContext } from "@/lib/auth/session";
+import { getDealsForOrganization } from "@/lib/data/supabase-app-data";
 
-export default function DealsPage() {
+export default async function DealsPage() {
+  const context = await requireCurrentUserContext();
+  const deals = await getDealsForOrganization(context.organization?.id ?? null);
+
   return (
     <PageTransition>
       <div className="space-y-6">
@@ -19,7 +23,7 @@ export default function DealsPage() {
             </Button>
           }
         />
-        <DealsTable deals={mockDeals} />
+        <DealsTable deals={deals} />
       </div>
     </PageTransition>
   );

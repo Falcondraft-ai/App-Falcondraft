@@ -3,23 +3,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabasePublishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 let browserClient: SupabaseClient<Database> | null = null;
 
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return Boolean(supabaseUrl && supabasePublishableKey);
 }
 
 export function getSupabaseBrowserClient() {
   const url = supabaseUrl;
-  const anonKey = supabaseAnonKey;
+  const publishableKey = supabasePublishableKey;
 
-  if (!url || !anonKey) {
+  if (!url || !publishableKey) {
     return null;
   }
 
-  browserClient ??= createBrowserClient<Database>(url, anonKey);
+  browserClient ??= createBrowserClient<Database>(url, publishableKey);
 
   return browserClient;
 }

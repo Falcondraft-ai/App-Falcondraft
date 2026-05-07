@@ -1,101 +1,98 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { BrandMark } from "@/components/common/brand-mark";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import Image from "next/image";
+import { LoginForm } from "@/components/auth/login-form";
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-dvh bg-background lg:grid-cols-[0.95fr_1.05fr]">
-      <section className="hidden border-r bg-primary px-10 py-10 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <BrandMark
-          href="/"
-          size="lg"
-          className="text-primary-foreground [&_[data-slot=brand-descriptor]]:text-primary-foreground/70"
-        />
-        <div className="max-w-xl">
-          <p className="text-sm font-medium text-primary-foreground/72">
-            FalconDraft
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.045em] text-balance">
-            Un espace de travail pour piloter chaque proposition jusqu’à l’envoi.
-          </h1>
-          <p className="mt-5 text-sm leading-7 text-primary-foreground/72">
-            Les équipes commerciales gardent le contexte, les documents, la
-            validation et les actions dans une même interface structurée.
-          </p>
-        </div>
-        <p className="text-xs text-primary-foreground/56">
-          Espace de propositions · FalconDraft
-        </p>
-      </section>
-
-      <section className="flex items-center justify-center px-4 py-10 sm:px-6">
-        <div className="w-full max-w-[25rem]">
-          <div className="mb-8 lg:hidden">
-            <BrandMark href="/" size="md" />
-          </div>
-          <div className="border bg-card p-6">
-            <div className="mb-6">
-              <p className="text-muted-foreground text-sm">Connexion</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-[-0.035em]">
-                Accéder à l’espace client
-              </h1>
-              <p className="text-muted-foreground mt-2 text-sm leading-6">
-                Utilisez votre email professionnel pour retrouver vos
-                opportunités et documents.
-              </p>
-            </div>
-
-            <form action="/dashboard" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email professionnel</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="vous@entreprise.com"
-                  autoComplete="email"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="password">Mot de passe</Label>
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
-                  >
-                    Mot de passe oublié
-                  </button>
-                </div>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  required
-                />
-              </div>
-
-              <Button type="submit" className="w-full" size="lg">
-                Se connecter
-                <ArrowRight className="size-4" strokeWidth={1.75} />
-              </Button>
-            </form>
-          </div>
-          <p className="text-muted-foreground mt-5 text-center text-xs">
-            Besoin d’un accès ? Contactez votre administrateur FalconDraft.
-          </p>
-          <div className="mt-6 text-center">
+    <main className="min-h-dvh bg-[#f8f4ec]">
+      <section className="grid min-h-dvh overflow-hidden bg-card lg:grid-cols-[minmax(21rem,38vw)_1fr]">
+        <aside className="hidden bg-[#142033] p-8 text-white lg:flex lg:flex-col lg:justify-between">
+          <div>
             <Link
               href="/"
-              className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+              className="inline-flex flex-col text-white transition-opacity hover:opacity-80"
+              aria-label="FalconDraft"
             >
-              Retour à l’accueil
+              <span className="text-2xl font-semibold tracking-[-0.055em]">
+                FalconDraft
+              </span>
+              <span className="mt-1 text-xs font-medium tracking-[0.16em] text-white/46 uppercase">
+                Espace client
+              </span>
             </Link>
+          </div>
+
+          <div className="max-w-[18rem] border-l border-[#c18a45]/70 pl-4">
+            <p className="text-[11px] font-medium tracking-[0.18em] text-white/56 uppercase">
+              Accès privé
+            </p>
+            <p className="mt-3 text-2xl leading-tight font-semibold tracking-[-0.045em]">
+              Connexion à votre espace FalconDraft.
+            </p>
+            <p className="mt-4 text-sm leading-6 text-white/62">
+              Utilisateurs invités uniquement.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-white/12 pt-4 text-xs text-white/48">
+            <span>Espace client</span>
+            <span>FalconDraft</span>
+          </div>
+        </aside>
+
+        <div className="flex min-h-dvh flex-col bg-[#f8f4ec]">
+          <header className="flex h-20 items-center justify-between border-b px-5 sm:px-8">
+            <Link
+              href="/"
+              className="flex items-center transition-opacity hover:opacity-80"
+              aria-label="FalconDraft"
+            >
+              <Image
+                src="/falcondraft-logo.png"
+                alt="FalconDraft"
+                width={363}
+                height={384}
+                className="h-10 w-auto object-contain"
+                priority
+              />
+            </Link>
+            <Link
+              href="/"
+              className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
+            >
+              Accueil
+            </Link>
+          </header>
+
+          <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8">
+            <div className="w-full max-w-[26rem]">
+              <div className="mb-7">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+                  Connexion
+                </p>
+                <h1 className="mt-2 text-3xl leading-tight font-semibold tracking-[-0.045em]">
+                  Accéder à FalconDraft
+                </h1>
+              </div>
+
+              <div className="border bg-card">
+                <div className="border-b px-6 py-5">
+                  <p className="text-sm font-medium">Compte professionnel</p>
+                  <p className="text-muted-foreground mt-1 text-sm leading-6">
+                    Connectez-vous pour rejoindre votre espace de travail.
+                  </p>
+                </div>
+
+                <div className="px-6 py-6">
+                  <LoginForm />
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+                <span>Accès réservé aux utilisateurs invités.</span>
+                <span className="hidden sm:inline">FalconDraft</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

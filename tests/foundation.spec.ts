@@ -8,98 +8,41 @@ test.describe("FalconDraft Step 2 routes", () => {
 
     await expect(
       page.getByRole("heading", {
-        name: /produire des propositions commerciales/i,
+        name: /poste de travail des propositions commerciales/i,
       }),
     ).toBeVisible();
-    await expect(page.getByText("Flux de production")).toBeVisible();
+    await expect(page.getByText("Chaîne de production")).toBeVisible();
 
     await page.goto("/login");
 
     await expect(
-      page.getByRole("heading", { name: "Accéder à l’espace client" }),
+      page.getByRole("heading", { name: "Accéder à FalconDraft" }),
     ).toBeVisible();
     await expect(page.getByText("Se connecter")).toBeVisible();
   });
 
-  test("dashboard route renders the client overview", async ({
+  test("private routes redirect unauthenticated users to login", async ({
     page,
   }) => {
-    await page.goto("/dashboard");
+    const privateRoutes = [
+      "/dashboard",
+      "/dashboard/deals",
+      "/dashboard/deals/new",
+      "/dashboard/deals/00000000-0000-0000-0000-000000000000",
+      "/dashboard/documents",
+      "/dashboard/settings",
+      "/dashboard/settings/team",
+      "/dashboard/settings/integrations",
+      "/dashboard/settings/billing",
+      "/admin",
+    ];
 
-    await expect(
-      page.getByRole("heading", { name: "Pilotage des propositions" }),
-    ).toBeVisible();
-    await expect(page.getByText("Opportunités récentes")).toBeVisible();
-    await expect(page.getByText("Activité de génération")).toBeVisible();
-  });
-
-  test("deals routes render list, create form, and detail page", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard/deals");
-
-    await expect(
-      page.getByRole("heading", { name: "Pipeline commercial" }),
-    ).toBeVisible();
-    await expect(page.getByText("Atelier Archipel").first()).toBeVisible();
-
-    await page.goto("/dashboard/deals/new");
-
-    await expect(
-      page.getByRole("heading", { name: "Créer une opportunité" }),
-    ).toBeVisible();
-    await expect(page.getByLabel("Nom de l’opportunité")).toBeVisible();
-
-    await page.goto("/dashboard/deals/opp-archipel-gare");
-
-    await expect(
-      page.getByRole("heading", {
-        name: "Concours restructuration gare fluviale",
-      }),
-    ).toBeVisible();
-    await expect(page.getByText("Générer la proposition")).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Brouillon email" }),
-    ).toBeVisible();
-  });
-
-  test("documents, settings, and admin routes render core labels", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard/documents");
-
-    await expect(
-      page.getByRole("heading", { name: "Documents générés" }),
-    ).toBeVisible();
-    await expect(page.getByText("Lien de signature — logements")).toBeVisible();
-
-    await page.goto("/dashboard/settings");
-
-    await expect(
-      page.getByRole("heading", { name: "Organisation et accès" }),
-    ).toBeVisible();
-    await expect(page.getByLabel("Nom de l’organisation")).toBeVisible();
-
-    await page.goto("/dashboard/settings/integrations");
-
-    await expect(
-      page.getByRole("heading", { name: "Messagerie" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Facturation" }),
-    ).toBeVisible();
-
-    await page.goto("/dashboard/settings/billing");
-
-    await expect(page.getByText("Gérer l’abonnement")).toBeVisible();
-
-    await page.goto("/admin");
-
-    await expect(
-      page.getByRole("heading", { name: "Supervision FalconDraft" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Générations échouées" }),
-    ).toBeVisible();
+    for (const route of privateRoutes) {
+      await page.goto(route);
+      await expect(page).toHaveURL(/\/login/);
+      await expect(
+        page.getByRole("heading", { name: "Accéder à FalconDraft" }),
+      ).toBeVisible();
+    }
   });
 });

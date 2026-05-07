@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ActivityLog } from "@/components/common/activity-log";
 import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
+import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { WorkflowTimeline } from "@/components/common/workflow-timeline";
@@ -15,23 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockActivity } from "@/data/mock-activity";
-import { dashboardChartData, mockDeals } from "@/data/mock-deals";
+import { requireCurrentUserContext } from "@/lib/auth/session";
+import { getDashboardData } from "@/lib/data/supabase-app-data";
 import { formatCurrency, formatDate } from "@/lib/format";
 
-const activeDeals = mockDeals.filter((deal) => deal.status !== "completed");
-const readyDeals = mockDeals.filter((deal) =>
-  ["proposal_ready", "final_document_ready", "signature_ready"].includes(
-    deal.status,
-  ),
-);
-const pipelineValue = activeDeals.reduce(
-  (total, deal) => total + deal.amountEstimate,
-  0,
-);
-
-export default function DashboardPage() {
-  const featuredDeal = mockDeals[0];
+export default async function DashboardPage() {
+  const context = await requireCurrentUserContext();
+  const dashboard = await getDashboardData(context.organization?.id ?? null);
 
   return (
     <PageTransition>
@@ -50,24 +41,24 @@ export default function DashboardPage() {
         <section className="grid gap-3 md:grid-cols-4">
           <DashboardStatCard
             label="Opportunités actives"
-            value={String(activeDeals.length)}
+            value={String(dashboard.activeDeals.length)}
             detail="Hors dossiers terminés"
             tone="accent"
           />
           <DashboardStatCard
             label="Documents prêts"
-            value={String(readyDeals.length)}
+            value={String(dashboard.readyDocumentCount)}
             detail="À valider ou envoyer"
             tone="success"
           />
           <DashboardStatCard
             label="Valeur estimée"
-            value={formatCurrency(pipelineValue)}
+            value={formatCurrency(dashboard.pipelineValue)}
             detail="Pipeline en cours"
           />
           <DashboardStatCard
             label="Cycle moyen"
-            value="9,4 j"
+            value={dashboard.averageCycleLabel}
             detail="Création à document final"
           />
         </section>
@@ -87,40 +78,56 @@ export default function DashboardPage() {
                 <Link href="/dashboard/deals">Tout voir</Link>
               </Button>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Opportunité</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Montant</TableHead>
-                  <TableHead>Échéance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockDeals.slice(0, 5).map((deal) => (
-                  <TableRow key={deal.id}>
-                    <TableCell>
-                      <Link
-                        href={`/dashboard/deals/${deal.id}`}
-                        className="hover:text-primary font-medium transition-colors"
-                      >
-                        {deal.name}
-                      </Link>
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        {deal.clientCompanyName}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <DealStatusBadge status={deal.status} />
-                    </TableCell>
-                    <TableCell className="font-mono">
-                      {formatCurrency(deal.amountEstimate)}
-                    </TableCell>
-                    <TableCell>{formatDate(deal.expectedCloseDate)}</TableCell>
+            {dashboard.deals.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Opportunité</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Montant</TableHead>
+                    <TableHead>Échéance</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {dashboard.deals.slice(0, 5).map((deal) => (
+                    <TableRow key={deal.id}>
+                      <TableCell>
+                        <Link
+                          href={`/dashboard/deals/${deal.id}`}
+                          className="hover:text-primary font-medium transition-colors"
+                        >
+                          {deal.name}
+                        </Link>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {deal.clientCompanyName}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <DealStatusBadge status={deal.status} />
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        {formatCurrency(deal.amountEstimate)}
+                      </TableCell>
+                      <TableCell>{formatDate(deal.expectedCloseDate)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="p-4">
+                <EmptyState
+                  title="Aucune opportunité"
+                  description="Créez une première opportunité pour suivre le pipeline et les documents associés."
+                  action={
+                    <Button asChild>
+                      <Link href="/dashboard/deals/new">
+                        Créer une opportunité
+                      </Link>
+                    </Button>
+                  }
+                />
+              </div>
+            )}
           </section>
 
           <section className="border bg-card/75">
@@ -131,13 +138,23 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="p-4">
-              <div className="mb-4">
-                <p className="text-sm font-medium">{featuredDeal.name}</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  {featuredDeal.clientCompanyName}
+              {dashboard.featuredDeal ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium">
+                      {dashboard.featuredDeal.name}
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {dashboard.featuredDeal.clientCompanyName}
+                    </p>
+                  </div>
+                  <WorkflowTimeline status={dashboard.featuredDeal.status} compact />
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Aucun flux prioritaire pour le moment.
                 </p>
-              </div>
-              <WorkflowTimeline status={featuredDeal.status} compact />
+              )}
             </div>
           </section>
         </div>
@@ -151,7 +168,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="p-4">
-              <DashboardActivityChart data={dashboardChartData} />
+              <DashboardActivityChart data={dashboard.chartData} />
             </div>
           </section>
 
@@ -163,7 +180,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="p-4">
-              <ActivityLog items={mockActivity.slice(0, 4)} />
+              <ActivityLog items={dashboard.activity} />
             </div>
           </section>
         </div>

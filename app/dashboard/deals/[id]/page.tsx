@@ -5,8 +5,8 @@ import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { PageTransition } from "@/components/common/page-transition";
 import { WorkflowTimeline } from "@/components/common/workflow-timeline";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
-import { getActivityForDeal } from "@/data/mock-activity";
-import { getDealById, mockDeals } from "@/data/mock-deals";
+import { requireCurrentUserContext } from "@/lib/auth/session";
+import { getDealDetail } from "@/lib/data/supabase-app-data";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 
 type DealDetailPageProps = {
@@ -15,19 +15,17 @@ type DealDetailPageProps = {
   }>;
 };
 
-export function generateStaticParams() {
-  return mockDeals.map((deal) => ({ id: deal.id }));
-}
-
 export default async function DealDetailPage({ params }: DealDetailPageProps) {
   const { id } = await params;
-  const deal = getDealById(id);
+  const context = await requireCurrentUserContext();
+  const { deal, activity } = await getDealDetail(
+    context.organization?.id ?? null,
+    id,
+  );
 
   if (!deal) {
     notFound();
   }
-
-  const activity = getActivityForDeal(deal.id);
 
   return (
     <PageTransition>
@@ -194,8 +192,8 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
           </div>
 
           <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
-              <ActionCard
-                title="Actions"
+            <ActionCard
+              title="Actions"
               description="Commandes principales du cycle de proposition."
             >
               <DealActionPanel />

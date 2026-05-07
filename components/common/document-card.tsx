@@ -42,7 +42,7 @@ export function DocumentCard({ document }: { document: MockDocument }) {
       <div className="flex items-center gap-3 md:justify-end">
         <span
           className={cn(
-            "rounded-md border px-2 py-1 text-xs font-medium",
+            "border px-2 py-1 text-xs font-medium",
             documentStatusStyles[document.status],
           )}
         >

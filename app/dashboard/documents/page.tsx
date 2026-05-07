@@ -1,9 +1,16 @@
 import { DocumentCard } from "@/components/common/document-card";
+import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
-import { mockDocuments } from "@/data/mock-documents";
+import { requireCurrentUserContext } from "@/lib/auth/session";
+import { getDocumentsForOrganization } from "@/lib/data/supabase-app-data";
 
-export default function DocumentsPage() {
+export default async function DocumentsPage() {
+  const context = await requireCurrentUserContext();
+  const documents = await getDocumentsForOrganization(
+    context.organization?.id ?? null,
+  );
+
   return (
     <PageTransition>
       <div className="space-y-6">
@@ -20,9 +27,18 @@ export default function DocumentsPage() {
             </p>
           </div>
           <div>
-            {mockDocuments.map((document) => (
-              <DocumentCard key={document.id} document={document} />
-            ))}
+            {documents.length > 0 ? (
+              documents.map((document) => (
+                <DocumentCard key={document.id} document={document} />
+              ))
+            ) : (
+              <div className="p-4">
+                <EmptyState
+                  title="Aucun document"
+                  description="Les documents apparaîtront ici dès qu’ils seront préparés pour une opportunité."
+                />
+              </div>
+            )}
           </div>
         </section>
       </div>

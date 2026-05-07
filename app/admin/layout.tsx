@@ -1,9 +1,47 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { requireCurrentUserContext } from "@/lib/auth/session";
 
-export default function AdminLayout({
+function roleLabel(role: string | null | undefined) {
+  if (role === "owner") {
+    return "Propriétaire";
+  }
+
+  if (role === "admin") {
+    return "Administrateur";
+  }
+
+  return "Membre";
+}
+
+export default async function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <DashboardShell>{children}</DashboardShell>;
+  const context = await requireCurrentUserContext();
+  const displayName =
+    context.profile?.full_name ?? context.user.email ?? "Utilisateur";
+  const showInternalAdmin =
+    context.membership?.role === "owner" || context.membership?.role === "admin";
+
+  return (
+    <DashboardShell
+      organization={
+        context.organization
+          ? {
+              name: context.organization.name,
+              slug: context.organization.slug,
+            }
+          : null
+      }
+      user={{
+        name: displayName,
+        email: context.user.email ?? "",
+        roleLabel: roleLabel(context.membership?.role),
+      }}
+      showInternalAdmin={showInternalAdmin}
+    >
+      {children}
+    </DashboardShell>
+  );
 }

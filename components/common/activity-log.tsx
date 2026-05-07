@@ -1,5 +1,5 @@
-import type { ActivityEvent } from "@/data/mock-activity";
 import { formatDateTime } from "@/lib/format";
+import type { ActivityEvent } from "@/types/activity";
 
 export function ActivityLog({ items }: { items: ActivityEvent[] }) {
   if (items.length === 0) {

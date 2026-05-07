@@ -21,14 +21,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { dealStatusOptions, type mockDeals } from "@/data/mock-deals";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { DealStatus } from "@/types/deal";
+import {
+  dealStatusLabels,
+  dealStatuses,
+  type Deal,
+  type DealStatus,
+} from "@/types/deal";
 
-type DealTableData = typeof mockDeals;
 type StatusFilter = DealStatus | "all";
 
-export function DealsTable({ deals }: { deals: DealTableData }) {
+export function DealsTable({ deals }: { deals: Deal[] }) {
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
 
@@ -48,7 +51,7 @@ export function DealsTable({ deals }: { deals: DealTableData }) {
   });
 
   return (
-    <section className="rounded-lg border bg-card">
+    <section className="border bg-card/75">
       <div className="grid gap-3 border-b p-4 md:grid-cols-[1fr_auto]">
         <div className="relative">
           <Search
@@ -71,9 +74,9 @@ export function DealsTable({ deals }: { deals: DealTableData }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
-            {dealStatusOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
+            {dealStatuses.map((statusOption) => (
+              <SelectItem key={statusOption} value={statusOption}>
+                {dealStatusLabels[statusOption]}
               </SelectItem>
             ))}
           </SelectContent>

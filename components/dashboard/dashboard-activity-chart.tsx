@@ -9,12 +9,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { dashboardChartData } from "@/data/mock-deals";
 import { useMounted } from "@/hooks/use-mounted";
 
-type ChartData = typeof dashboardChartData;
+export type DashboardChartDatum = {
+  month: string;
+  propositions: number;
+  documents: number;
+};
 
-export function DashboardActivityChart({ data }: { data: ChartData }) {
+export function DashboardActivityChart({
+  data,
+}: {
+  data: DashboardChartDatum[];
+}) {
   const mounted = useMounted();
 
   if (!mounted) {

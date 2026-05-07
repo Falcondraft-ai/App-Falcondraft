@@ -27,3 +27,10 @@ export type BillingInvoice = {
   amount: string;
   status: "Payée" | "À venir";
 };
+
+export type BillingSubscriptionSummary = {
+  planName: string;
+  monthlyPrice: string;
+  status: string;
+  nextInvoiceLabel: string;
+};

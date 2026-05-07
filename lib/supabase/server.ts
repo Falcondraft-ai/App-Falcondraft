@@ -4,23 +4,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabasePublishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export function isSupabaseServerConfigured() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return Boolean(supabaseUrl && supabasePublishableKey);
 }
 
 export async function getSupabaseServerClient(): Promise<SupabaseClient<Database> | null> {
   const url = supabaseUrl;
-  const anonKey = supabaseAnonKey;
+  const publishableKey = supabasePublishableKey;
 
-  if (!url || !anonKey) {
+  if (!url || !publishableKey) {
     return null;
   }
 
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(url, anonKey, {
+  return createServerClient<Database>(url, publishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

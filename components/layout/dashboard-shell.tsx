@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
-  Building2,
-  ChevronDown,
   FileText,
   LayoutDashboard,
   Menu,
@@ -13,6 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import * as React from "react";
+import { toast } from "sonner";
 import { BrandMark } from "@/components/common/brand-mark";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -32,10 +31,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  canViewInternalAdmin,
-  mockInternalAccess,
-} from "@/lib/internal-access";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -83,33 +79,56 @@ function isNavItemActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function OrganizationSwitcher() {
+type DashboardShellUser = {
+  name: string;
+  email: string;
+  roleLabel: string;
+};
+
+type DashboardShellOrganization = {
+  name: string;
+  slug: string;
+};
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.at(0)?.toUpperCase() ?? "")
+    .join("");
+}
+
+function WorkspaceContext({
+  organization,
+}: {
+  organization: DashboardShellOrganization | null;
+}) {
   return (
-    <button className="hover:bg-card flex w-full items-center justify-between rounded-lg border bg-background px-3 py-2.5 text-left transition-colors active:translate-y-px">
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-          <Building2 className="size-3.5" strokeWidth={1.75} />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">
-            Atelier Archipel
-          </span>
-          <span className="text-muted-foreground block text-xs">
-            Organisation active
-          </span>
-        </span>
-      </span>
-      <ChevronDown className="text-muted-foreground size-4" strokeWidth={1.75} />
-    </button>
+    <section className="border-y bg-background px-5 py-4">
+      <p className="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+        Espace
+      </p>
+      <div className="mt-2 border-l-2 border-primary pl-3">
+        <p className="truncate text-sm font-semibold tracking-tight">
+          {organization?.name ?? "Espace client"}
+        </p>
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          {organization?.slug ?? "Production commerciale"}
+        </p>
+      </div>
+    </section>
   );
 }
 
 function NavList({
   pathname,
   onNavigate,
+  showInternalAdmin,
 }: {
   pathname: string;
   onNavigate?: () => void;
+  showInternalAdmin: boolean;
 }) {
   return (
     <nav className="space-y-5" aria-label="Navigation principale">
@@ -124,10 +143,10 @@ function NavList({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-              "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
-              active
-                ? "border-border bg-card text-foreground"
-                : "text-muted-foreground hover:bg-card hover:text-foreground",
+                "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
+                active
+                  ? "border-border bg-card text-foreground shadow-[inset_3px_0_0_var(--primary)]"
+                  : "text-muted-foreground hover:bg-card hover:text-foreground",
               )}
             >
               <Icon
@@ -141,7 +160,7 @@ function NavList({
         })}
       </div>
 
-      {canViewInternalAdmin(mockInternalAccess) ? (
+      {showInternalAdmin ? (
         <div className="border-t pt-4">
           <p className="text-muted-foreground px-3 pb-2 text-[11px] font-medium tracking-[0.14em] uppercase">
             Interne
@@ -173,13 +192,13 @@ function NavList({
                   </span>
                   <span
                     className={cn(
-                      "rounded-md border px-1.5 py-0.5 text-[10px]",
+                      "border px-1.5 py-0.5 text-[10px]",
                       active
                         ? "border-white/25 text-white/75"
                         : "border-border text-muted-foreground",
                     )}
                   >
-                    Staff
+                    Interne
                   </span>
                 </Link>
               );
@@ -191,30 +210,57 @@ function NavList({
   );
 }
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  organization,
+  user,
+  showInternalAdmin,
+}: {
+  children: React.ReactNode;
+  organization: DashboardShellOrganization | null;
+  user: DashboardShellUser;
+  showInternalAdmin: boolean;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  function openHelp() {
+    toast("Aide FalconDraft", {
+      description: "Le centre d’aide sera disponible depuis cet espace.",
+    });
+  }
+
+  async function signOut() {
+    const supabase = getSupabaseBrowserClient();
+
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+
+    toast.success("Session fermée");
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <div className="min-h-dvh bg-background">
-      <aside className="bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 hidden w-[16.5rem] border-r lg:flex lg:flex-col">
-        <div className="border-b px-5 py-4">
-          <BrandMark href="/dashboard" size="md" />
+      <aside className="bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 hidden w-[17.5rem] border-r lg:flex lg:flex-col">
+        <div className="px-5 py-5">
+          <BrandMark href="/dashboard" size="lg" />
         </div>
-        <div className="border-b p-4">
-          <OrganizationSwitcher />
-        </div>
+        <WorkspaceContext organization={organization} />
         <div className="flex-1 px-3 py-4">
-          <NavList pathname={pathname} />
+          <NavList pathname={pathname} showInternalAdmin={showInternalAdmin} />
         </div>
         <div className="border-t px-4 py-3">
           <div className="text-muted-foreground text-xs leading-5">
-            Espace commercial · Atelier Archipel
+            FalconDraft · Propositions commerciales
           </div>
         </div>
       </aside>
 
-      <div className="lg:pl-[16.5rem]">
+      <div className="lg:pl-[17.5rem]">
         <header className="sticky top-0 z-40 border-b bg-background">
           <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex items-center gap-3">
@@ -237,16 +283,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     </SheetDescription>
                   </SheetHeader>
                   <div className="flex h-full flex-col">
-                    <div className="flex h-16 items-center border-b px-5">
-                      <BrandMark href="/dashboard" size="md" />
+                    <div className="px-5 py-5">
+                      <BrandMark href="/dashboard" size="lg" />
                     </div>
-                    <div className="border-b p-4">
-                      <OrganizationSwitcher />
-                    </div>
+                    <WorkspaceContext organization={organization} />
                     <div className="flex-1 px-3 py-4">
                       <NavList
                         pathname={pathname}
                         onNavigate={() => setMobileOpen(false)}
+                        showInternalAdmin={showInternalAdmin}
                       />
                     </div>
                   </div>
@@ -269,32 +314,32 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="hover:bg-muted flex items-center gap-2 rounded-lg p-1.5 transition-colors"
+                    className="hover:bg-muted flex items-center gap-2 rounded-md p-1.5 transition-colors"
                     aria-label="Menu utilisateur"
                   >
-                    <Avatar className="size-8 rounded-lg">
-                      <AvatarFallback className="rounded-lg text-xs">
-                        CV
+                    <Avatar className="size-8 rounded-md">
+                      <AvatarFallback className="rounded-md text-xs">
+                        {getInitials(user.name) || "FD"}
                       </AvatarFallback>
                     </Avatar>
-                    <ChevronDown
-                      className="text-muted-foreground hidden size-4 sm:block"
-                      strokeWidth={1.75}
-                    />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
-                    <span className="block text-sm">Clémence Varlet</span>
+                    <span className="block text-sm">{user.name}</span>
                     <span className="text-muted-foreground block text-xs font-normal">
-                      Direction commerciale
+                      {user.roleLabel}
                     </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Profil</DropdownMenuItem>
-                  <DropdownMenuItem disabled>Aide</DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/settings">Profil</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={openHelp}>Aide</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Déconnexion</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={signOut}>
+                    Déconnexion
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

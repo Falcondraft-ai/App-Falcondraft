@@ -273,6 +273,29 @@ export const billingSubscriptions = pgTable(
   }),
 );
 
+export const workflowConfigs = pgTable(
+  "workflow_configs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    workflowType: text("workflow_type").notNull(),
+    n8nWebhookUrl: text("n8n_webhook_url").notNull(),
+    n8nWorkflowId: text("n8n_workflow_id"),
+    status: text("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (table) => ({
+    organizationIdx: index("workflow_configs_organization_id_idx").on(
+      table.organizationId,
+    ),
+    organizationWorkflowUniqueIdx: uniqueIndex(
+      "workflow_configs_organization_workflow_type_idx",
+    ).on(table.organizationId, table.workflowType),
+  }),
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {
