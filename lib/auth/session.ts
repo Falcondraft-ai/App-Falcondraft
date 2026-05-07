@@ -15,49 +15,50 @@ export type CurrentUserContext = {
   organization: OrganizationRow | null;
 };
 
-export const getCurrentUserContext = cache(
-  async (): Promise<CurrentUserContext | null> => {
-    const supabase = await getSupabaseServerClient();
+export async function loadCurrentUserContext(): Promise<CurrentUserContext | null> {
+  const supabase = await getSupabaseServerClient();
 
-    if (!supabase) {
-      return null;
-    }
+  if (!supabase) {
+    return null;
+  }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) {
-      return null;
-    }
+  if (!user) {
+    return null;
+  }
 
-    const [{ data: profile }, { data: membership }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("organization_members")
+  const [{ data: profile }, { data: membership }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("organization_members")
+      .select("id, organization_id, user_id, role, status, created_at")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const { data: organization } = membership
+    ? await supabase
+        .from("organizations")
         .select("*")
-        .eq("profile_id", user.id)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+        .eq("id", membership.organization_id)
+        .maybeSingle()
+    : { data: null };
 
-    const { data: organization } = membership
-      ? await supabase
-          .from("organizations")
-          .select("*")
-          .eq("id", membership.organization_id)
-          .maybeSingle()
-      : { data: null };
+  return {
+    user,
+    profile: profile ?? null,
+    membership: membership ?? null,
+    organization: organization ?? null,
+  };
+}
 
-    return {
-      user,
-      profile: profile ?? null,
-      membership: membership ?? null,
-      organization: organization ?? null,
-    };
-  },
-);
+export const getCurrentUserContext = cache(loadCurrentUserContext);
 
 export async function requireCurrentUserContext() {
   const context = await getCurrentUserContext();

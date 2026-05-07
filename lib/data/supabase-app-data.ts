@@ -683,8 +683,9 @@ export async function getTeamMembersForOrganization(
 
   const { data: members, error } = await supabase
     .from("organization_members")
-    .select("*")
+    .select("id, organization_id, user_id, role, status, created_at")
     .eq("organization_id", organizationId)
+    .eq("status", "active")
     .order("created_at", { ascending: true });
 
   if (error || !members) {
@@ -693,20 +694,20 @@ export async function getTeamMembersForOrganization(
 
   const profiles = await getProfilesById(
     supabase,
-    members.map((member) => member.profile_id),
+    members.map((member) => member.user_id),
   );
 
   return members.map((member: OrganizationMemberRow) => {
-    const profile = profiles.get(member.profile_id);
-    const status: TeamMemberStatus = profile ? "Actif" : "Invitation envoyée";
+    const profile = profiles.get(member.user_id);
+    const status: TeamMemberStatus = "Actif";
 
     return {
       id: member.id,
-      name: profile?.full_name ?? member.invited_email ?? "Utilisateur invité",
-      email: profile?.email ?? member.invited_email ?? "Email à renseigner",
+      name: profile?.full_name ?? "Utilisateur",
+      email: profile?.email ?? "Email à renseigner",
       role: roleLabel(member.role),
       status,
-      lastActiveAt: profile?.updated_at ?? member.updated_at,
+      lastActiveAt: profile?.updated_at ?? member.created_at,
     };
   });
 }

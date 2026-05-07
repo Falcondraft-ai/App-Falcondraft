@@ -93,20 +93,20 @@ export const organizationMembers = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    profileId: uuid("profile_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
     role: organizationRole("role").default("member").notNull(),
-    invitedEmail: text("invited_email"),
-    ...timestamps,
+    status: text("status").default("active").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => ({
     organizationIdx: index("organization_members_organization_id_idx").on(
       table.organizationId,
     ),
-    memberUniqueIdx: uniqueIndex("organization_members_profile_unique_idx").on(
+    memberUniqueIdx: uniqueIndex("organization_members_user_unique_idx").on(
       table.organizationId,
-      table.profileId,
+      table.userId,
     ),
   }),
 );

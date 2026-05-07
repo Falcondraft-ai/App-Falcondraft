@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const newDealSchema = z.object({
   name: z.string().min(3, "Indiquez un intitulé de dossier."),
@@ -44,13 +43,7 @@ const defaultValues: NewDealFormValues = {
   emailInstructions: "",
 };
 
-export function NewDealForm({
-  organizationId,
-  ownerProfileId,
-}: {
-  organizationId: string | null;
-  ownerProfileId: string;
-}) {
+export function NewDealForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const form = useForm<NewDealFormValues>({
@@ -59,48 +52,47 @@ export function NewDealForm({
   });
 
   async function onSubmit(values: NewDealFormValues) {
-    if (!organizationId) {
-      toast.error("Aucun espace client associé.");
-      return;
-    }
+    setIsSubmitting(true);
 
-    const supabase = getSupabaseBrowserClient();
+    const response = await fetch("/api/deals", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(values),
+    }).catch(() => null);
 
-    if (!supabase) {
-      toast.error("Création indisponible", {
-        description: "La configuration Supabase est manquante.",
+    setIsSubmitting(false);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+      const message =
+        result &&
+        typeof result === "object" &&
+        "message" in result &&
+        typeof result.message === "string"
+          ? result.message
+          : "Vérifiez les informations puis réessayez.";
+
+      toast.error("Création impossible", {
+        description: message,
       });
       return;
     }
 
-    setIsSubmitting(true);
+    const result: unknown = await response.json().catch(() => null);
+    const dealId =
+      result &&
+      typeof result === "object" &&
+      "dealId" in result &&
+      typeof result.dealId === "string"
+        ? result.dealId
+        : null;
 
-    const { data, error } = await supabase
-      .from("deals")
-      .insert({
-        organization_id: organizationId,
-        owner_profile_id: ownerProfileId,
-        title: values.name,
-        company_name: values.clientCompanyName,
-        contact_name: values.clientContactName,
-        status: "draft",
-        source_notes: values.transcript,
-        metadata: {
-          clientEmail: values.clientEmail,
-          clientPhone: values.phone,
-          additionalContext: values.additionalContext,
-          emailInstructions: values.emailInstructions,
-          lastAction: "Dossier commercial créé",
-        },
-      })
-      .select("id")
-      .single();
-
-    setIsSubmitting(false);
-
-    if (error || !data) {
+    if (!dealId) {
       toast.error("Création impossible", {
-        description: "Vérifiez les informations puis réessayez.",
+        description: "Le dossier a été créé, mais son identifiant est manquant.",
       });
       return;
     }
@@ -109,7 +101,7 @@ export function NewDealForm({
       description: `${values.name} est prête pour le compte-rendu.`,
     });
     form.reset(defaultValues);
-    router.push(`/dashboard/deals/${data.id}`);
+    router.push(`/dashboard/deals/${dealId}`);
     router.refresh();
   }
 

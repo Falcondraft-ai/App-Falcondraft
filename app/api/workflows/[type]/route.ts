@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import type { CurrentUserContext } from "@/lib/auth/session";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const callSummaryRequestSchema = z.object({
@@ -16,8 +19,30 @@ function normalizeWorkflowType(type: string) {
   return type === "call-summary" ? "call_summary" : type;
 }
 
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ success: false, message }, { status });
+type ContextErrorReason =
+  | "service_role_unconfigured"
+  | "active_membership_missing"
+  | "organization_missing";
+
+function contextDetails(
+  context: CurrentUserContext,
+  reason: ContextErrorReason,
+) {
+  return {
+    hasSession: true,
+    userId: context.user.id,
+    membershipFound: Boolean(context.membership),
+    organizationFound: Boolean(context.organization),
+    reason,
+  };
+}
+
+function jsonError(
+  message: string,
+  status: number,
+  details?: Record<string, unknown>,
+) {
+  return NextResponse.json({ success: false, message, ...details }, { status });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -42,6 +67,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("Authentification requise.", 401);
   }
 
+  const adminSupabase = getSupabaseAdminClient();
+
+  if (!adminSupabase) {
+    return jsonError("Configuration Supabase manquante.", 500, {
+      hasSession: true,
+      userId: user.id,
+      membershipFound: false,
+      organizationFound: false,
+      reason: "service_role_unconfigured",
+    });
+  }
+
   const body: unknown = await request.json().catch(() => ({}));
   const parsedBody = callSummaryRequestSchema.safeParse(body);
 
@@ -49,22 +86,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("La demande de génération est incomplète.", 400);
   }
 
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("*")
-    .eq("profile_id", user.id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const organizationContext = await loadUserOrganizationContextWithAdmin(
+    user,
+    adminSupabase,
+  );
 
-  if (!membership) {
-    return jsonError("Aucun espace client associé.", 403);
+  if (!organizationContext.membership) {
+    return jsonError(
+      "Aucun espace client associé.",
+      403,
+      {
+        ...contextDetails(organizationContext, "active_membership_missing"),
+      },
+    );
   }
 
-  const organizationId = membership.organization_id;
+  if (!organizationContext.organization) {
+    return jsonError(
+      "Organisation introuvable.",
+      403,
+      {
+        ...contextDetails(organizationContext, "organization_missing"),
+      },
+    );
+  }
+
+  const organizationId = organizationContext.organization.id;
   const { dealId } = parsedBody.data;
 
-  const { data: deal } = await supabase
+  const { data: deal } = await adminSupabase
     .from("deals")
     .select("id")
     .eq("id", dealId)
@@ -76,7 +126,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const startedAt = new Date().toISOString();
-  const { data: workflowRun, error: workflowRunError } = await supabase
+  const { data: workflowRun, error: workflowRunError } = await adminSupabase
     .from("workflow_runs")
     .insert({
       organization_id: organizationId,
@@ -93,7 +143,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("Impossible de créer l’exécution du workflow.", 500);
   }
 
-  const { data: workflowConfig } = await supabase
+  const { data: workflowConfig } = await adminSupabase
     .from("workflow_configs")
     .select("*")
     .eq("organization_id", organizationId)
@@ -119,7 +169,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }).catch(() => null);
 
   if (!webhookResponse?.ok) {
-    await supabase
+    await adminSupabase
       .from("workflow_runs")
       .update({
         status: "failed",

@@ -17,43 +17,40 @@ export type OrganizationRow = {
   id: string;
   name: string;
   slug: string;
-  billing_email: string | null;
-  metadata: Json;
+  billing_status: string;
   created_at: string;
-  updated_at: string;
 };
 
 export type ProfileRow = {
   id: string;
-  organization_id: string | null;
+  user_id: string;
   full_name: string | null;
   email: string;
-  avatar_url: string | null;
-  metadata: Json;
   created_at: string;
-  updated_at: string;
 };
 
 export type OrganizationMemberRow = {
   id: string;
   organization_id: string;
-  profile_id: string;
-  role: "owner" | "admin" | "member" | string;
-  invited_email: string | null;
+  user_id: string;
+  role: "owner" | "admin" | "member" | "viewer" | string;
+  status: "active" | "inactive" | "invited" | string;
   created_at: string;
-  updated_at: string;
 };
 
 export type DealRow = {
   id: string;
   organization_id: string;
-  owner_profile_id: string | null;
-  title: string;
-  company_name: string;
-  contact_name: string | null;
+  name: string;
+  client_company_name: string;
+  client_contact_name: string | null;
+  client_email: string | null;
   status: string;
-  source_notes: string | null;
-  metadata: Json;
+  transcript: string | null;
+  call_summary: string | null;
+  proposal_content: string | null;
+  amount_estimate: number | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -64,60 +61,50 @@ export type WorkflowRunRow = {
   deal_id: string;
   type: string;
   status: string;
-  safe_status_message: string | null;
-  metadata: Json;
   started_at: string | null;
   completed_at: string | null;
+  error_message: string | null;
   created_at: string;
-  updated_at: string;
 };
 
 export type DocumentRow = {
   id: string;
   organization_id: string;
-  deal_id: string;
-  workflow_run_id: string | null;
-  kind: string;
+  deal_id: string | null;
+  type: string;
   title: string;
-  storage_path: string | null;
-  external_url: string | null;
-  metadata: Json;
+  url: string | null;
+  status: string;
   created_at: string;
-  updated_at: string;
 };
 
 export type IntegrationRow = {
   id: string;
   organization_id: string;
   provider: string;
-  label: string;
-  enabled: boolean;
-  metadata: Json;
+  status: string;
+  connected_email: string | null;
   created_at: string;
-  updated_at: string;
 };
 
 export type BillingSubscriptionRow = {
   id: string;
   organization_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
   status: string;
-  price_id: string | null;
-  customer_id: string | null;
-  subscription_id: string | null;
+  plan: string | null;
   current_period_end: string | null;
-  metadata: Json;
   created_at: string;
-  updated_at: string;
 };
 
 export type AuditLogRow = {
   id: string;
-  organization_id: string;
-  actor_profile_id: string | null;
+  organization_id: string | null;
+  user_id: string | null;
   action: string;
-  entity_type: string;
+  entity_type: string | null;
   entity_id: string | null;
-  metadata: Json;
   created_at: string;
 };
 
@@ -135,31 +122,141 @@ export type WorkflowConfigRow = {
 export type Database = {
   public: {
     Tables: {
-      organizations: TableDefinition<OrganizationRow>;
-      profiles: TableDefinition<ProfileRow>;
-      organization_members: TableDefinition<OrganizationMemberRow>;
+      organizations: TableDefinition<
+        OrganizationRow,
+        {
+          id?: string;
+          name: string;
+          slug: string;
+          billing_status?: string;
+          created_at?: string;
+        }
+      >;
+
+      profiles: TableDefinition<
+        ProfileRow,
+        {
+          id?: string;
+          user_id: string;
+          full_name?: string | null;
+          email: string;
+          created_at?: string;
+        }
+      >;
+
+      organization_members: TableDefinition<
+        OrganizationMemberRow,
+        {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          role?: string;
+          status?: string;
+          created_at?: string;
+        }
+      >;
+
       deals: TableDefinition<
         DealRow,
         {
           id?: string;
           organization_id: string;
-          owner_profile_id?: string | null;
-          title: string;
-          company_name: string;
-          contact_name?: string | null;
+          name: string;
+          client_company_name: string;
+          client_contact_name?: string | null;
+          client_email?: string | null;
           status?: string;
-          source_notes?: string | null;
-          metadata?: Json;
+          transcript?: string | null;
+          call_summary?: string | null;
+          proposal_content?: string | null;
+          amount_estimate?: number | null;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         }
       >;
-      workflow_runs: TableDefinition<WorkflowRunRow>;
-      documents: TableDefinition<DocumentRow>;
-      integrations: TableDefinition<IntegrationRow>;
-      billing_subscriptions: TableDefinition<BillingSubscriptionRow>;
-      audit_logs: TableDefinition<AuditLogRow>;
-      workflow_configs: TableDefinition<WorkflowConfigRow>;
+
+      workflow_runs: TableDefinition<
+        WorkflowRunRow,
+        {
+          id?: string;
+          organization_id: string;
+          deal_id: string;
+          type: string;
+          status?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+        }
+      >;
+
+      documents: TableDefinition<
+        DocumentRow,
+        {
+          id?: string;
+          organization_id: string;
+          deal_id?: string | null;
+          type: string;
+          title: string;
+          url?: string | null;
+          status?: string;
+          created_at?: string;
+        }
+      >;
+
+      integrations: TableDefinition<
+        IntegrationRow,
+        {
+          id?: string;
+          organization_id: string;
+          provider: string;
+          status?: string;
+          connected_email?: string | null;
+          created_at?: string;
+        }
+      >;
+
+      billing_subscriptions: TableDefinition<
+        BillingSubscriptionRow,
+        {
+          id?: string;
+          organization_id: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          status?: string;
+          plan?: string | null;
+          current_period_end?: string | null;
+          created_at?: string;
+        }
+      >;
+
+      audit_logs: TableDefinition<
+        AuditLogRow,
+        {
+          id?: string;
+          organization_id?: string | null;
+          user_id?: string | null;
+          action: string;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          created_at?: string;
+        }
+      >;
+
+      workflow_configs: TableDefinition<
+        WorkflowConfigRow,
+        {
+          id?: string;
+          organization_id: string;
+          workflow_type: string;
+          n8n_webhook_url: string;
+          n8n_workflow_id?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
