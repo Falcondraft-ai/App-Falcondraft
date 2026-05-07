@@ -5,7 +5,7 @@ export function ActivityLog({ items }: { items: ActivityEvent[] }) {
   if (items.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        Aucune activité récente pour cette opportunité.
+        Aucune activité récente pour ce dossier commercial.
       </p>
     );
   }

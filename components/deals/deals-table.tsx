@@ -61,7 +61,7 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Rechercher une opportunité, un client ou un contact"
+            placeholder="Rechercher un dossier, un client ou un contact"
             className="pl-8"
           />
         </div>
@@ -85,7 +85,7 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Opportunité</TableHead>
+            <TableHead>Dossier commercial</TableHead>
             <TableHead>Client</TableHead>
             <TableHead>Statut</TableHead>
             <TableHead>Montant</TableHead>
@@ -135,7 +135,7 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
       </Table>
       {filteredDeals.length === 0 ? (
         <div className="border-t p-6 text-center text-sm text-muted-foreground">
-          Aucune opportunité ne correspond à ces critères.
+          Aucun dossier commercial ne correspond à ces critères.
         </div>
       ) : null}
     </section>

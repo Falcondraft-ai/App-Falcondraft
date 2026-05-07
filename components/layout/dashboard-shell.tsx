@@ -48,7 +48,7 @@ const primaryNavItems: NavItem[] = [
   },
   {
     href: "/dashboard/deals",
-    label: "Opportunités",
+    label: "Dossiers",
     icon: BarChart3,
   },
   {
@@ -302,14 +302,16 @@ export function DashboardShell({
               </div>
               <div className="hidden lg:block">
                 <p className="text-muted-foreground text-sm tracking-[-0.01em]">
-                  Opportunité → proposition → validation → envoi
+                  Dossier commercial → proposition → validation → envoi
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <Button asChild className="hidden sm:inline-flex">
-                <Link href="/dashboard/deals/new">Créer une opportunité</Link>
+                <Link href="/dashboard/deals/new">
+                  Créer un dossier commercial
+                </Link>
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

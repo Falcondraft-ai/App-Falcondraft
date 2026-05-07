@@ -25,7 +25,7 @@ export type WorkflowStep = {
 export const workflowStepDefinitions = [
   {
     id: "opportunity",
-    label: "Opportunité",
+    label: "Dossier",
     description: "Informations client et contexte initial.",
   },
   {

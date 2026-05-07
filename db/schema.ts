@@ -24,6 +24,7 @@ export const dealStatus = pgEnum("deal_status", [
   "lost",
 ]);
 export const workflowRunStatus = pgEnum("workflow_run_status", [
+  "pending",
   "queued",
   "running",
   "completed",

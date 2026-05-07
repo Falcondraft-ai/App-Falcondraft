@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const newDealSchema = z.object({
-  name: z.string().min(3, "Indiquez un nom d’opportunité."),
+  name: z.string().min(3, "Indiquez un intitulé de dossier."),
   clientCompanyName: z.string().min(2, "Indiquez l’entreprise cliente."),
   clientContactName: z.string().min(2, "Indiquez le contact principal."),
   clientEmail: z.string().email("Indiquez un email professionnel valide."),
@@ -90,7 +90,7 @@ export function NewDealForm({
           clientPhone: values.phone,
           additionalContext: values.additionalContext,
           emailInstructions: values.emailInstructions,
-          lastAction: "Opportunité créée",
+          lastAction: "Dossier commercial créé",
         },
       })
       .select("id")
@@ -105,7 +105,7 @@ export function NewDealForm({
       return;
     }
 
-    toast.success("Opportunité créée.", {
+    toast.success("Dossier commercial créé.", {
       description: `${values.name} est prête pour le compte-rendu.`,
     });
     form.reset(defaultValues);
@@ -129,7 +129,7 @@ export function NewDealForm({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nom de l’opportunité</FormLabel>
+                  <FormLabel>Intitulé du dossier</FormLabel>
                   <FormControl>
                     <Input placeholder="Réponse appel d’offres..." {...field} />
                   </FormControl>
@@ -263,7 +263,7 @@ export function NewDealForm({
 
         <div className="flex justify-end">
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Création..." : "Créer l’opportunité"}
+            {isSubmitting ? "Création..." : "Créer le dossier commercial"}
           </Button>
         </div>
       </form>

@@ -33,7 +33,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
         <header className="grid gap-4 border-b bg-card/45 p-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
-              Espace opportunité
+              Dossier commercial
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -196,7 +196,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               title="Actions"
               description="Commandes principales du cycle de proposition."
             >
-              <DealActionPanel />
+              <DealActionPanel dealId={deal.id} />
             </ActionCard>
             <ActionCard title="Progression">
               <WorkflowTimeline status={deal.status} compact />

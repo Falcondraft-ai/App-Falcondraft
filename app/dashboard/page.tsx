@@ -30,17 +30,19 @@ export default async function DashboardPage() {
         <PageHeader
           eyebrow="Tableau de bord"
           title="Pilotage des propositions"
-          description="Vue de travail pour suivre les opportunités, les documents et les étapes de validation."
+          description="Vue de travail pour suivre les dossiers commerciaux, les documents et les étapes de validation."
           actions={
             <Button asChild>
-              <Link href="/dashboard/deals/new">Créer une opportunité</Link>
+              <Link href="/dashboard/deals/new">
+                Créer un dossier commercial
+              </Link>
             </Button>
           }
         />
 
         <section className="grid gap-3 md:grid-cols-4">
           <DashboardStatCard
-            label="Opportunités actives"
+            label="Dossiers actifs"
             value={String(dashboard.activeDeals.length)}
             detail="Hors dossiers terminés"
             tone="accent"
@@ -68,7 +70,7 @@ export default async function DashboardPage() {
             <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold">
-                  Opportunités récentes
+                  Dossiers récents
                 </h2>
                 <p className="text-muted-foreground mt-1 text-sm">
                   Dossiers qui demandent une attention commerciale.
@@ -82,7 +84,7 @@ export default async function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Opportunité</TableHead>
+                    <TableHead>Dossier commercial</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Montant</TableHead>
                     <TableHead>Échéance</TableHead>
@@ -116,12 +118,12 @@ export default async function DashboardPage() {
             ) : (
               <div className="p-4">
                 <EmptyState
-                  title="Aucune opportunité"
-                  description="Créez une première opportunité pour suivre le pipeline et les documents associés."
+                  title="Aucun dossier commercial"
+                  description="Créez un premier dossier commercial pour suivre le pipeline et les documents associés."
                   action={
                     <Button asChild>
                       <Link href="/dashboard/deals/new">
-                        Créer une opportunité
+                        Créer un dossier commercial
                       </Link>
                     </Button>
                   }

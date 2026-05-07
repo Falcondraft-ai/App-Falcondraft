@@ -4,6 +4,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function GeneralSettingsForm({
   organizationName,
@@ -33,7 +40,14 @@ export function GeneralSettingsForm({
         </div>
         <div className="grid gap-2">
           <Label htmlFor="default-language">Langue par défaut</Label>
-          <Input id="default-language" defaultValue={defaultLanguage} />
+          <Select defaultValue={defaultLanguage}>
+            <SelectTrigger id="default-language" className="w-full">
+              <SelectValue placeholder="Sélectionner une langue" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Français">Français</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex justify-end border-t p-4">

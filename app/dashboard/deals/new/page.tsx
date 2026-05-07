@@ -10,8 +10,8 @@ export default async function NewDealPage() {
     <PageTransition>
       <div className="mx-auto max-w-5xl space-y-6">
         <PageHeader
-          eyebrow="Nouvelle opportunité"
-          title="Créer une opportunité"
+          eyebrow="Nouveau dossier commercial"
+          title="Créer un dossier commercial"
           description="Ajoutez les informations commerciales et les notes qui serviront de base au compte-rendu puis à la proposition."
         />
         <NewDealForm

@@ -17,13 +17,13 @@ export default async function DocumentsPage() {
         <PageHeader
           eyebrow="Documents"
           title="Documents générés"
-          description="Propositions, devis, documents finaux et liens de signature associés aux opportunités."
+          description="Propositions, devis, documents finaux et liens de signature associés aux dossiers commerciaux."
         />
         <section className="border bg-card/75">
           <div className="border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Bibliothèque de travail</h2>
             <p className="text-muted-foreground mt-1 text-sm">
-              Dernières pièces préparées pour les opportunités actives.
+              Dernières pièces préparées pour les dossiers actifs.
             </p>
           </div>
           <div>
@@ -35,7 +35,7 @@ export default async function DocumentsPage() {
               <div className="p-4">
                 <EmptyState
                   title="Aucun document"
-                  description="Les documents apparaîtront ici dès qu’ils seront préparés pour une opportunité."
+                  description="Les documents apparaîtront ici dès qu’ils seront préparés pour un dossier commercial."
                 />
               </div>
             )}

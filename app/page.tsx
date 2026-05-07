@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const operatingSteps = [
   {
-    label: "Opportunité",
+    label: "Dossier commercial",
     detail: "Centraliser le contexte client, les contraintes et le besoin.",
   },
   {
@@ -36,7 +36,7 @@ export default function Home() {
             Le poste de travail des propositions commerciales exigeantes.
           </h1>
           <p className="text-muted-foreground mt-6 max-w-2xl text-base leading-7 sm:text-lg">
-            FalconDraft organise le passage d’une opportunité qualifiée à une
+            FalconDraft organise le passage d’un dossier qualifié à une
             proposition professionnelle, validée puis prête à être envoyée.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

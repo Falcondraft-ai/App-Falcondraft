@@ -114,7 +114,7 @@ export default async function AdminPage() {
         </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <AdminRows title="Opportunités" rows={adminData.rows} />
+          <AdminRows title="Dossiers commerciaux" rows={adminData.rows} />
           <AdminRows title="Générations échouées" rows={adminData.failedRuns} />
         </div>
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -38,13 +39,50 @@ const dealActions = [
   },
 ] as const;
 
-function handleWorkflowAction(label: string, message: string) {
+function handleMockWorkflowAction(label: string, message: string) {
   toast.success(message, {
     description: `${label} · action enregistrée.`,
   });
 }
 
-export function DealActionPanel() {
+export function DealActionPanel({ dealId }: { dealId: string }) {
+  const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
+    React.useState(false);
+
+  async function triggerCallSummary() {
+    setIsTriggeringCallSummary(true);
+
+    const response = await fetch("/api/workflows/call-summary", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ dealId }),
+    }).catch(() => null);
+
+    setIsTriggeringCallSummary(false);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+      const message =
+        result &&
+        typeof result === "object" &&
+        "message" in result &&
+        typeof result.message === "string"
+          ? result.message
+          : "Le compte-rendu n’a pas pu être déclenché.";
+
+      toast.error("Déclenchement impossible", {
+        description: message,
+      });
+      return;
+    }
+
+    toast.success("Compte-rendu lancé", {
+      description: "La préparation a été transmise au workflow configuré.",
+    });
+  }
+
   return (
     <div className="space-y-2">
       {dealActions.map((action, index) => (
@@ -53,9 +91,19 @@ export function DealActionPanel() {
           type="button"
           variant={index === 0 ? "default" : "outline"}
           className="w-full justify-start"
-          onClick={() => handleWorkflowAction(action.label, action.message)}
+          disabled={index === 0 && isTriggeringCallSummary}
+          onClick={() => {
+            if (index === 0) {
+              void triggerCallSummary();
+              return;
+            }
+
+            handleMockWorkflowAction(action.label, action.message);
+          }}
         >
-          {action.label}
+          {index === 0 && isTriggeringCallSummary
+            ? "Déclenchement..."
+            : action.label}
         </Button>
       ))}
     </div>

@@ -14,12 +14,14 @@ export default async function DealsPage() {
     <PageTransition>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Opportunités"
+          eyebrow="Dossiers commerciaux"
           title="Pipeline commercial"
-          description="Liste de travail des opportunités et de leur progression documentaire."
+          description="Liste de travail des dossiers commerciaux et de leur progression documentaire."
           actions={
             <Button asChild>
-              <Link href="/dashboard/deals/new">Nouvelle opportunité</Link>
+              <Link href="/dashboard/deals/new">
+                Nouveau dossier commercial
+              </Link>
             </Button>
           }
         />
