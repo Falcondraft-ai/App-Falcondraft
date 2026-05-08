@@ -5,6 +5,7 @@ import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { PageTransition } from "@/components/common/page-transition";
 import { WorkflowTimeline } from "@/components/common/workflow-timeline";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
+import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getDealDetail } from "@/lib/data/supabase-app-data";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
@@ -40,6 +41,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 {deal.name}
               </h1>
               <DealStatusBadge status={deal.status} />
+              <DealEditDialog deal={deal} />
             </div>
             <p className="text-muted-foreground mt-2 max-w-3xl text-sm leading-6">
               {deal.clientCompanyName} · {deal.lastAction}
@@ -47,7 +49,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:text-right">
             <div>
-              <p className="text-muted-foreground text-xs">Montant estimé</p>
+              <p className="text-muted-foreground text-xs">Budget</p>
               <p className="font-mono font-semibold">
                 {formatCurrency(deal.amountEstimate)}
               </p>

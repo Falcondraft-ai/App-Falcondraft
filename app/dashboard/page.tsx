@@ -86,7 +86,7 @@ export default async function DashboardPage() {
                   <TableRow>
                     <TableHead>Dossier commercial</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead>Montant</TableHead>
+                    <TableHead>Budget</TableHead>
                     <TableHead>Échéance</TableHead>
                   </TableRow>
                 </TableHeader>

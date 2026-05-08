@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,8 +47,10 @@ function handleMockWorkflowAction(label: string, message: string) {
 }
 
 export function DealActionPanel({ dealId }: { dealId: string }) {
+  const router = useRouter();
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
     React.useState(false);
+  const [isDeletingDeal, setIsDeletingDeal] = React.useState(false);
 
   async function triggerCallSummary() {
     setIsTriggeringCallSummary(true);
@@ -83,6 +86,46 @@ export function DealActionPanel({ dealId }: { dealId: string }) {
     });
   }
 
+  async function deleteDeal() {
+    const confirmed = window.confirm(
+      "Supprimer définitivement ce dossier commercial ? Cette action est irréversible.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingDeal(true);
+
+    const response = await fetch(`/api/deals/${dealId}`, {
+      method: "DELETE",
+    }).catch(() => null);
+
+    setIsDeletingDeal(false);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+      const message =
+        result &&
+        typeof result === "object" &&
+        "message" in result &&
+        typeof result.message === "string"
+          ? result.message
+          : "Le dossier commercial n’a pas pu être supprimé.";
+
+      toast.error("Suppression impossible", {
+        description: message,
+      });
+      return;
+    }
+
+    toast.success("Dossier commercial supprimé", {
+      description: "Retour au pipeline commercial.",
+    });
+    router.replace("/dashboard/deals");
+    router.refresh();
+  }
+
   return (
     <div className="space-y-2">
       {dealActions.map((action, index) => (
@@ -91,7 +134,9 @@ export function DealActionPanel({ dealId }: { dealId: string }) {
           type="button"
           variant={index === 0 ? "default" : "outline"}
           className="w-full justify-start"
-          disabled={index === 0 && isTriggeringCallSummary}
+          disabled={
+            isDeletingDeal || (index === 0 && isTriggeringCallSummary)
+          }
           onClick={() => {
             if (index === 0) {
               void triggerCallSummary();
@@ -106,6 +151,17 @@ export function DealActionPanel({ dealId }: { dealId: string }) {
             : action.label}
         </Button>
       ))}
+      <div className="pt-3">
+        <Button
+          type="button"
+          variant="destructive"
+          className="w-full justify-start"
+          disabled={isDeletingDeal || isTriggeringCallSummary}
+          onClick={() => void deleteDeal()}
+        >
+          {isDeletingDeal ? "Suppression..." : "Supprimer le dossier"}
+        </Button>
+      </div>
     </div>
   );
 }

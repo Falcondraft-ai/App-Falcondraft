@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
-import { Search } from "lucide-react";
+import { Ellipsis, Search, Trash2 } from "lucide-react";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -22,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { toast } from "sonner";
 import {
   dealStatusLabels,
   dealStatuses,
@@ -31,11 +39,76 @@ import {
 
 type StatusFilter = DealStatus | "all";
 
+function getErrorMessage(result: unknown, fallback: string) {
+  if (
+    result &&
+    typeof result === "object" &&
+    "message" in result &&
+    typeof result.message === "string"
+  ) {
+    return result.message;
+  }
+
+  return fallback;
+}
+
 export function DealsTable({ deals }: { deals: Deal[] }) {
+  const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [deletedDealIds, setDeletedDealIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const [deletingDealId, setDeletingDealId] = React.useState<string | null>(
+    null,
+  );
+
+  async function deleteDeal(deal: Deal) {
+    const confirmed = window.confirm(
+      `Supprimer définitivement le dossier “${deal.name}” ? Cette action est irréversible.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingDealId(deal.id);
+
+    const response = await fetch(`/api/deals/${deal.id}`, {
+      method: "DELETE",
+    }).catch(() => null);
+
+    setDeletingDealId(null);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+
+      toast.error("Suppression impossible", {
+        description: getErrorMessage(
+          result,
+          "Le dossier commercial n’a pas pu être supprimé.",
+        ),
+      });
+      return;
+    }
+
+    setDeletedDealIds((current) => {
+      const next = new Set(current);
+      next.add(deal.id);
+      return next;
+    });
+
+    toast.success("Dossier commercial supprimé", {
+      description: "La liste des dossiers a été mise à jour.",
+    });
+    router.refresh();
+  }
 
   const filteredDeals = deals.filter((deal) => {
+    if (deletedDealIds.has(deal.id)) {
+      return false;
+    }
+
     const normalizedQuery = query.trim().toLowerCase();
     const matchesQuery =
       normalizedQuery.length === 0 ||
@@ -88,9 +161,9 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
             <TableHead>Dossier commercial</TableHead>
             <TableHead>Client</TableHead>
             <TableHead>Statut</TableHead>
-            <TableHead>Montant</TableHead>
+            <TableHead>Budget</TableHead>
             <TableHead>Mis à jour</TableHead>
-            <TableHead className="text-right">Action</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -125,9 +198,36 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
               </TableCell>
               <TableCell>{formatDate(deal.updatedAt)}</TableCell>
               <TableCell className="text-right">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/dashboard/deals/${deal.id}`}>Ouvrir</Link>
-                </Button>
+                <div className="flex items-center justify-end gap-1.5">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/deals/${deal.id}`}>Ouvrir</Link>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Options du dossier ${deal.name}`}
+                        disabled={deletingDealId === deal.id}
+                      >
+                        <Ellipsis aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={deletingDealId === deal.id}
+                        onSelect={() => void deleteDeal(deal)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                        {deletingDealId === deal.id
+                          ? "Suppression..."
+                          : "Supprimer"}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </TableCell>
             </TableRow>
           ))}

@@ -9,7 +9,7 @@ export default function NewDealPage() {
         <PageHeader
           eyebrow="Nouveau dossier commercial"
           title="Créer un dossier commercial"
-          description="Ajoutez les informations commerciales et les notes qui serviront de base au compte-rendu puis à la proposition."
+          description="Avancez étape par étape : cadrage, contact, notes d’échange puis consignes de sortie."
         />
         <NewDealForm />
       </div>

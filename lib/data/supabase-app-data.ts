@@ -153,10 +153,76 @@ function lastDealAction(row: DealRow): string {
   return row.status ? `Statut : ${row.status}` : "Dernière action à renseigner";
 }
 
+type ParsedDealTranscript = {
+  transcript: string;
+  additionalContext: string;
+  emailInstructions: string;
+  clientPhone?: string;
+};
+
+function parseDealTranscript(value: string | null): ParsedDealTranscript {
+  const rawTranscript = value?.trim() ?? "";
+
+  if (!rawTranscript) {
+    return {
+      transcript: "Aucune note d’appel renseignée.",
+      additionalContext: "Contexte complémentaire à préciser si nécessaire.",
+      emailInstructions: "Consignes email à préciser si nécessaire.",
+    };
+  }
+
+  const sectionPattern =
+    /\n\n(Contexte complémentaire|Instructions email|Téléphone client)\s*:\s*\n/g;
+  const matches = [...rawTranscript.matchAll(sectionPattern)];
+
+  if (matches.length === 0) {
+    return {
+      transcript: rawTranscript,
+      additionalContext: "Contexte complémentaire à préciser si nécessaire.",
+      emailInstructions: "Consignes email à préciser si nécessaire.",
+    };
+  }
+
+  const firstSectionIndex = matches[0].index ?? rawTranscript.length;
+  const parsedTranscript: ParsedDealTranscript = {
+    transcript:
+      rawTranscript.slice(0, firstSectionIndex).trim() ||
+      "Aucune note d’appel renseignée.",
+    additionalContext: "Contexte complémentaire à préciser si nécessaire.",
+    emailInstructions: "Consignes email à préciser si nécessaire.",
+  };
+
+  matches.forEach((match, index) => {
+    const label = match[1];
+    const start = (match.index ?? 0) + match[0].length;
+    const end = matches[index + 1]?.index ?? rawTranscript.length;
+    const content = rawTranscript.slice(start, end).trim();
+
+    if (!content) {
+      return;
+    }
+
+    if (label === "Contexte complémentaire") {
+      parsedTranscript.additionalContext = content;
+      return;
+    }
+
+    if (label === "Instructions email") {
+      parsedTranscript.emailInstructions = content;
+      return;
+    }
+
+    parsedTranscript.clientPhone = content;
+  });
+
+  return parsedTranscript;
+}
+
 function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
   const updatedAt = row.updated_at ?? row.created_at ?? fallbackIsoDate;
   const clientCompanyName = row.client_company_name || "Client à renseigner";
   const proposalContent = row.proposal_content?.trim();
+  const parsedTranscript = parseDealTranscript(row.transcript);
 
   return {
     id: row.id,
@@ -173,9 +239,10 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
     priority: "standard",
     expectedCloseDate: updatedAt,
     source: "Notes d’échange",
-    transcript: row.transcript || "Aucune note d’appel renseignée.",
-    additionalContext: "Contexte complémentaire à préciser si nécessaire.",
-    emailInstructions: "Consignes email à préciser si nécessaire.",
+    transcript: parsedTranscript.transcript,
+    additionalContext: parsedTranscript.additionalContext,
+    emailInstructions: parsedTranscript.emailInstructions,
+    clientPhone: parsedTranscript.clientPhone,
     callSummary:
       row.call_summary || "Le compte-rendu sera disponible après génération.",
     proposalTitle: `Proposition — ${clientCompanyName}`,

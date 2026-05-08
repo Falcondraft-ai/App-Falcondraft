@@ -32,7 +32,6 @@ export default async function DashboardLayout({
         context.organization
           ? {
               name: context.organization.name,
-              slug: context.organization.slug,
             }
           : null
       }

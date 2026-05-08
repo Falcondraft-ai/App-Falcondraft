@@ -13,7 +13,7 @@ import {
 import * as React from "react";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/common/brand-mark";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -31,6 +31,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  PROFILE_PHOTO_STORAGE_KEY,
+  PROFILE_PHOTO_UPDATED_EVENT,
+} from "@/lib/profile-photo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -87,7 +91,6 @@ type DashboardShellUser = {
 
 type DashboardShellOrganization = {
   name: string;
-  slug: string;
 };
 
 function getInitials(name: string) {
@@ -114,7 +117,7 @@ function WorkspaceContext({
           {organization?.name ?? "Espace client"}
         </p>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          {organization?.slug ?? "Production commerciale"}
+          Dossiers, documents et suivi commercial
         </p>
       </div>
     </section>
@@ -224,6 +227,24 @@ export function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(
+    null,
+  );
+
+  React.useEffect(() => {
+    function readProfilePhoto() {
+      setProfilePhotoUrl(window.localStorage.getItem(PROFILE_PHOTO_STORAGE_KEY));
+    }
+
+    readProfilePhoto();
+    window.addEventListener("storage", readProfilePhoto);
+    window.addEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
+
+    return () => {
+      window.removeEventListener("storage", readProfilePhoto);
+      window.removeEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
+    };
+  }, []);
 
   function openHelp() {
     toast("Aide FalconDraft", {
@@ -319,7 +340,14 @@ export function DashboardShell({
                     className="hover:bg-muted flex items-center gap-2 rounded-md p-1.5 transition-colors"
                     aria-label="Menu utilisateur"
                   >
-                    <Avatar className="size-8 rounded-md">
+                    <Avatar className="size-8 rounded-md after:rounded-md">
+                      {profilePhotoUrl ? (
+                        <AvatarImage
+                          src={profilePhotoUrl}
+                          alt=""
+                          className="rounded-md"
+                        />
+                      ) : null}
                       <AvatarFallback className="rounded-md text-xs">
                         {getInitials(user.name) || "FD"}
                       </AvatarFallback>

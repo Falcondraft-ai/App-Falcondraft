@@ -5,13 +5,16 @@ import { requireCurrentUserContext } from "@/lib/auth/session";
 export default async function SettingsPage() {
   const context = await requireCurrentUserContext();
   const organization = context.organization;
+  const userName =
+    context.profile?.full_name ?? context.user.email ?? "Utilisateur";
 
   return (
     <PageTransition>
       <GeneralSettingsForm
         organizationName={organization?.name ?? "Espace client"}
-        organizationSlug={organization?.slug ?? "espace-client"}
         defaultLanguage="Français"
+        userName={userName}
+        userEmail={context.user.email ?? ""}
       />
     </PageTransition>
   );
