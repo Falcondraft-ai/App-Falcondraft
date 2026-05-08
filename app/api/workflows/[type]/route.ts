@@ -134,7 +134,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       type: workflowType,
       status: "pending",
       started_at: startedAt,
-      metadata: {},
     })
     .select("id")
     .single();
@@ -173,7 +172,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .from("workflow_runs")
       .update({
         status: "failed",
-        safe_status_message: "Le déclenchement du workflow a échoué.",
+        completed_at: new Date().toISOString(),
+        error_message: "Le déclenchement du workflow a échoué.",
       })
       .eq("id", workflowRun.id)
       .eq("organization_id", organizationId);

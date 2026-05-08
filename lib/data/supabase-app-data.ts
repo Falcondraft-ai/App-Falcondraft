@@ -1,8 +1,11 @@
+import "server-only";
+
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { DashboardChartDatum } from "@/components/dashboard/dashboard-activity-chart";
 import { dealStatuses, type Deal, type DealStatus } from "@/types/deal";
-import type { MockDocument, DocumentStatus, DocumentType } from "@/types/document";
 import type { ActivityEvent } from "@/types/activity";
+import type { MockDocument, DocumentStatus, DocumentType } from "@/types/document";
 import type {
   BillingInvoice,
   BillingSubscriptionSummary,
@@ -17,15 +20,14 @@ import type {
   DealRow,
   DocumentRow,
   IntegrationRow,
-  Json,
   OrganizationMemberRow,
   ProfileRow,
   WorkflowRunRow,
+  Database,
 } from "@/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-type SupabaseAppClient = NonNullable<
-  Awaited<ReturnType<typeof getSupabaseServerClient>>
->;
+type SupabaseAppClient = SupabaseClient<Database>;
 
 type DashboardData = {
   deals: Deal[];
@@ -44,80 +46,10 @@ type DealDetailData = {
   activity: ActivityEvent[];
 };
 
-const fallbackIsoDate = "2026-05-07T00:00:00.000Z";
+const fallbackIsoDate = "2026-05-08T00:00:00.000Z";
 
-function isRecord(value: Json | null | undefined): value is Record<string, Json> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function readString(
-  metadata: Json,
-  keys: string[],
-  fallback = "",
-): string {
-  if (!isRecord(metadata)) {
-    return fallback;
-  }
-
-  for (const key of keys) {
-    const value = metadata[key];
-
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value;
-    }
-  }
-
-  return fallback;
-}
-
-function readNumber(metadata: Json, keys: string[], fallback = 0): number {
-  if (!isRecord(metadata)) {
-    return fallback;
-  }
-
-  for (const key of keys) {
-    const value = metadata[key];
-
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-
-    if (typeof value === "string") {
-      const parsed = Number(value);
-
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-
-  return fallback;
-}
-
-function readEmailDraft(metadata: Json): Deal["emailDraft"] {
-  if (isRecord(metadata)) {
-    const draft = metadata.emailDraft ?? metadata.email_draft;
-
-    if (isRecord(draft)) {
-      return {
-        subject: readString(draft, ["subject"], "Brouillon email"),
-        body: readString(
-          draft,
-          ["body"],
-          "Le brouillon email sera disponible après préparation.",
-        ),
-      };
-    }
-  }
-
-  return {
-    subject: readString(metadata, ["email_subject"], "Brouillon email"),
-    body: readString(
-      metadata,
-      ["email_body"],
-      "Le brouillon email sera disponible après préparation.",
-    ),
-  };
+async function getSupabaseDataClient(): Promise<SupabaseAppClient | null> {
+  return getSupabaseAdminClient() ?? (await getSupabaseServerClient());
 }
 
 function normalizeDealStatus(status: string | null | undefined): DealStatus {
@@ -127,43 +59,44 @@ function normalizeDealStatus(status: string | null | undefined): DealStatus {
 
   const statusMap: Record<string, DealStatus> = {
     generating: "proposal_generating",
+    queued: "proposal_generating",
+    running: "proposal_generating",
     review: "validation_pending",
     sent: "email_draft_ready",
     won: "completed",
     lost: "failed",
-    queued: "proposal_generating",
-    running: "proposal_generating",
     error: "failed",
   };
 
   return status ? (statusMap[status] ?? "draft") : "draft";
 }
 
-function normalizeDocumentType(kind: string): DocumentType {
-  const kindMap: Record<string, DocumentType> = {
+function normalizeDocumentType(type: string): DocumentType {
+  const typeMap: Record<string, DocumentType> = {
     summary: "proposal",
     proposal: "proposal",
     presentation: "proposal",
     quote: "quote",
     pdf: "proposal_pdf",
+    proposal_pdf: "proposal_pdf",
     final_document: "final_document",
     signature: "signature_link",
     signature_link: "signature_link",
     email: "proposal",
   };
 
-  return kindMap[kind] ?? "proposal";
+  return typeMap[type] ?? "proposal";
 }
 
 function normalizeDocumentStatus(document: DocumentRow): DocumentStatus {
-  const metadataStatus = readString(document.metadata, ["status"], "");
-
-  if (["ready", "draft", "generating", "sent"].includes(metadataStatus)) {
-    return metadataStatus as DocumentStatus;
+  if (["ready", "draft", "generating", "sent"].includes(document.status)) {
+    return document.status as DocumentStatus;
   }
 
-  if (document.external_url || document.storage_path) {
-    return document.kind === "signature" ? "sent" : "ready";
+  if (document.url) {
+    return document.type === "signature" || document.type === "signature_link"
+      ? "sent"
+      : "ready";
   }
 
   return "draft";
@@ -175,18 +108,18 @@ function getMonthLabel(date: string): string {
     .replace(".", "");
 }
 
-function sortByUpdatedAtDesc<T extends { updated_at: string }>(items: T[]) {
+export function sortByUpdatedAtDesc<T extends { created_at: string }>(items: T[]) {
   return [...items].sort(
     (first, second) =>
-      new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime(),
+      new Date(second.created_at).getTime() - new Date(first.created_at).getTime(),
   );
 }
 
-async function getProfilesById(
+async function getProfilesByUserId(
   supabase: SupabaseAppClient,
-  profileIds: Array<string | null>,
+  userIds: Array<string | null>,
 ) {
-  const ids = [...new Set(profileIds.filter((id): id is string => Boolean(id)))];
+  const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
 
   if (ids.length === 0) {
     return new Map<string, ProfileRow>();
@@ -195,95 +128,65 @@ async function getProfilesById(
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
-    .in("id", ids);
+    .in("user_id", ids);
 
   if (error || !data) {
     return new Map<string, ProfileRow>();
   }
 
-  return new Map(data.map((profile) => [profile.id, profile]));
+  return new Map(data.map((profile) => [profile.user_id, profile]));
+}
+
+function lastDealAction(row: DealRow): string {
+  if (row.status === "draft") {
+    return "Dossier commercial créé";
+  }
+
+  if (row.call_summary) {
+    return "Compte-rendu disponible";
+  }
+
+  if (row.proposal_content) {
+    return "Proposition disponible";
+  }
+
+  return row.status ? `Statut : ${row.status}` : "Dernière action à renseigner";
 }
 
 function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
-  const metadata = row.metadata;
-  const contactName = row.contact_name ?? readString(metadata, ["clientContactName"]);
-  const contactEmail = readString(
-    metadata,
-    ["clientEmail", "client_email", "email"],
-    "Email à renseigner",
-  );
-  const amountEstimate = readNumber(
-    metadata,
-    ["amountEstimate", "amount_estimate", "amount"],
-    0,
-  );
   const updatedAt = row.updated_at ?? row.created_at ?? fallbackIsoDate;
+  const clientCompanyName = row.client_company_name || "Client à renseigner";
+  const proposalContent = row.proposal_content?.trim();
 
   return {
     id: row.id,
-    name: row.title,
-    clientCompanyName: row.company_name,
-    clientContactName: contactName || "Contact à renseigner",
-    clientEmail: contactEmail,
-    clientPhone: readString(metadata, ["clientPhone", "client_phone", "phone"]),
+    name: row.name,
+    clientCompanyName,
+    clientContactName: row.client_contact_name || "Contact à renseigner",
+    clientEmail: row.client_email || "Email à renseigner",
     status: normalizeDealStatus(row.status),
     createdAt: row.created_at ?? fallbackIsoDate,
     updatedAt,
-    lastAction: readString(
-      metadata,
-      ["lastAction", "last_action"],
-      row.status ? `Statut : ${row.status}` : "Dernière action à renseigner",
-    ),
-    amountEstimate,
+    lastAction: lastDealAction(row),
+    amountEstimate: row.amount_estimate ?? 0,
     ownerName: owner?.full_name ?? owner?.email ?? "Équipe FalconDraft",
     priority: "standard",
-    expectedCloseDate: readString(
-      metadata,
-      ["expectedCloseDate", "expected_close_date"],
-      updatedAt,
-    ),
-    source: readString(metadata, ["source"], row.source_notes ?? "Notes"),
-    transcript: readString(
-      metadata,
-      ["transcript", "call_notes"],
-      row.source_notes ?? "Aucune note d’appel renseignée.",
-    ),
-    additionalContext: readString(
-      metadata,
-      ["additionalContext", "additional_context"],
-      "Aucun contexte complémentaire renseigné.",
-    ),
-    emailInstructions: readString(
-      metadata,
-      ["emailInstructions", "email_instructions"],
-      "Aucune consigne email renseignée.",
-    ),
-    callSummary: readString(
-      metadata,
-      ["callSummary", "call_summary"],
-      "Le compte-rendu sera disponible après génération.",
-    ),
-    proposalTitle: readString(
-      metadata,
-      ["proposalTitle", "proposal_title"],
-      `Proposition — ${row.company_name}`,
-    ),
-    proposalExcerpt: readString(
-      metadata,
-      ["proposalExcerpt", "proposal_excerpt"],
-      "La proposition sera disponible après génération.",
-    ),
-    finalDocumentName: readString(
-      metadata,
-      ["finalDocumentName", "final_document_name"],
-      "Document final non généré",
-    ),
-    signatureUrl: readString(
-      metadata,
-      ["signatureUrl", "signature_url"],
-      "Lien de signature non généré",
-    ),
-    emailDraft: readEmailDraft(metadata),
+    expectedCloseDate: updatedAt,
+    source: "Notes d’échange",
+    transcript: row.transcript || "Aucune note d’appel renseignée.",
+    additionalContext: "Contexte complémentaire à préciser si nécessaire.",
+    emailInstructions: "Consignes email à préciser si nécessaire.",
+    callSummary:
+      row.call_summary || "Le compte-rendu sera disponible après génération.",
+    proposalTitle: `Proposition — ${clientCompanyName}`,
+    proposalExcerpt:
+      proposalContent || "La proposition sera disponible après génération.",
+    finalDocumentName: "Document final non généré",
+    signatureUrl: "Lien de signature non généré",
+    emailDraft: {
+      subject: `Proposition — ${clientCompanyName}`,
+      body: "Le brouillon email sera disponible après préparation.",
+    },
   };
 }
 
@@ -294,7 +197,7 @@ export async function getDealsForOrganization(
     return [];
   }
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return [];
@@ -310,13 +213,13 @@ export async function getDealsForOrganization(
     return [];
   }
 
-  const owners = await getProfilesById(
+  const owners = await getProfilesByUserId(
     supabase,
-    data.map((deal) => deal.owner_profile_id),
+    data.map((deal) => deal.created_by),
   );
 
   return data.map((deal) =>
-    mapDealRow(deal, deal.owner_profile_id ? owners.get(deal.owner_profile_id) ?? null : null),
+    mapDealRow(deal, deal.created_by ? owners.get(deal.created_by) ?? null : null),
   );
 }
 
@@ -328,7 +231,7 @@ export async function getDealDetail(
     return { deal: null, activity: [] };
   }
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return { deal: null, activity: [] };
@@ -345,7 +248,7 @@ export async function getDealDetail(
     return { deal: null, activity: [] };
   }
 
-  const owners = await getProfilesById(supabase, [dealRow.owner_profile_id]);
+  const owners = await getProfilesByUserId(supabase, [dealRow.created_by]);
 
   const [workflowRuns, auditLogs] = await Promise.all([
     getWorkflowRunsForOrganization(organizationId, dealId),
@@ -355,7 +258,7 @@ export async function getDealDetail(
   return {
     deal: mapDealRow(
       dealRow,
-      dealRow.owner_profile_id ? owners.get(dealRow.owner_profile_id) ?? null : null,
+      dealRow.created_by ? owners.get(dealRow.created_by) ?? null : null,
     ),
     activity: mapActivity(workflowRuns, auditLogs),
   };
@@ -365,7 +268,7 @@ async function getWorkflowRunsForOrganization(
   organizationId: string,
   dealId?: string,
 ): Promise<WorkflowRunRow[]> {
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return [];
@@ -395,7 +298,7 @@ async function getAuditLogsForOrganization(
   organizationId: string,
   dealId?: string,
 ): Promise<AuditLogRow[]> {
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return [];
@@ -433,6 +336,10 @@ function workflowRunTitle(run: WorkflowRunRow): string {
   return "Génération en cours";
 }
 
+function workflowRunDate(run: WorkflowRunRow): string {
+  return run.completed_at ?? run.started_at ?? run.created_at;
+}
+
 function mapActivity(
   workflowRuns: WorkflowRunRow[],
   auditLogs: AuditLogRow[],
@@ -441,9 +348,8 @@ function mapActivity(
     id: `workflow-${run.id}`,
     dealId: run.deal_id,
     title: workflowRunTitle(run),
-    description:
-      run.safe_status_message ?? `Flux ${run.type} · statut ${run.status}`,
-    createdAt: run.created_at,
+    description: run.error_message ?? `Flux ${run.type} · statut ${run.status}`,
+    createdAt: workflowRunDate(run),
     actorName: "FalconDraft",
   }));
 
@@ -451,13 +357,9 @@ function mapActivity(
     id: `audit-${log.id}`,
     dealId: log.entity_id ?? "",
     title: log.action,
-    description: readString(
-      log.metadata,
-      ["description", "message"],
-      `${log.entity_type} mis à jour`,
-    ),
+    description: `${log.entity_type} mis à jour`,
     createdAt: log.created_at,
-    actorName: readString(log.metadata, ["actorName", "actor_name"], "Équipe"),
+    actorName: "Équipe",
   }));
 
   return [...runEvents, ...auditEvents]
@@ -544,7 +446,7 @@ export async function getDashboardData(
 async function getDocumentRowsForOrganization(
   organizationId: string,
 ): Promise<DocumentRow[]> {
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return [];
@@ -582,10 +484,10 @@ export async function getDocumentsForOrganization(
 
     return {
       id: document.id,
-      type: normalizeDocumentType(document.kind),
+      type: normalizeDocumentType(document.type),
       title: document.title,
       relatedDealId: document.deal_id,
-      relatedDealName: deal?.name ?? "Opportunité",
+      relatedDealName: deal?.name ?? "Dossier commercial",
       clientCompanyName: deal?.clientCompanyName ?? "Client",
       createdAt: document.created_at,
       status: normalizeDocumentStatus(document),
@@ -617,7 +519,7 @@ function mapIntegrationName(row: IntegrationRow): string {
     return "Automatisation";
   }
 
-  return row.label;
+  return row.provider;
 }
 
 export async function getIntegrationsForOrganization(
@@ -627,7 +529,7 @@ export async function getIntegrationsForOrganization(
     return [];
   }
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return [];
@@ -637,23 +539,25 @@ export async function getIntegrationsForOrganization(
     .from("integrations")
     .select("*")
     .eq("organization_id", organizationId)
-    .order("label", { ascending: true });
+    .order("provider", { ascending: true });
 
   if (error || !data) {
     return [];
   }
 
-  return data.map((integration) => ({
-    id: integration.id,
-    name: mapIntegrationName(integration),
-    description: readString(
-      integration.metadata,
-      ["description"],
-      "Connexion métier utilisée dans le parcours commercial.",
-    ),
-    status: integration.enabled ? "connected" : "not_connected",
-    actionLabel: integration.enabled ? "Configurer" : "Connecter",
-  }));
+  return data.map((integration) => {
+    const connected = integration.status === "connected";
+
+    return {
+      id: integration.id,
+      name: mapIntegrationName(integration),
+      description: integration.connected_email
+        ? `Connecté à ${integration.connected_email}`
+        : "Connexion métier utilisée dans le parcours commercial.",
+      status: connected ? "connected" : "not_connected",
+      actionLabel: connected ? "Configurer" : "Connecter",
+    };
+  });
 }
 
 function roleLabel(role: string): TeamRole {
@@ -675,7 +579,7 @@ export async function getTeamMembersForOrganization(
     return [];
   }
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return [];
@@ -692,7 +596,7 @@ export async function getTeamMembersForOrganization(
     return [];
   }
 
-  const profiles = await getProfilesById(
+  const profiles = await getProfilesByUserId(
     supabase,
     members.map((member) => member.user_id),
   );
@@ -707,7 +611,7 @@ export async function getTeamMembersForOrganization(
       email: profile?.email ?? "Email à renseigner",
       role: roleLabel(member.role),
       status,
-      lastActiveAt: profile?.updated_at ?? member.created_at,
+      lastActiveAt: profile?.created_at ?? member.created_at,
     };
   });
 }
@@ -748,16 +652,8 @@ function mapSubscriptionSummary(
   }
 
   return {
-    planName: readString(
-      subscription.metadata,
-      ["planName", "plan_name"],
-      "FalconDraft Professionnel",
-    ),
-    monthlyPrice: readString(
-      subscription.metadata,
-      ["monthlyPrice", "monthly_price"],
-      "Montant à définir",
-    ),
+    planName: subscription.plan ?? "FalconDraft Professionnel",
+    monthlyPrice: "Montant à définir",
     status: subscriptionStatusLabel(subscription.status),
     nextInvoiceLabel: subscription.current_period_end
       ? new Intl.DateTimeFormat("fr-FR", {
@@ -770,42 +666,18 @@ function mapSubscriptionSummary(
 }
 
 function mapInvoices(subscription: BillingSubscriptionRow | null): BillingInvoice[] {
-  if (!subscription) {
+  if (!subscription?.current_period_end) {
     return [];
   }
 
-  const invoiceHistory = isRecord(subscription.metadata)
-    ? subscription.metadata.invoice_history
-    : null;
-
-  if (!Array.isArray(invoiceHistory)) {
-    return subscription.current_period_end
-      ? [
-          {
-            id: `${subscription.id}-next`,
-            period: formatMonthYear(subscription.current_period_end),
-            amount: readString(
-              subscription.metadata,
-              ["monthlyPrice", "monthly_price"],
-              "Montant à définir",
-            ),
-            status: "À venir",
-          },
-        ]
-      : [];
-  }
-
-  return invoiceHistory
-    .filter(isRecord)
-    .map((invoice, index) => ({
-      id: readString(invoice, ["id"], `${subscription.id}-${index}`),
-      period: readString(invoice, ["period"], "Période à définir"),
-      amount: readString(invoice, ["amount"], "Montant à définir"),
-      status:
-        readString(invoice, ["status"], "Payée") === "À venir"
-          ? "À venir"
-          : "Payée",
-    }));
+  return [
+    {
+      id: `${subscription.id}-next`,
+      period: formatMonthYear(subscription.current_period_end),
+      amount: "Montant à définir",
+      status: "À venir",
+    },
+  ];
 }
 
 export async function getBillingForOrganization(
@@ -818,7 +690,7 @@ export async function getBillingForOrganization(
     return { summary: mapSubscriptionSummary(null), invoices: [] };
   }
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
     return { summary: mapSubscriptionSummary(null), invoices: [] };
@@ -890,11 +762,9 @@ export async function getAdminData(organizationId: string | null) {
     failedRuns: failedRuns.map((run) => ({
       id: run.id,
       name: run.type,
-      detail: run.safe_status_message ?? "Flux échoué",
+      detail: run.error_message ?? "Flux échoué",
       status: run.status,
-      updatedAt: run.updated_at,
+      updatedAt: workflowRunDate(run),
     })),
   };
 }
-
-export { sortByUpdatedAtDesc };

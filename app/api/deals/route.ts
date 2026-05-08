@@ -12,6 +12,7 @@ const createDealSchema = z.object({
   clientEmail: z.string().email(),
   phone: z.string().optional(),
   transcript: z.string().min(20),
+  amountEstimate: z.number().optional(),
   additionalContext: z.string().optional(),
   emailInstructions: z.string().optional(),
 });
@@ -130,34 +131,33 @@ export async function POST(request: NextRequest) {
 
   const values = parsedBody.data;
   const fullTranscript = [
-  values.transcript,
-  values.additionalContext
-    ? `\n\nContexte complémentaire :\n${values.additionalContext}`
-    : "",
-  values.emailInstructions
-    ? `\n\nInstructions email :\n${values.emailInstructions}`
-    : "",
-  values.phone
-    ? `\n\nTéléphone client :\n${values.phone}`
-    : "",
-]
-  .filter(Boolean)
-  .join("");
+    values.transcript,
+    values.additionalContext
+      ? `\n\nContexte complémentaire :\n${values.additionalContext}`
+      : "",
+    values.emailInstructions
+      ? `\n\nInstructions email :\n${values.emailInstructions}`
+      : "",
+    values.phone ? `\n\nTéléphone client :\n${values.phone}` : "",
+  ]
+    .filter(Boolean)
+    .join("");
 
-const { data, error } = await adminSupabase
-  .from("deals")
-  .insert({
-    organization_id: organizationId,
-    name: values.name,
-    client_company_name: values.clientCompanyName,
-    client_contact_name: values.clientContactName,
-    client_email: values.clientEmail,
-    status: "draft",
-    transcript: fullTranscript,
-    created_by: user.id,
-  })
-  .select("id")
-  .single();
+  const { data, error } = await adminSupabase
+    .from("deals")
+    .insert({
+      organization_id: organizationId,
+      name: values.name,
+      client_company_name: values.clientCompanyName,
+      client_contact_name: values.clientContactName,
+      client_email: values.clientEmail,
+      status: "draft",
+      transcript: fullTranscript,
+      amount_estimate: values.amountEstimate ?? null,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
 
   if (error || !data) {
     return jsonError(

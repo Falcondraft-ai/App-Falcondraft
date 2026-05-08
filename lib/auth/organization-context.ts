@@ -12,7 +12,7 @@ export async function loadUserOrganizationContextWithAdmin(
   supabase: SupabaseClient<Database>,
 ): Promise<CurrentUserContext> {
   const [profileResult, membershipResult] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("organization_members")
       .select(membershipSelect)

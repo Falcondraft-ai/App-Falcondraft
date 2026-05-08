@@ -70,7 +70,7 @@ export type WorkflowRunRow = {
 export type DocumentRow = {
   id: string;
   organization_id: string;
-  deal_id: string | null;
+  deal_id: string;
   type: string;
   title: string;
   url: string | null;
@@ -100,10 +100,10 @@ export type BillingSubscriptionRow = {
 
 export type AuditLogRow = {
   id: string;
-  organization_id: string | null;
+  organization_id: string;
   user_id: string | null;
   action: string;
-  entity_type: string | null;
+  entity_type: string;
   entity_id: string | null;
   created_at: string;
 };
@@ -196,7 +196,7 @@ export type Database = {
         {
           id?: string;
           organization_id: string;
-          deal_id?: string | null;
+          deal_id: string;
           type: string;
           title: string;
           url?: string | null;
@@ -235,10 +235,10 @@ export type Database = {
         AuditLogRow,
         {
           id?: string;
-          organization_id?: string | null;
+          organization_id: string;
           user_id?: string | null;
           action: string;
-          entity_type?: string | null;
+          entity_type: string;
           entity_id?: string | null;
           created_at?: string;
         }

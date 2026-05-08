@@ -31,7 +31,7 @@ export async function loadCurrentUserContext(): Promise<CurrentUserContext | nul
   }
 
   const [{ data: profile }, { data: membership }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("organization_members")
       .select("id, organization_id, user_id, role, status, created_at")
