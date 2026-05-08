@@ -20,7 +20,6 @@ const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
 type SettingsPreferences = {
   organizationName: string;
   defaultLanguage: string;
-  displayDensity: string;
 };
 
 function getDefaultPreferences(
@@ -30,7 +29,6 @@ function getDefaultPreferences(
   return {
     organizationName,
     defaultLanguage,
-    displayDensity: "comfortable",
   };
 }
 
@@ -170,21 +168,6 @@ export function GeneralSettingsForm({
                 <SelectItem value="light">Clair</SelectItem>
                 <SelectItem value="dark">Sombre</SelectItem>
                 <SelectItem value="system">Système</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="display-density">Densité d’affichage</Label>
-            <Select
-              value={preferences.displayDensity}
-              onValueChange={(value) => updatePreference("displayDensity", value)}
-            >
-              <SelectTrigger id="display-density" className="w-full">
-                <SelectValue placeholder="Choisir une densité" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="comfortable">Confortable</SelectItem>
-                <SelectItem value="compact">Plus compacte</SelectItem>
               </SelectContent>
             </Select>
           </div>

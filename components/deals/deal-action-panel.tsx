@@ -8,42 +8,47 @@ import { Button } from "@/components/ui/button";
 import {
   CALL_SUMMARY_GENERATION_EVENT,
   getCallSummaryGenerationStorageKey,
+  getProposalGenerationStorageKey,
+  PROPOSAL_GENERATION_EVENT,
 } from "@/lib/workflow-progress";
 import { cn } from "@/lib/utils";
 import type { DealStatus } from "@/types/deal";
 
 const dealActions = [
   {
+    kind: "call-summary",
     label: "Générer le compte-rendu",
     message: "Compte-rendu ajouté à la file de préparation.",
   },
   {
+    kind: "proposal-generation",
     label: "Générer la proposition",
     message: "Préparation de la proposition demandée.",
   },
   {
+    kind: "edit-proposal",
+    label: "Éditer la proposition",
+    message: "Lien d’édition à ouvrir dans la section proposition.",
+  },
+  {
+    kind: "validate-proposal",
     label: "Valider la proposition",
     message: "Proposition marquée comme validée.",
   },
   {
-    label: "Créer le document final",
-    message: "Document final placé en préparation.",
-  },
-  {
-    label: "Générer le lien de signature",
-    message: "Lien de signature prêt à vérifier.",
-  },
-  {
-    label: "Préparer le brouillon email",
-    message: "Brouillon email préparé.",
-  },
-  {
+    kind: "download-final-pdf",
     label: "Télécharger le PDF final",
     message: "PDF final prêt au téléchargement.",
   },
   {
+    kind: "open-signature-link",
     label: "Ouvrir le lien de signature",
     message: "Lien de signature ouvert.",
+  },
+  {
+    kind: "prepare-email-draft",
+    label: "Préparer le brouillon email",
+    message: "Brouillon email préparé.",
   },
 ] as const;
 
@@ -53,7 +58,11 @@ function handleMockWorkflowAction(label: string, message: string) {
   });
 }
 
-function getVisibleActionLimit(status: DealStatus, hasCallSummary: boolean) {
+function getVisibleActionLimit(
+  status: DealStatus,
+  hasCallSummary: boolean,
+  hasProposal: boolean,
+) {
   if (status === "completed") {
     return dealActions.length - 1;
   }
@@ -63,19 +72,19 @@ function getVisibleActionLimit(status: DealStatus, hasCallSummary: boolean) {
   }
 
   if (status === "signature_ready") {
-    return 5;
+    return 6;
   }
 
   if (status === "final_document_ready") {
-    return 4;
+    return 5;
   }
 
   if (status === "final_document_generating") {
-    return 3;
+    return 4;
   }
 
-  if (status === "proposal_ready" || status === "validation_pending") {
-    return 2;
+  if (hasProposal || status === "proposal_ready" || status === "validation_pending") {
+    return 3;
   }
 
   if (
@@ -93,10 +102,12 @@ export function DealActionPanel({
   dealId,
   status,
   hasCallSummary,
+  hasProposal,
 }: {
   dealId: string;
   status: DealStatus;
   hasCallSummary: boolean;
+  hasProposal: boolean;
 }) {
   const router = useRouter();
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
@@ -104,8 +115,16 @@ export function DealActionPanel({
   const [isTriggeringProposal, setIsTriggeringProposal] = React.useState(false);
   const [isCallSummaryGenerating, setIsCallSummaryGenerating] =
     React.useState(false);
+  const [isProposalGenerating, setIsProposalGenerating] = React.useState(false);
   const [isDeletingDeal, setIsDeletingDeal] = React.useState(false);
-  const visibleActionLimit = getVisibleActionLimit(status, hasCallSummary);
+  const [localActionIndex, setLocalActionIndex] = React.useState<number | null>(
+    null,
+  );
+  const visibleActionLimit = getVisibleActionLimit(
+    status,
+    hasCallSummary,
+    hasProposal,
+  );
 
   React.useEffect(() => {
     const storageKey = getCallSummaryGenerationStorageKey(dealId);
@@ -134,6 +153,33 @@ export function DealActionPanel({
       );
     };
   }, [dealId, hasCallSummary]);
+
+  React.useEffect(() => {
+    const storageKey = getProposalGenerationStorageKey(dealId);
+
+    function syncGenerationState() {
+      setIsProposalGenerating(
+        !hasProposal &&
+          (status === "proposal_generating" ||
+            Boolean(window.localStorage.getItem(storageKey))),
+      );
+    }
+
+    if (hasProposal) {
+      window.localStorage.removeItem(storageKey);
+      setIsProposalGenerating(false);
+      return;
+    }
+
+    syncGenerationState();
+    window.addEventListener("storage", syncGenerationState);
+    window.addEventListener(PROPOSAL_GENERATION_EVENT, syncGenerationState);
+
+    return () => {
+      window.removeEventListener("storage", syncGenerationState);
+      window.removeEventListener(PROPOSAL_GENERATION_EVENT, syncGenerationState);
+    };
+  }, [dealId, hasProposal, status]);
 
   async function triggerCallSummary() {
     setIsTriggeringCallSummary(true);
@@ -208,7 +254,22 @@ export function DealActionPanel({
     toast.success("Génération de proposition lancée", {
       description: "Le dossier se mettra à jour lorsque la proposition sera prête.",
     });
+    window.localStorage.setItem(
+      getProposalGenerationStorageKey(dealId),
+      new Date().toISOString(),
+    );
+    window.dispatchEvent(new Event(PROPOSAL_GENERATION_EVENT));
+    setIsProposalGenerating(true);
     router.refresh();
+  }
+
+  function runLocalAction(index: number, label: string, message: string) {
+    setLocalActionIndex(index);
+
+    window.setTimeout(() => {
+      setLocalActionIndex(null);
+      handleMockWorkflowAction(label, message);
+    }, 650);
   }
 
   async function deleteDeal() {
@@ -272,7 +333,9 @@ export function DealActionPanel({
               isDeletingDeal ||
               (index === 0 &&
                 (isTriggeringCallSummary || isCallSummaryGenerating)) ||
-              (index === 1 && isTriggeringProposal)
+              (index === 1 &&
+                (isTriggeringProposal || isProposalGenerating)) ||
+              localActionIndex !== null
             }
             onClick={() => {
               if (index === 0) {
@@ -285,7 +348,7 @@ export function DealActionPanel({
                 return;
               }
 
-              handleMockWorkflowAction(action.label, action.message);
+              runLocalAction(index, action.label, action.message);
             }}
           >
             <span className="truncate text-left">
@@ -301,11 +364,25 @@ export function DealActionPanel({
                   Déclenchement
                   <LoadingDots />
                 </>
+              ) : index === 1 && isProposalGenerating ? (
+                <>
+                  Génération en cours
+                  <LoadingDots />
+                </>
+              ) : localActionIndex === index ? (
+                <>
+                  Traitement en cours
+                  <LoadingDots />
+                </>
               ) : (
                 action.label
               )}
             </span>
-            {isAvailable && !isCallSummaryGenerating && !isTriggeringProposal ? (
+            {isAvailable &&
+            !isCallSummaryGenerating &&
+            !isTriggeringProposal &&
+            !isProposalGenerating &&
+            localActionIndex === null ? (
               <span className="text-[10px] font-medium tracking-[0.12em] uppercase opacity-70">
                 {isNextAction ? "Suivant" : "Prêt"}
               </span>
@@ -322,7 +399,9 @@ export function DealActionPanel({
             isDeletingDeal ||
             isTriggeringCallSummary ||
             isCallSummaryGenerating ||
-            isTriggeringProposal
+            isTriggeringProposal ||
+            isProposalGenerating ||
+            localActionIndex !== null
           }
           onClick={() => void deleteDeal()}
         >

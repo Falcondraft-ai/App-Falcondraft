@@ -52,6 +52,8 @@ export type Deal = {
   clientCompanyInfo?: string;
   callSummary: string;
   hasCallSummary: boolean;
+  hasProposal: boolean;
+  proposalEditUrl?: string;
   proposalTitle: string;
   proposalExcerpt: string;
   finalDocumentName: string;

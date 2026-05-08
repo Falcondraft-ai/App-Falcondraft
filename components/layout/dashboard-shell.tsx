@@ -108,15 +108,15 @@ function WorkspaceContext({
   organization: DashboardShellOrganization | null;
 }) {
   return (
-    <section className="border-y bg-background px-5 py-4">
-      <p className="text-muted-foreground text-[11px] font-medium tracking-[0.16em] uppercase">
+    <section className="border-y border-white/[0.10] bg-[#101a2a] px-5 py-4 text-[#f7f1e8]">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-white/[0.55] uppercase">
         Espace
       </p>
-      <div className="mt-2 border-l-2 border-primary pl-3">
+      <div className="mt-2 border-l-2 border-[#c69a61] pl-3">
         <p className="truncate text-sm font-semibold tracking-tight">
           {organization?.name ?? "Espace client"}
         </p>
-        <p className="text-muted-foreground mt-0.5 text-xs">
+        <p className="mt-0.5 text-xs text-white/[0.58]">
           Dossiers, documents et suivi commercial
         </p>
       </div>
@@ -146,10 +146,10 @@ function NavList({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
-                active
-                  ? "border-border bg-card text-foreground shadow-[inset_3px_0_0_var(--primary)]"
-                  : "text-muted-foreground hover:bg-card hover:text-foreground",
+                    "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "border-white/[0.12] bg-white/[0.10] text-white shadow-[inset_3px_0_0_#c69a61]"
+                      : "text-white/[0.62] hover:bg-white/[0.07] hover:text-white",
               )}
             >
               <Icon
@@ -165,7 +165,7 @@ function NavList({
 
       {showInternalAdmin ? (
         <div className="border-t pt-4">
-          <p className="text-muted-foreground px-3 pb-2 text-[11px] font-medium tracking-[0.14em] uppercase">
+          <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-white/[0.45] uppercase">
             Interne
           </p>
           <div className="space-y-1">
@@ -181,8 +181,8 @@ function NavList({
                   className={cn(
                     "group flex items-center justify-between gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
                     active
-                      ? "border-slate-900/15 bg-slate-950 text-white"
-                      : "text-muted-foreground hover:bg-card hover:text-foreground",
+                      ? "border-white/[0.12] bg-white/[0.10] text-white shadow-[inset_3px_0_0_#c69a61]"
+                      : "text-white/[0.62] hover:bg-white/[0.07] hover:text-white",
                   )}
                 >
                   <span className="flex items-center gap-3">
@@ -197,8 +197,8 @@ function NavList({
                     className={cn(
                       "border px-1.5 py-0.5 text-[10px]",
                       active
-                        ? "border-white/25 text-white/75"
-                        : "border-border text-muted-foreground",
+                        ? "border-white/[0.25] text-white/[0.75]"
+                        : "border-white/[0.15] text-white/[0.50]",
                     )}
                   >
                     Interne
@@ -265,8 +265,8 @@ export function DashboardShell({
   }
 
   return (
-    <div className="min-h-dvh bg-background">
-      <aside className="bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 hidden w-[17.5rem] border-r lg:flex lg:flex-col">
+    <div className="min-h-dvh bg-[#e7dece] dark:bg-background">
+      <aside className="fixed inset-y-0 left-0 hidden w-[17.5rem] border-r border-[#21324d] bg-[#142033] text-[#f7f1e8] lg:flex lg:flex-col">
         <div className="px-5 py-5">
           <BrandMark href="/dashboard" size="lg" />
         </div>
@@ -274,15 +274,15 @@ export function DashboardShell({
         <div className="flex-1 px-3 py-4">
           <NavList pathname={pathname} showInternalAdmin={showInternalAdmin} />
         </div>
-        <div className="border-t px-4 py-3">
-          <div className="text-muted-foreground text-xs leading-5">
+        <div className="border-t border-white/[0.10] px-4 py-3">
+          <div className="text-xs leading-5 text-white/[0.54]">
             FalconDraft · Propositions commerciales
           </div>
         </div>
       </aside>
 
       <div className="lg:pl-[17.5rem]">
-        <header className="sticky top-0 z-40 border-b bg-background">
+        <header className="sticky top-0 z-40 border-b bg-[#e7dece]/95 backdrop-blur dark:bg-background/95">
           <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -296,7 +296,10 @@ export function DashboardShell({
                     <Menu className="size-4" strokeWidth={1.75} />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-80 p-0">
+                <SheetContent
+                  side="left"
+                  className="w-80 border-[#21324d] bg-[#142033] p-0 text-[#f7f1e8]"
+                >
                   <SheetHeader className="sr-only">
                     <SheetTitle>Navigation FalconDraft</SheetTitle>
                     <SheetDescription>

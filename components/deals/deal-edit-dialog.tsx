@@ -105,7 +105,15 @@ function buildDefaultValues(deal: Deal): DealEditFormValues {
   };
 }
 
-export function DealEditDialog({ deal }: { deal: Deal }) {
+export function DealEditDialog({
+  deal,
+  triggerLabel = "Modifier",
+  triggerSize = "sm",
+}: {
+  deal: Deal;
+  triggerLabel?: string;
+  triggerSize?: "sm" | "default";
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -167,9 +175,9 @@ export function DealEditDialog({ deal }: { deal: Deal }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button type="button" variant="outline" size={triggerSize}>
           <Pencil aria-hidden="true" />
-          Modifier
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-0 sm:max-w-3xl">

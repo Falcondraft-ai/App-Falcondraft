@@ -7,6 +7,7 @@ import { WorkflowTimeline } from "@/components/common/workflow-timeline";
 import { CallSummaryPanel } from "@/components/deals/call-summary-panel";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
 import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
+import { ProposalPanel } from "@/components/deals/proposal-panel";
 import { TranscriptPanel } from "@/components/deals/transcript-panel";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getDealDetail } from "@/lib/data/supabase-app-data";
@@ -156,12 +157,12 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
                   <h3 className="text-sm font-medium">Proposition</h3>
-                  <div>
-                    <p className="text-sm font-medium">{deal.proposalTitle}</p>
-                    <p className="text-muted-foreground mt-2 text-sm leading-6">
-                      {deal.proposalExcerpt}
-                    </p>
-                  </div>
+                  <ProposalPanel
+                    dealId={deal.id}
+                    content={deal.proposalExcerpt}
+                    hasProposal={deal.hasProposal}
+                    editUrl={deal.proposalEditUrl}
+                  />
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
                   <h3 className="text-sm font-medium">Document final</h3>
@@ -194,9 +195,16 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   {deal.emailDraft.body}
                 </p>
               </div>
-              <p className="text-muted-foreground mt-3 text-xs">
-                Consigne : {deal.emailInstructions}
-              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-muted-foreground text-xs">
+                  Consigne : {deal.emailInstructions}
+                </p>
+                <DealEditDialog
+                  deal={deal}
+                  triggerLabel="Éditer les consignes"
+                  triggerSize="sm"
+                />
+              </div>
             </ActionCard>
 
             <ActionCard title="Journal d’activité">
@@ -213,6 +221,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 dealId={deal.id}
                 status={deal.status}
                 hasCallSummary={deal.hasCallSummary}
+                hasProposal={deal.hasProposal}
               />
             </ActionCard>
             <ActionCard title="Progression">

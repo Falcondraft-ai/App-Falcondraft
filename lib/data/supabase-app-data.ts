@@ -232,9 +232,14 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
   const callSummary = row.call_summary?.trim();
   const normalizedStatus = normalizeDealStatus(row.status);
   const effectiveStatus =
-    callSummary && normalizedStatus === "draft"
-      ? "call_summary_ready"
-      : normalizedStatus;
+    proposalContent &&
+    ["draft", "call_summary_ready", "proposal_generating"].includes(
+      normalizedStatus,
+    )
+      ? "proposal_ready"
+      : callSummary && normalizedStatus === "draft"
+        ? "call_summary_ready"
+        : normalizedStatus;
 
   return {
     id: row.id,
@@ -258,6 +263,7 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
     clientCompanyInfo,
     callSummary: callSummary || "Le compte-rendu sera disponible après génération.",
     hasCallSummary: Boolean(callSummary),
+    hasProposal: Boolean(proposalContent),
     proposalTitle: `Proposition — ${clientCompanyName}`,
     proposalExcerpt:
       proposalContent || "La proposition sera disponible après génération.",

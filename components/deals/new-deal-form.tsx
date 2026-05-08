@@ -133,6 +133,8 @@ export function NewDealForm() {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isImportingCompanyInfo, setIsImportingCompanyInfo] =
+    React.useState(false);
   const [stepIndex, setStepIndex] = React.useState(0);
   const [direction, setDirection] = React.useState(1);
   const [isLastStepReady, setIsLastStepReady] = React.useState(false);
@@ -181,6 +183,62 @@ export function NewDealForm() {
   function goToPreviousStep() {
     setDirection(-1);
     setStepIndex((current) => Math.max(current - 1, 0));
+  }
+
+  async function importCompanyInfoFromPappers() {
+    const companyName = form.getValues("clientCompanyName").trim();
+
+    if (!companyName) {
+      toast.error("Import impossible", {
+        description: "Renseignez d’abord le nom de l’entreprise cliente.",
+      });
+      return;
+    }
+
+    setIsImportingCompanyInfo(true);
+
+    const response = await fetch("/api/company-lookup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ companyName }),
+    }).catch(() => null);
+
+    setIsImportingCompanyInfo(false);
+
+    const result: unknown = await response?.json().catch(() => null);
+
+    if (!response?.ok) {
+      toast.error("Import Pappers impossible", {
+        description: getErrorMessage(
+          result,
+          "Utilisez le lien Pappers pour rechercher la société manuellement.",
+        ),
+      });
+      return;
+    }
+
+    if (
+      !result ||
+      typeof result !== "object" ||
+      !("companyInfo" in result) ||
+      typeof result.companyInfo !== "string"
+    ) {
+      toast.error("Import Pappers incomplet", {
+        description: "Utilisez le lien Pappers pour vérifier la société.",
+      });
+      return;
+    }
+
+    form.setValue("clientCompanyInfo", result.companyInfo, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    toast.success("Informations société importées", {
+      description: "Vous pouvez les ajuster avant de créer le dossier.",
+    });
   }
 
   async function onSubmit(valuesToSubmit: NewDealFormValues) {
@@ -537,6 +595,22 @@ export function NewDealForm() {
                                 <FormLabel>
                                   Informations société pour le devis
                                 </FormLabel>
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={
+                                    !values.clientCompanyName?.trim() ||
+                                    isImportingCompanyInfo
+                                  }
+                                  onClick={() =>
+                                    void importCompanyInfoFromPappers()
+                                  }
+                                >
+                                  {isImportingCompanyInfo
+                                    ? "Import en cours…"
+                                    : "Importer depuis Pappers"}
+                                </Button>
                                 <Button
                                   asChild
                                   variant="outline"
