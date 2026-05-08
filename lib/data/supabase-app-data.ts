@@ -138,16 +138,16 @@ async function getProfilesByUserId(
 }
 
 function lastDealAction(row: DealRow): string {
-  if (row.status === "draft") {
-    return "Dossier commercial créé";
-  }
-
   if (row.call_summary) {
     return "Compte-rendu disponible";
   }
 
   if (row.proposal_content) {
     return "Proposition disponible";
+  }
+
+  if (row.status === "draft") {
+    return "Dossier commercial créé";
   }
 
   return row.status ? `Statut : ${row.status}` : "Dernière action à renseigner";
@@ -223,6 +223,18 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
   const clientCompanyName = row.client_company_name || "Client à renseigner";
   const proposalContent = row.proposal_content?.trim();
   const parsedTranscript = parseDealTranscript(row.transcript);
+  const additionalContext =
+    row.additional_context?.trim() || parsedTranscript.additionalContext;
+  const emailInstructions =
+    row.email_instructions?.trim() || parsedTranscript.emailInstructions;
+  const clientPhone = row.client_phone?.trim() || parsedTranscript.clientPhone;
+  const clientCompanyInfo = row.client_company_info?.trim();
+  const callSummary = row.call_summary?.trim();
+  const normalizedStatus = normalizeDealStatus(row.status);
+  const effectiveStatus =
+    callSummary && normalizedStatus === "draft"
+      ? "call_summary_ready"
+      : normalizedStatus;
 
   return {
     id: row.id,
@@ -230,7 +242,7 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
     clientCompanyName,
     clientContactName: row.client_contact_name || "Contact à renseigner",
     clientEmail: row.client_email || "Email à renseigner",
-    status: normalizeDealStatus(row.status),
+    status: effectiveStatus,
     createdAt: row.created_at ?? fallbackIsoDate,
     updatedAt,
     lastAction: lastDealAction(row),
@@ -240,11 +252,12 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
     expectedCloseDate: updatedAt,
     source: "Notes d’échange",
     transcript: parsedTranscript.transcript,
-    additionalContext: parsedTranscript.additionalContext,
-    emailInstructions: parsedTranscript.emailInstructions,
-    clientPhone: parsedTranscript.clientPhone,
-    callSummary:
-      row.call_summary || "Le compte-rendu sera disponible après génération.",
+    additionalContext,
+    emailInstructions,
+    clientPhone,
+    clientCompanyInfo,
+    callSummary: callSummary || "Le compte-rendu sera disponible après génération.",
+    hasCallSummary: Boolean(callSummary),
     proposalTitle: `Proposition — ${clientCompanyName}`,
     proposalExcerpt:
       proposalContent || "La proposition sera disponible après génération.",

@@ -4,8 +4,10 @@ import { ActivityLog } from "@/components/common/activity-log";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { PageTransition } from "@/components/common/page-transition";
 import { WorkflowTimeline } from "@/components/common/workflow-timeline";
+import { CallSummaryPanel } from "@/components/deals/call-summary-panel";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
 import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
+import { TranscriptPanel } from "@/components/deals/transcript-panel";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getDealDetail } from "@/lib/data/supabase-app-data";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
@@ -84,6 +86,16 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                     <dt className="text-muted-foreground">Source</dt>
                     <dd className="mt-1">{deal.source}</dd>
                   </div>
+                  {deal.clientCompanyInfo ? (
+                    <div>
+                      <dt className="text-muted-foreground">
+                        Informations devis
+                      </dt>
+                      <dd className="mt-1 whitespace-pre-line leading-6">
+                        {deal.clientCompanyInfo}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt className="text-muted-foreground">Échéance visée</dt>
                     <dd className="mt-1">{formatDate(deal.expectedCloseDate)}</dd>
@@ -117,13 +129,10 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               title="Transcript et notes d’appel"
               description="Base de travail conservée pour garder la trace du contexte commercial."
             >
-              <p className="text-sm leading-7">{deal.transcript}</p>
-              <div className="mt-4 rounded-md border bg-secondary/50 p-3">
-                <p className="text-muted-foreground text-xs font-medium">
-                  Contexte complémentaire
-                </p>
-                <p className="mt-2 text-sm leading-6">{deal.additionalContext}</p>
-              </div>
+              <TranscriptPanel
+                transcript={deal.transcript}
+                additionalContext={deal.additionalContext}
+              />
             </ActionCard>
 
             <section className="border bg-card/80">
@@ -139,9 +148,11 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               <div className="divide-y">
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
                   <h3 className="text-sm font-medium">Compte-rendu</h3>
-                  <p className="text-muted-foreground text-sm leading-7">
-                    {deal.callSummary}
-                  </p>
+                  <CallSummaryPanel
+                    dealId={deal.id}
+                    summary={deal.callSummary}
+                    hasSummary={deal.hasCallSummary}
+                  />
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
                   <h3 className="text-sm font-medium">Proposition</h3>
@@ -198,7 +209,11 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               title="Actions"
               description="Commandes principales du cycle de proposition."
             >
-              <DealActionPanel dealId={deal.id} />
+              <DealActionPanel
+                dealId={deal.id}
+                status={deal.status}
+                hasCallSummary={deal.hasCallSummary}
+              />
             </ActionCard>
             <ActionCard title="Progression">
               <WorkflowTimeline status={deal.status} compact />

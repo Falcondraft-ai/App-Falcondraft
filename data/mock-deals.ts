@@ -23,6 +23,7 @@ export const mockDeals: Deal[] = [
       "Insister sur la capacité à transformer un programme encore mouvant en dossier maîtrisé. Éviter les promesses trop larges ; privilégier méthode, rythme de validation et qualité documentaire.",
     emailInstructions:
       "Ton sobre, direct, avec une ouverture sur un point de cadrage de 30 minutes.",
+    hasCallSummary: true,
     callSummary:
       "Atelier Archipel prépare une réponse à concours nécessitant un dossier très contrôlé : références publiques, méthodologie de coordination, calendrier de validation et annexes financières cohérentes.",
     proposalTitle: "Accompagnement proposition — Gare fluviale",
@@ -57,6 +58,7 @@ export const mockDeals: Deal[] = [
       "Mettre en avant la réutilisation contrôlée des contenus et la réduction du temps de montage des dossiers.",
     emailInstructions:
       "Message court, orienté bénéfice opérationnel et rigueur.",
+    hasCallSummary: true,
     callSummary:
       "Studio Lignage cherche une méthode reproductible pour produire des offres de rénovation tertiaire sans repartir de fichiers dispersés à chaque opportunité.",
     proposalTitle: "Système de proposition — rénovation tertiaire",
@@ -90,6 +92,7 @@ export const mockDeals: Deal[] = [
       "Conserver un ton institutionnel. Éviter toute formulation trop commerciale.",
     emailInstructions:
       "Email formel, mentionner que le document final intègre les ajustements du 3 mai.",
+    hasCallSummary: true,
     callSummary:
       "Bureau Cobalt a besoin d’un dossier AMO crédible pour un campus santé, avec une attention forte à la gouvernance, aux jalons et aux responsabilités de coordination.",
     proposalTitle: "Méthodologie AMO — campus santé",
@@ -124,6 +127,7 @@ export const mockDeals: Deal[] = [
       "Mettre en avant la précision des variantes plutôt que la vitesse seule.",
     emailInstructions:
       "Prévoir un email d’envoi simple avec mention du lien de signature.",
+    hasCallSummary: true,
     callSummary:
       "Nord Ouvrage veut fiabiliser la production de dossiers de maîtrise d’œuvre logement sans donner l’impression d’un modèle générique.",
     proposalTitle: "Production contrôlée de dossiers logement",
@@ -157,6 +161,7 @@ export const mockDeals: Deal[] = [
       "La proposition doit rester pragmatique et éviter les promesses trop ambitieuses.",
     emailInstructions:
       "Demander validation sur le périmètre avant génération du document final.",
+    hasCallSummary: true,
     callSummary:
       "Rivage Conseil veut produire rapidement une proposition complète, sans sacrifier la cohérence du périmètre et du chiffrage.",
     proposalTitle: "Accompagnement réponse appel d’offres",
@@ -190,6 +195,7 @@ export const mockDeals: Deal[] = [
       "Client sensible à la qualité de présentation et à la cohérence narrative.",
     emailInstructions:
       "Rester concis. Confirmer la disponibilité du document signé.",
+    hasCallSummary: true,
     callSummary:
       "Maison Graphite a validé la mise en place d’un système de propositions par niveau d’accompagnement.",
     proposalTitle: "Système commercial — offres design global",

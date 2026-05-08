@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { BrandMark } from "@/components/common/brand-mark";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 
@@ -26,25 +25,30 @@ export default function Home() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:py-20">
-        <section className="flex flex-col justify-center">
-          <BrandMark size="lg" />
-          <p className="text-muted-foreground mt-8 text-sm font-medium tracking-[0.18em] uppercase">
-            Espace client FalconDraft
+      <main className="mx-auto grid min-h-[calc(100vh-4.5rem)] w-full max-w-6xl items-center gap-16 px-4 py-24 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:gap-20 lg:py-28">
+        <section className="flex max-w-3xl flex-col justify-center">
+          <p className="text-muted-foreground text-sm font-medium tracking-[0.18em] uppercase">
+            Espace client
           </p>
-          <h1 className="mt-3 max-w-3xl text-4xl leading-[1.02] font-semibold tracking-[-0.055em] text-balance sm:text-6xl">
-            Le poste de travail des propositions commerciales exigeantes.
+          <h1 className="mt-8 text-4xl leading-[1.06] font-semibold tracking-[-0.055em] text-balance sm:text-6xl">
+            Piloter vos dossiers commerciaux jusqu’à l’envoi.
           </h1>
-          <p className="text-muted-foreground mt-6 max-w-2xl text-base leading-7 sm:text-lg">
+          <p className="text-muted-foreground mt-10 max-w-2xl text-base leading-8 sm:text-lg">
             FalconDraft organise le passage d’un dossier qualifié à une
             proposition professionnelle, validée puis prête à être envoyée.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-12 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
               <Link href="/login">Se connecter</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/dashboard">Accéder à l’espace client</Link>
+              <a
+                href="https://falcondraft.fr"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Découvrir la solution
+              </a>
             </Button>
           </div>
         </section>

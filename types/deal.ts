@@ -49,7 +49,9 @@ export type Deal = {
   transcript: string;
   additionalContext: string;
   emailInstructions: string;
+  clientCompanyInfo?: string;
   callSummary: string;
+  hasCallSummary: boolean;
   proposalTitle: string;
   proposalExcerpt: string;
   finalDocumentName: string;

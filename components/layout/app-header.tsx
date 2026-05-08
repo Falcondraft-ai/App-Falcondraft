@@ -7,12 +7,9 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 border-b bg-background/96">
       <div className="mx-auto flex h-18 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <BrandMark href="/" size="md" showDescriptor={false} />
-        <nav className="flex items-center gap-2">
-          <Button asChild variant="ghost">
-            <Link href="/login">Connexion</Link>
-          </Button>
+        <nav className="flex items-center">
           <Button asChild>
-            <Link href="/dashboard">Espace client</Link>
+            <Link href="/login">Accéder à l’espace client</Link>
           </Button>
         </nav>
       </div>

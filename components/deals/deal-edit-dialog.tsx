@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil } from "lucide-react";
+import { ExternalLink, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -56,10 +56,11 @@ const dealEditSchema = z.object({
       },
     ),
   transcript: z.string().trim().min(1, "Ajoutez les notes du dossier."),
-  additionalContext: z.string().optional(),
-  emailInstructions: z.string().optional(),
-  callSummary: z.string().optional(),
-  proposalContent: z.string().optional(),
+  additionalContext: z.string().trim().optional(),
+  emailInstructions: z.string().trim().optional(),
+  clientCompanyInfo: z.string().trim().optional(),
+  callSummary: z.string().trim().optional(),
+  proposalContent: z.string().trim().optional(),
 });
 
 type DealEditFormValues = z.infer<typeof dealEditSchema>;
@@ -98,6 +99,7 @@ function buildDefaultValues(deal: Deal): DealEditFormValues {
     transcript: cleanEditableValue(deal.transcript),
     additionalContext: cleanEditableValue(deal.additionalContext),
     emailInstructions: cleanEditableValue(deal.emailInstructions),
+    clientCompanyInfo: deal.clientCompanyInfo ?? "",
     callSummary: cleanEditableValue(deal.callSummary),
     proposalContent: cleanEditableValue(deal.proposalExcerpt),
   };
@@ -136,6 +138,7 @@ export function DealEditDialog({ deal }: { deal: Deal }) {
         transcript: values.transcript,
         additionalContext: values.additionalContext,
         emailInstructions: values.emailInstructions,
+        clientCompanyInfo: values.clientCompanyInfo,
         callSummary: values.callSummary,
         proposalContent: values.proposalContent,
       }),
@@ -302,6 +305,35 @@ export function DealEditDialog({ deal }: { deal: Deal }) {
                       <Textarea
                         rows={3}
                         placeholder="Ton du message, points à mentionner, prochaine étape."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="clientCompanyInfo"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <FormLabel>Informations société pour le devis</FormLabel>
+                      <Button asChild variant="outline" size="sm">
+                        <a
+                          href="https://www.pappers.fr/"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Rechercher sur Pappers
+                          <ExternalLink aria-hidden="true" />
+                        </a>
+                      </Button>
+                    </div>
+                    <FormControl>
+                      <Textarea
+                        rows={4}
+                        placeholder="Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation..."
                         {...field}
                       />
                     </FormControl>

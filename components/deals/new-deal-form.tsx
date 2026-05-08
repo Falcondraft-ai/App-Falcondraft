@@ -2,7 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ExternalLink,
+  FileText,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -45,6 +51,7 @@ const newDealSchema = z.object({
     .min(20, "Ajoutez au moins quelques notes d’échange."),
   additionalContext: z.string().trim().optional(),
   emailInstructions: z.string().trim().optional(),
+  clientCompanyInfo: z.string().trim().optional(),
 });
 
 type NewDealFormValues = z.infer<typeof newDealSchema>;
@@ -60,6 +67,7 @@ const defaultValues: NewDealFormValues = {
   transcript: "",
   additionalContext: "",
   emailInstructions: "",
+  clientCompanyInfo: "",
 };
 
 const onboardingSteps: Array<{
@@ -93,8 +101,8 @@ const onboardingSteps: Array<{
     eyebrow: "04",
     title: "Consignes de sortie",
     description:
-      "Précisez les angles importants et le ton attendu pour l’email de suivi.",
-    fields: ["additionalContext", "emailInstructions"],
+      "Précisez les angles importants, les consignes email et les informations utiles au devis.",
+    fields: ["additionalContext", "emailInstructions", "clientCompanyInfo"],
   },
 ];
 
@@ -127,6 +135,7 @@ export function NewDealForm() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [stepIndex, setStepIndex] = React.useState(0);
   const [direction, setDirection] = React.useState(1);
+  const [isLastStepReady, setIsLastStepReady] = React.useState(false);
   const form = useForm<NewDealFormValues>({
     resolver: zodResolver(newDealSchema),
     defaultValues,
@@ -137,6 +146,22 @@ export function NewDealForm() {
   const isLastStep = stepIndex === onboardingSteps.length - 1;
   const progress = ((stepIndex + 1) / onboardingSteps.length) * 100;
   const values = useWatch({ control: form.control });
+
+  React.useEffect(() => {
+    if (!isLastStep) {
+      setIsLastStepReady(false);
+      return;
+    }
+
+    setIsLastStepReady(false);
+
+    const timer = window.setTimeout(
+      () => setIsLastStepReady(true),
+      shouldReduceMotion ? 0 : 360,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [isLastStep, shouldReduceMotion]);
 
   async function goToNextStep() {
     const isStepValid = await form.trigger(currentStep.fields, {
@@ -174,9 +199,8 @@ export function NewDealForm() {
       }),
     }).catch(() => null);
 
-    setIsSubmitting(false);
-
     if (!response?.ok) {
+      setIsSubmitting(false);
       const result: unknown = await response?.json().catch(() => null);
 
       toast.error("Création impossible", {
@@ -198,6 +222,7 @@ export function NewDealForm() {
         : null;
 
     if (!dealId) {
+      setIsSubmitting(false);
       toast.error("Création impossible", {
         description: "Le dossier a été créé, mais son identifiant est manquant.",
       });
@@ -207,18 +232,15 @@ export function NewDealForm() {
     toast.success("Dossier commercial créé.", {
       description: `${valuesToSubmit.name} est prêt pour le compte-rendu.`,
     });
-    form.reset(defaultValues);
-    router.push(`/dashboard/deals/${dealId}`);
-    router.refresh();
+    router.replace(`/dashboard/deals/${dealId}`);
   }
 
   return (
     <Form {...form}>
       <form
         onSubmit={(event) => {
-          if (!isLastStep) {
+          if (!isLastStep || !isLastStepReady) {
             event.preventDefault();
-            void goToNextStep();
             return;
           }
 
@@ -229,7 +251,7 @@ export function NewDealForm() {
           <div className="grid lg:min-h-[36rem] lg:grid-cols-[19rem_1fr]">
             <aside className="border-b border-[#26344d] bg-[#142033] px-5 py-5 text-[#f7f1e8] lg:border-r lg:border-b-0">
               <div className="flex items-start gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg border border-white/15 bg-white/8">
+                <div className="flex size-10 items-center justify-center rounded-lg border border-white/15 bg-white/10">
                   <FileText className="size-4" strokeWidth={1.75} />
                 </div>
                 <div>
@@ -506,6 +528,46 @@ export function NewDealForm() {
                             </FormItem>
                           )}
                         />
+                        <FormField
+                          control={form.control}
+                          name="clientCompanyInfo"
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <FormLabel>
+                                  Informations société pour le devis
+                                </FormLabel>
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  <a
+                                    href="https://www.pappers.fr/"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Rechercher sur Pappers
+                                    <ExternalLink aria-hidden="true" />
+                                  </a>
+                                </Button>
+                              </div>
+                              <FormControl>
+                                <Textarea
+                                  rows={4}
+                                  placeholder="Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation..."
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Collez ici les informations utiles pour le devis
+                                : raison sociale, adresse, SIRET/SIREN, TVA
+                                intracommunautaire, email de facturation, etc.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                         <div className="grid gap-3 border-t pt-4 text-sm md:grid-cols-3">
                           <div>
                             <p className="text-muted-foreground text-xs">
@@ -559,7 +621,10 @@ export function NewDealForm() {
                     {Math.round(progress)}% complété
                   </span>
                   {isLastStep ? (
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || !isLastStepReady}
+                    >
                       {isSubmitting ? "Création..." : "Créer le dossier"}
                     </Button>
                   ) : (

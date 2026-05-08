@@ -5,9 +5,22 @@ import type { CurrentUserContext } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
-const callSummaryRequestSchema = z.object({
+const workflowRequestSchema = z.object({
   dealId: z.string().uuid("dealId invalide."),
 });
+
+const supportedWorkflowTypes = [
+  "call_summary",
+  "proposal_generation",
+] as const;
+
+type SupportedWorkflowType = (typeof supportedWorkflowTypes)[number];
+
+function isSupportedWorkflowType(
+  workflowType: string,
+): workflowType is SupportedWorkflowType {
+  return supportedWorkflowTypes.includes(workflowType as SupportedWorkflowType);
+}
 
 type RouteContext = {
   params: Promise<{
@@ -16,7 +29,17 @@ type RouteContext = {
 };
 
 function normalizeWorkflowType(type: string) {
-  return type === "call-summary" ? "call_summary" : type;
+  const normalizedType = type.replaceAll("-", "_");
+
+  if (normalizedType === "call_summary") {
+    return "call_summary";
+  }
+
+  if (normalizedType === "proposal_generation") {
+    return "proposal_generation";
+  }
+
+  return normalizedType;
 }
 
 type ContextErrorReason =
@@ -49,7 +72,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { type } = await context.params;
   const workflowType = normalizeWorkflowType(type);
 
-  if (workflowType !== "call_summary") {
+  if (!isSupportedWorkflowType(workflowType)) {
     return jsonError("Le workflow demandé n'est pas disponible.", 400);
   }
 
@@ -80,7 +103,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const body: unknown = await request.json().catch(() => ({}));
-  const parsedBody = callSummaryRequestSchema.safeParse(body);
+  const parsedBody = workflowRequestSchema.safeParse(body);
 
   if (!parsedBody.success) {
     return jsonError("La demande de génération est incomplète.", 400);

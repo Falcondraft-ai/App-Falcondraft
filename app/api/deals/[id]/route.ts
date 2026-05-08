@@ -7,17 +7,18 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 const dealIdSchema = z.string().uuid();
 
 const updateDealSchema = z.object({
-  name: z.string().min(3),
-  clientCompanyName: z.string().min(2),
-  clientContactName: z.string().min(2),
-  clientEmail: z.string().email(),
-  clientPhone: z.string().optional(),
-  transcript: z.string().min(1),
-  additionalContext: z.string().optional(),
-  emailInstructions: z.string().optional(),
+  name: z.string().trim().min(3),
+  clientCompanyName: z.string().trim().min(2),
+  clientContactName: z.string().trim().min(2),
+  clientEmail: z.string().trim().email(),
+  clientPhone: z.string().trim().optional(),
+  transcript: z.string().trim().min(1),
+  additionalContext: z.string().trim().optional(),
+  emailInstructions: z.string().trim().optional(),
+  clientCompanyInfo: z.string().trim().optional(),
   amountEstimate: z.number().min(0).nullable(),
-  callSummary: z.string().optional(),
-  proposalContent: z.string().optional(),
+  callSummary: z.string().trim().optional(),
+  proposalContent: z.string().trim().optional(),
 });
 
 type RouteContext = {
@@ -144,18 +145,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const values = parsedBody.data;
   const now = new Date().toISOString();
-  const fullTranscript = [
-    values.transcript,
-    values.additionalContext
-      ? `\n\nContexte complémentaire :\n${values.additionalContext}`
-      : "",
-    values.emailInstructions
-      ? `\n\nInstructions email :\n${values.emailInstructions}`
-      : "",
-    values.clientPhone ? `\n\nTéléphone client :\n${values.clientPhone}` : "",
-  ]
-    .filter(Boolean)
-    .join("");
 
   const { error } = await mutationContext.adminSupabase
     .from("deals")
@@ -164,7 +153,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       client_company_name: values.clientCompanyName,
       client_contact_name: values.clientContactName,
       client_email: values.clientEmail,
-      transcript: fullTranscript,
+      transcript: values.transcript,
+      additional_context: values.additionalContext || null,
+      email_instructions: values.emailInstructions || null,
+      client_phone: values.clientPhone || null,
+      client_company_info: values.clientCompanyInfo || null,
       amount_estimate: values.amountEstimate,
       call_summary: values.callSummary?.trim() || null,
       proposal_content: values.proposalContent?.trim() || null,

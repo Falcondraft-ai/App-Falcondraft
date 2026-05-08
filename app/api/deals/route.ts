@@ -6,15 +6,16 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const createDealSchema = z.object({
-  name: z.string().min(3),
-  clientCompanyName: z.string().min(2),
-  clientContactName: z.string().min(2),
-  clientEmail: z.string().email(),
-  phone: z.string().optional(),
-  transcript: z.string().min(20),
+  name: z.string().trim().min(3),
+  clientCompanyName: z.string().trim().min(2),
+  clientContactName: z.string().trim().min(2),
+  clientEmail: z.string().trim().email(),
+  phone: z.string().trim().optional(),
+  transcript: z.string().trim().min(20),
   amountEstimate: z.number().optional(),
-  additionalContext: z.string().optional(),
-  emailInstructions: z.string().optional(),
+  additionalContext: z.string().trim().optional(),
+  emailInstructions: z.string().trim().optional(),
+  clientCompanyInfo: z.string().trim().optional(),
 });
 
 type ContextErrorReason =
@@ -130,18 +131,6 @@ export async function POST(request: NextRequest) {
   }
 
   const values = parsedBody.data;
-  const fullTranscript = [
-    values.transcript,
-    values.additionalContext
-      ? `\n\nContexte complémentaire :\n${values.additionalContext}`
-      : "",
-    values.emailInstructions
-      ? `\n\nInstructions email :\n${values.emailInstructions}`
-      : "",
-    values.phone ? `\n\nTéléphone client :\n${values.phone}` : "",
-  ]
-    .filter(Boolean)
-    .join("");
 
   const { data, error } = await adminSupabase
     .from("deals")
@@ -152,7 +141,11 @@ export async function POST(request: NextRequest) {
       client_contact_name: values.clientContactName,
       client_email: values.clientEmail,
       status: "draft",
-      transcript: fullTranscript,
+      transcript: values.transcript,
+      additional_context: values.additionalContext || null,
+      email_instructions: values.emailInstructions || null,
+      client_phone: values.phone || null,
+      client_company_info: values.clientCompanyInfo || null,
       amount_estimate: values.amountEstimate ?? null,
       created_by: user.id,
     })

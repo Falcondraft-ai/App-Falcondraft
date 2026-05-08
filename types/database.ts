@@ -47,6 +47,10 @@ export type DealRow = {
   client_email: string | null;
   status: string;
   transcript: string | null;
+  additional_context: string | null;
+  email_instructions: string | null;
+  client_phone: string | null;
+  client_company_info: string | null;
   call_summary: string | null;
   proposal_content: string | null;
   amount_estimate: number | null;
@@ -167,6 +171,10 @@ export type Database = {
           client_email?: string | null;
           status?: string;
           transcript?: string | null;
+          additional_context?: string | null;
+          email_instructions?: string | null;
+          client_phone?: string | null;
+          client_company_info?: string | null;
           call_summary?: string | null;
           proposal_content?: string | null;
           amount_estimate?: number | null;
