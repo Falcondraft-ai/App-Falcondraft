@@ -165,7 +165,7 @@ function NavList({
 
       {showInternalAdmin ? (
         <div className="border-t pt-4">
-          <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-white/[0.45] uppercase">
+          <p className="text-muted-foreground px-3 pb-2 text-[11px] font-medium tracking-[0.14em] uppercase">
             Interne
           </p>
           <div className="space-y-1">
@@ -296,10 +296,7 @@ export function DashboardShell({
                     <Menu className="size-4" strokeWidth={1.75} />
                   </Button>
                 </SheetTrigger>
-                <SheetContent
-                  side="left"
-                  className="w-80 border-[#21324d] bg-[#142033] p-0 text-[#f7f1e8]"
-                >
+                <SheetContent side="left" className="w-80 p-0">
                   <SheetHeader className="sr-only">
                     <SheetTitle>Navigation FalconDraft</SheetTitle>
                     <SheetDescription>
