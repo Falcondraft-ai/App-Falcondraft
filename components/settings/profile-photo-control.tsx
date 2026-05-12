@@ -144,7 +144,7 @@ export function ProfilePhotoControl({
                 visage.
               </DialogDescription>
             </DialogHeader>
-            <div className="border bg-muted/45 p-3 text-sm">
+            <div className="rounded-md border bg-muted/45 p-3 text-sm">
               <p className="font-medium">Formats acceptés</p>
               <p className="text-muted-foreground mt-1">
                 PNG, JPG ou WebP. Taille maximale : 2 Mo.

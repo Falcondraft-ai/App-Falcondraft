@@ -75,7 +75,7 @@ export default function LoginPage() {
                 </h1>
               </div>
 
-              <div className="border bg-card">
+              <div className="overflow-hidden rounded-xl border bg-card shadow-[0_18px_55px_-45px_rgba(20,32,51,0.55)]">
                 <div className="border-b px-6 py-5">
                   <p className="text-sm font-medium">Compte professionnel</p>
                   <p className="text-muted-foreground mt-1 text-sm leading-6">

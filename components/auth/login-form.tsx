@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 export function LoginForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   return (
     <form
@@ -79,14 +81,33 @@ export function LoginForm() {
             Mot de passe oublié
           </button>
         </div>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          placeholder="••••••••"
-          autoComplete="current-password"
-          required
-        />
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            className="pr-10"
+            required
+          />
+          <button
+            type="button"
+            aria-label={
+              showPassword
+                ? "Masquer le mot de passe"
+                : "Afficher le mot de passe"
+            }
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md transition-colors"
+            onClick={() => setShowPassword((current) => !current)}
+          >
+            {showPassword ? (
+              <EyeOff className="size-4" aria-hidden="true" />
+            ) : (
+              <Eye className="size-4" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </div>
       <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
         {isSubmitting ? "Connexion..." : "Se connecter"}

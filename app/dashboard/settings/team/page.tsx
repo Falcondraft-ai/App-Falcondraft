@@ -21,7 +21,7 @@ export default async function TeamSettingsPage() {
 
   return (
     <PageTransition>
-      <section className="border bg-card/80">
+      <section className="rounded-lg border bg-card/80">
         <div className="flex flex-col justify-between gap-3 border-b px-4 py-3 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-sm font-semibold">Membres de l’équipe</h2>

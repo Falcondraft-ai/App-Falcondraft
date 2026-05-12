@@ -304,7 +304,7 @@ export function CallSummaryPanel({
 
   if (!effectiveHasSummary) {
     return (
-      <div className="border bg-muted/35 p-3">
+      <div className="rounded-md border bg-muted/35 p-3">
         <p className="text-sm font-medium">
           {isPolling ? (
             <>
@@ -327,7 +327,7 @@ export function CallSummaryPanel({
   return (
     <motion.div
       className={cn(
-        "relative overflow-hidden border bg-card p-3",
+        "relative overflow-hidden rounded-md border bg-card p-3",
         justCompleted ? "border-primary/80" : "border-border",
       )}
     >

@@ -102,6 +102,49 @@ function normalizeDocumentStatus(document: DocumentRow): DocumentStatus {
   return "draft";
 }
 
+function extractGammaUrl(value: string | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const match = value.match(/https?:\/\/[^\s)]+/i);
+
+  if (!match) {
+    return undefined;
+  }
+
+  const url = match[0].replace(/[.,;:!?]+$/, "");
+
+  return url.toLowerCase().includes("gamma") ? url : undefined;
+}
+
+function getProposalEditUrl(
+  deal: DealRow,
+  documents: DocumentRow[] = [],
+): string | undefined {
+  const matchingDocument = documents.find((document) => {
+    if (!document.url) {
+      return false;
+    }
+
+    const type = document.type.toLowerCase();
+    const title = document.title.toLowerCase();
+    const url = document.url.toLowerCase();
+
+    return (
+      url.includes("gamma") ||
+      type.includes("gamma") ||
+      title.includes("gamma") ||
+      title.includes("édition") ||
+      title.includes("edition") ||
+      (type.includes("proposal") && !type.includes("pdf")) ||
+      (type.includes("proposition") && !type.includes("pdf"))
+    );
+  });
+
+  return matchingDocument?.url ?? extractGammaUrl(deal.proposal_content);
+}
+
 function getMonthLabel(date: string): string {
   return new Intl.DateTimeFormat("fr-FR", { month: "short" })
     .format(new Date(date))
@@ -218,7 +261,11 @@ function parseDealTranscript(value: string | null): ParsedDealTranscript {
   return parsedTranscript;
 }
 
-function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
+function mapDealRow(
+  row: DealRow,
+  owner: ProfileRow | null,
+  documents: DocumentRow[] = [],
+): Deal {
   const updatedAt = row.updated_at ?? row.created_at ?? fallbackIsoDate;
   const clientCompanyName = row.client_company_name || "Client à renseigner";
   const proposalContent = row.proposal_content?.trim();
@@ -264,6 +311,7 @@ function mapDealRow(row: DealRow, owner: ProfileRow | null): Deal {
     callSummary: callSummary || "Le compte-rendu sera disponible après génération.",
     hasCallSummary: Boolean(callSummary),
     hasProposal: Boolean(proposalContent),
+    proposalEditUrl: getProposalEditUrl(row, documents),
     proposalTitle: `Proposition — ${clientCompanyName}`,
     proposalExcerpt:
       proposalContent || "La proposition sera disponible après génération.",
@@ -336,15 +384,17 @@ export async function getDealDetail(
 
   const owners = await getProfilesByUserId(supabase, [dealRow.created_by]);
 
-  const [workflowRuns, auditLogs] = await Promise.all([
+  const [workflowRuns, auditLogs, documents] = await Promise.all([
     getWorkflowRunsForOrganization(organizationId, dealId),
     getAuditLogsForOrganization(organizationId, dealId),
+    getDocumentRowsForDeal(organizationId, dealId),
   ]);
 
   return {
     deal: mapDealRow(
       dealRow,
       dealRow.created_by ? owners.get(dealRow.created_by) ?? null : null,
+      documents,
     ),
     activity: mapActivity(workflowRuns, auditLogs),
   };
@@ -544,6 +594,31 @@ async function getDocumentRowsForOrganization(
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data;
+}
+
+async function getDocumentRowsForDeal(
+  organizationId: string,
+  dealId: string,
+): Promise<DocumentRow[]> {
+  const supabase = await getSupabaseDataClient();
+
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("deal_id", dealId)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   if (error || !data) {
     return [];

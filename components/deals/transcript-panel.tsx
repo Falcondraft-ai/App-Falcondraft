@@ -63,7 +63,7 @@ export function TranscriptPanel({
   );
 
   return (
-    <div className="border bg-card p-3">
+    <div className="rounded-md border bg-card p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium">Transcript d’appel</p>

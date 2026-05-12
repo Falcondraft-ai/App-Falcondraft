@@ -15,7 +15,7 @@ export function BillingSummaryCard({
   summary: BillingSubscriptionSummary;
 }) {
   return (
-    <section className="border bg-card">
+    <section className="rounded-lg border bg-card">
       <div className="grid gap-4 border-b p-4 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <p className="text-muted-foreground text-sm">Abonnement actuel</p>

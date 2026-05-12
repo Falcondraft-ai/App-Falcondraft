@@ -124,7 +124,7 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
   });
 
   return (
-    <section className="border bg-card/75">
+    <section className="rounded-lg border bg-card/75">
       <div className="grid gap-3 border-b p-4 md:grid-cols-[1fr_auto]">
         <div className="relative">
           <Search

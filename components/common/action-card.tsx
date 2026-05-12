@@ -10,7 +10,7 @@ export function ActionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="border bg-card/80">
+    <section className="overflow-hidden rounded-lg border bg-card/80">
       <div className="border-b px-4 py-3.5">
         <h2 className="text-[0.82rem] font-semibold tracking-[-0.01em]">
           {title}

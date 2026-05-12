@@ -302,7 +302,7 @@ export function ProposalPanel({
 
   if (!effectiveHasProposal) {
     return (
-      <div className="border bg-muted/35 p-3">
+      <div className="rounded-md border bg-muted/35 p-3">
         <p className="text-sm font-medium">
           {isPolling ? (
             <>
@@ -325,7 +325,7 @@ export function ProposalPanel({
   return (
     <motion.div
       className={cn(
-        "relative overflow-hidden border bg-card p-3",
+        "relative overflow-hidden rounded-md border bg-card p-3",
         justCompleted ? "border-primary/80" : "border-border",
       )}
     >
@@ -337,37 +337,32 @@ export function ProposalPanel({
           transition={{ duration: 1.6, ease: "easeOut" }}
         />
       ) : null}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-medium">Lien d’édition</p>
-          {editUrl ? (
-            <a
-              href={editUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary mt-1 inline-flex text-sm font-medium hover:underline"
-            >
-              Ouvrir l’espace d’édition
-            </a>
-          ) : (
+      <Dialog>
+        <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Lien d’édition</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              Lien disponible après synchronisation de la proposition.
+              Accès à l’espace de travail externe pour ajuster la proposition.
             </p>
-          )}
-        </div>
-        <Dialog>
-          <div className="flex flex-wrap gap-2">
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                <ExternalLink aria-hidden="true" />
-                Ouvrir
+          </div>
+          <div className="flex items-center gap-2">
+            {editUrl ? (
+              <Button asChild type="button" size="sm" className="shadow-none">
+                <a href={editUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink aria-hidden="true" />
+                  Éditer
+                </a>
               </Button>
-            </DialogTrigger>
+            ) : (
+              <Button type="button" size="sm" disabled>
+                Édition indisponible
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="px-2 text-destructive/75 hover:bg-destructive/10 hover:text-destructive"
               disabled={isDeletingProposal}
               onClick={() => void deleteProposal()}
             >
@@ -375,6 +370,19 @@ export function ProposalPanel({
               {isDeletingProposal ? "Suppression..." : "Supprimer"}
             </Button>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium">Contenu de la proposition</p>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                <ExternalLink aria-hidden="true" />
+                Ouvrir le contenu
+              </Button>
+            </DialogTrigger>
+          </div>
+          <ProposalSectionList sections={previewSections} compact />
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Contenu de la proposition</DialogTitle>
@@ -384,13 +392,8 @@ export function ProposalPanel({
             </DialogHeader>
             <ProposalSectionList sections={sections} />
           </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="mt-4 border-t pt-4">
-        <p className="mb-3 text-sm font-medium">Contenu de la proposition</p>
-        <ProposalSectionList sections={previewSections} compact />
-      </div>
+        </div>
+      </Dialog>
 
       {sections.length > previewSections.length ? (
         <p className="text-muted-foreground mt-3 text-xs">

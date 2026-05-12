@@ -103,11 +103,13 @@ export function DealActionPanel({
   status,
   hasCallSummary,
   hasProposal,
+  proposalEditUrl,
 }: {
   dealId: string;
   status: DealStatus;
   hasCallSummary: boolean;
   hasProposal: boolean;
+  proposalEditUrl?: string;
 }) {
   const router = useRouter();
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
@@ -272,6 +274,18 @@ export function DealActionPanel({
     }, 650);
   }
 
+  function openProposalEditor() {
+    if (!proposalEditUrl) {
+      toast.error("Lien d’édition indisponible", {
+        description:
+          "Le lien sera disponible dès que la proposition aura été synchronisée.",
+      });
+      return;
+    }
+
+    window.open(proposalEditUrl, "_blank", "noopener,noreferrer");
+  }
+
   async function deleteDeal() {
     const confirmed = window.confirm(
       "Supprimer définitivement ce dossier commercial ? Cette action est irréversible.",
@@ -345,6 +359,11 @@ export function DealActionPanel({
 
               if (index === 1) {
                 void triggerProposalGeneration();
+                return;
+              }
+
+              if (action.kind === "edit-proposal") {
+                openProposalEditor();
                 return;
               }
 

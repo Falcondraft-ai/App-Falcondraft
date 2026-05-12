@@ -34,7 +34,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <header className="grid gap-4 border-b bg-card/45 p-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <header className="grid gap-4 rounded-lg border bg-card/45 p-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
               Dossier commercial
@@ -136,7 +136,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               />
             </ActionCard>
 
-            <section className="border bg-card/80">
+            <section className="overflow-hidden rounded-lg border bg-card/80">
               <div className="border-b px-4 py-3.5">
                 <h2 className="text-[0.82rem] font-semibold tracking-[-0.01em]">
                   Production documentaire
@@ -222,6 +222,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 status={deal.status}
                 hasCallSummary={deal.hasCallSummary}
                 hasProposal={deal.hasProposal}
+                proposalEditUrl={deal.proposalEditUrl}
               />
             </ActionCard>
             <ActionCard title="Progression">

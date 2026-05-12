@@ -12,7 +12,7 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <PageTransition>
-      <section className="border bg-card/80">
+      <section className="rounded-lg border bg-card/80">
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-semibold">Intégrations</h2>
           <p className="text-muted-foreground mt-1 text-sm">

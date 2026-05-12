@@ -109,7 +109,7 @@ export function GeneralSettingsForm({
 
   return (
     <div className="space-y-5">
-      <section className="border bg-card/80">
+      <section className="rounded-lg border bg-card/80">
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-semibold">Profil</h2>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -121,7 +121,7 @@ export function GeneralSettingsForm({
         </div>
       </section>
 
-      <section className="border bg-card/80">
+      <section className="rounded-lg border bg-card/80">
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-semibold">Préférences</h2>
           <p className="text-muted-foreground mt-1 text-sm">

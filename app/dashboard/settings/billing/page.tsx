@@ -16,7 +16,7 @@ export default async function BillingSettingsPage() {
           invoices={billing.invoices}
           summary={billing.summary}
         />
-        <section className="border bg-card/80 p-4">
+        <section className="rounded-lg border bg-card/80 p-4">
           <h2 className="text-sm font-semibold">Notes de facturation</h2>
           <p className="text-muted-foreground mt-2 max-w-3xl text-sm leading-6">
             Les informations d’abonnement, les échéances et les factures sont

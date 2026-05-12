@@ -19,7 +19,7 @@ export default async function DocumentsPage() {
           title="Documents générés"
           description="Propositions, devis, documents finaux et liens de signature associés aux dossiers commerciaux."
         />
-        <section className="border bg-card/75">
+        <section className="rounded-lg border bg-card/75">
           <div className="border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Bibliothèque de travail</h2>
             <p className="text-muted-foreground mt-1 text-sm">

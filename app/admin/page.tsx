@@ -62,7 +62,7 @@ export default async function AdminPage() {
   if (!hasInternalAccess) {
     return (
       <PageTransition>
-        <section className="border bg-card p-6">
+        <section className="rounded-lg border bg-card p-6">
           <p className="text-muted-foreground text-sm">Accès réservé</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
             Page interne FalconDraft
@@ -99,7 +99,7 @@ export default async function AdminPage() {
 
         <section className="grid gap-3 md:grid-cols-4">
           {adminData.metrics.map((metric) => (
-            <div key={metric.label} className="border bg-card p-4">
+            <div key={metric.label} className="rounded-lg border bg-card p-4">
               <p className="text-muted-foreground text-xs font-medium">
                 {metric.label}
               </p>

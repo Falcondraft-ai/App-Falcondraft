@@ -66,7 +66,7 @@ export default async function DashboardPage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-          <section className="border bg-card/75">
+          <section className="rounded-lg border bg-card/75">
             <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold">
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          <section className="border bg-card/75">
+          <section className="rounded-lg border bg-card/75">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">Statut du flux</h2>
               <p className="text-muted-foreground mt-1 text-sm">
@@ -162,7 +162,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="border bg-card/75">
+          <section className="rounded-lg border bg-card/75">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">Activité de génération</h2>
               <p className="text-muted-foreground mt-1 text-sm">
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <section className="border bg-card/75">
+          <section className="rounded-lg border bg-card/75">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">Journal récent</h2>
               <p className="text-muted-foreground mt-1 text-sm">

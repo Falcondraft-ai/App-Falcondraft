@@ -108,19 +108,28 @@ function WorkspaceContext({
   organization: DashboardShellOrganization | null;
 }) {
   return (
-    <section className="border-y border-white/[0.10] bg-[#101a2a] px-5 py-4 text-[#f7f1e8]">
-      <p className="text-[11px] font-medium tracking-[0.16em] text-white/[0.55] uppercase">
-        Espace
-      </p>
-      <div className="mt-2 border-l-2 border-[#c69a61] pl-3">
+    <section className="flex min-h-24 items-center border-y border-white/[0.10] bg-[#101a2a] px-5 py-4 text-[#f7f1e8]">
+      <div className="border-l-2 border-[#c69a61] pl-3">
         <p className="truncate text-sm font-semibold tracking-tight">
-          {organization?.name ?? "Espace client"}
+          Production commerciale
         </p>
-        <p className="mt-0.5 text-xs text-white/[0.58]">
-          Dossiers, documents et suivi commercial
+        <p className="mt-0.5 truncate text-xs text-white/[0.58]">
+          {organization?.name ?? "Dossiers, documents et suivi"}
         </p>
       </div>
     </section>
+  );
+}
+
+function SidebarBrandHeader() {
+  return (
+    <div className="flex h-16 items-center border-b border-[#d8ccba] bg-[#e7dece] px-5 text-foreground dark:bg-card">
+      <BrandMark
+        href="/dashboard"
+        size="md"
+        className="[&_[data-slot=brand-descriptor]]:text-[#5f6978]"
+      />
+    </div>
   );
 }
 
@@ -146,10 +155,10 @@ function NavList({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                    "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
-                    active
-                      ? "border-white/[0.12] bg-white/[0.10] text-white shadow-[inset_3px_0_0_#c69a61]"
-                      : "text-white/[0.62] hover:bg-white/[0.07] hover:text-white",
+                "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                active
+                  ? "bg-white/[0.075] text-white shadow-[inset_2px_0_0_#c69a61]"
+                  : "text-white/[0.62] hover:bg-white/[0.055] hover:text-white",
               )}
             >
               <Icon
@@ -165,7 +174,7 @@ function NavList({
 
       {showInternalAdmin ? (
         <div className="border-t pt-4">
-          <p className="text-muted-foreground px-3 pb-2 text-[11px] font-medium tracking-[0.14em] uppercase">
+          <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-white/[0.45] uppercase">
             Interne
           </p>
           <div className="space-y-1">
@@ -179,10 +188,10 @@ function NavList({
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "group flex items-center justify-between gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors",
+                    "group flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                     active
-                      ? "border-white/[0.12] bg-white/[0.10] text-white shadow-[inset_3px_0_0_#c69a61]"
-                      : "text-white/[0.62] hover:bg-white/[0.07] hover:text-white",
+                      ? "bg-white/[0.075] text-white shadow-[inset_2px_0_0_#c69a61]"
+                      : "text-white/[0.62] hover:bg-white/[0.055] hover:text-white",
                   )}
                 >
                   <span className="flex items-center gap-3">
@@ -266,10 +275,8 @@ export function DashboardShell({
 
   return (
     <div className="min-h-dvh bg-[#e7dece] dark:bg-background">
-      <aside className="fixed inset-y-0 left-0 hidden w-[17.5rem] border-r border-[#21324d] bg-[#142033] text-[#f7f1e8] lg:flex lg:flex-col">
-        <div className="px-5 py-5">
-          <BrandMark href="/dashboard" size="lg" />
-        </div>
+      <aside className="fixed inset-y-0 left-0 hidden w-[17.5rem] border-r border-[#cfc2ad] bg-[#142033] text-[#f7f1e8] lg:flex lg:flex-col">
+        <SidebarBrandHeader />
         <WorkspaceContext organization={organization} />
         <div className="flex-1 px-3 py-4">
           <NavList pathname={pathname} showInternalAdmin={showInternalAdmin} />
@@ -296,7 +303,10 @@ export function DashboardShell({
                     <Menu className="size-4" strokeWidth={1.75} />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-80 p-0">
+                <SheetContent
+                  side="left"
+                  className="w-80 border-[#21324d] bg-[#142033] p-0 text-[#f7f1e8]"
+                >
                   <SheetHeader className="sr-only">
                     <SheetTitle>Navigation FalconDraft</SheetTitle>
                     <SheetDescription>
@@ -304,9 +314,7 @@ export function DashboardShell({
                     </SheetDescription>
                   </SheetHeader>
                   <div className="flex h-full flex-col">
-                    <div className="px-5 py-5">
-                      <BrandMark href="/dashboard" size="lg" />
-                    </div>
+                    <SidebarBrandHeader />
                     <WorkspaceContext organization={organization} />
                     <div className="flex-1 px-3 py-4">
                       <NavList

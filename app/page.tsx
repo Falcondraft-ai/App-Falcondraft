@@ -53,7 +53,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="self-center border bg-card">
+        <section className="self-center rounded-lg border bg-card">
           <div className="grid grid-cols-[6px_1fr] border-b">
             <div className="bg-primary" aria-hidden="true" />
             <div className="px-5 py-4">
