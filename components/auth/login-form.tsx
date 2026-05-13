@@ -1,9 +1,9 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
+import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,18 +68,12 @@ export function LoginForm() {
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="password">Mot de passe</Label>
-          <button
-            type="button"
-            onClick={() => {
-              toast("Réinitialisation du mot de passe", {
-                description:
-                  "Les instructions seront envoyées à l’adresse indiquée.",
-              });
-            }}
+          <a
+            href="/forgot-password"
             className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
           >
             Mot de passe oublié
-          </button>
+          </a>
         </div>
         <div className="relative">
           <Input
@@ -91,22 +85,10 @@ export function LoginForm() {
             className="pr-10"
             required
           />
-          <button
-            type="button"
-            aria-label={
-              showPassword
-                ? "Masquer le mot de passe"
-                : "Afficher le mot de passe"
-            }
-            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md transition-colors"
-            onClick={() => setShowPassword((current) => !current)}
-          >
-            {showPassword ? (
-              <EyeOff className="size-4" aria-hidden="true" />
-            ) : (
-              <Eye className="size-4" aria-hidden="true" />
-            )}
-          </button>
+          <PasswordVisibilityToggle
+            visible={showPassword}
+            onToggle={() => setShowPassword((current) => !current)}
+          />
         </div>
       </div>
       <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>

@@ -24,7 +24,7 @@ export default async function TeamSettingsPage() {
       <section className="rounded-lg border bg-card/80">
         <div className="flex flex-col justify-between gap-3 border-b px-4 py-3 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-semibold">Membres de l’équipe</h2>
+            <h2 className="text-sm font-semibold">Collaborateurs</h2>
             <p className="text-muted-foreground mt-1 text-sm">
               Rôles, invitations et disponibilité des membres de l’espace.
             </p>

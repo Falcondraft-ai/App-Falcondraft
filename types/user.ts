@@ -1,4 +1,4 @@
-export type TeamRole = "Propriétaire" | "Administrateur" | "Membre";
+export type TeamRole = "Propriétaire" | "Gestionnaire" | "Collaborateur";
 
 export type TeamMemberStatus = "Actif" | "Invitation envoyée";
 

@@ -836,10 +836,10 @@ function roleLabel(role: string): TeamRole {
   }
 
   if (role === "admin") {
-    return "Administrateur";
+    return "Gestionnaire";
   }
 
-  return "Membre";
+  return "Collaborateur";
 }
 
 export async function getTeamMembersForOrganization(
@@ -1009,7 +1009,7 @@ export async function getAdminData(organizationId: string | null) {
       {
         label: "Utilisateurs",
         value: String(members.length),
-        detail: "Membres de l’espace",
+        detail: "Collaborateurs de l’espace",
       },
       {
         label: "Opportunités",

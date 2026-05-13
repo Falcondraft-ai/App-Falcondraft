@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       <div className="space-y-6">
         <PageHeader
           eyebrow="Tableau de bord"
-          title="Pilotage des propositions"
+          title="Suivi commercial"
           description="Vue de travail pour suivre les dossiers commerciaux, les documents et les étapes de validation."
           actions={
             <Button asChild>
@@ -134,9 +134,9 @@ export default async function DashboardPage() {
 
           <section className="rounded-lg border bg-card/75">
             <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Statut du flux</h2>
+              <h2 className="text-sm font-semibold">Dossier à suivre</h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Progression du dossier prioritaire.
+                Prochaine avancée commerciale à surveiller.
               </p>
             </div>
             <div className="p-4">
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
                 </>
               ) : (
                 <p className="text-muted-foreground text-sm">
-                  Aucun flux prioritaire pour le moment.
+                  Aucun dossier prioritaire pour le moment.
                 </p>
               )}
             </div>

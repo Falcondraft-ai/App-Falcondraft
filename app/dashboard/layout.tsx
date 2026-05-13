@@ -7,10 +7,10 @@ function roleLabel(role: string | null | undefined) {
   }
 
   if (role === "admin") {
-    return "Administrateur";
+    return "Gestionnaire";
   }
 
-  return "Membre";
+  return "Collaborateur";
 }
 
 function canViewInternalAdmin(role: string | null | undefined) {
