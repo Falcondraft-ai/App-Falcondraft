@@ -1,20 +1,13 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireCurrentUserContext } from "@/lib/auth/session";
+import { getWorkspaceRoleLabel } from "@/lib/invitations/shared";
 
 function roleLabel(role: string | null | undefined) {
-  if (role === "owner") {
-    return "Propriétaire";
-  }
-
-  if (role === "admin") {
-    return "Gestionnaire";
-  }
-
-  return "Collaborateur";
+  return role ? getWorkspaceRoleLabel(role) : "Collaborateur";
 }
 
 function canViewInternalAdmin(role: string | null | undefined) {
-  return role === "owner" || role === "admin";
+  return role === "owner" || role === "manager" || role === "admin";
 }
 
 export default async function DashboardLayout({

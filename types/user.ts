@@ -1,4 +1,8 @@
-export type TeamRole = "Propriétaire" | "Gestionnaire" | "Collaborateur";
+export type TeamRole =
+  | "Propriétaire"
+  | "Gestionnaire"
+  | "Collaborateur"
+  | "Lecture seule";
 
 export type TeamMemberStatus = "Actif" | "Invitation envoyée";
 
@@ -9,6 +13,15 @@ export type TeamMember = {
   role: TeamRole;
   status: TeamMemberStatus;
   lastActiveAt: string;
+};
+
+export type PendingInvitation = {
+  id: string;
+  email: string;
+  role: TeamRole;
+  status: TeamMemberStatus;
+  expiresAt: string;
+  createdAt: string;
 };
 
 export type IntegrationStatus = "connected" | "not_connected";

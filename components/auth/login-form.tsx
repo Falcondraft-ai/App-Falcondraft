@@ -9,10 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function LoginForm() {
+function getSafeNextPath(value: string | undefined) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/dashboard";
+  }
+
+  return value;
+}
+
+export function LoginForm({ nextPath }: { nextPath?: string }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const safeNextPath = getSafeNextPath(nextPath);
 
   return (
     <form
@@ -50,7 +59,7 @@ export function LoginForm() {
         toast.success("Connexion validée", {
           description: "Ouverture de votre espace FalconDraft.",
         });
-        router.replace("/dashboard");
+        router.replace(safeNextPath);
         router.refresh();
       }}
     >
@@ -91,7 +100,12 @@ export function LoginForm() {
           />
         </div>
       </div>
-      <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        className="w-full"
+        size="lg"
+        disabled={isSubmitting}
+      >
         {isSubmitting ? "Connexion..." : "Se connecter"}
       </Button>
     </form>

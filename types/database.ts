@@ -33,9 +33,24 @@ export type OrganizationMemberRow = {
   id: string;
   organization_id: string;
   user_id: string;
-  role: "owner" | "admin" | "member" | "viewer" | string;
+  role: "owner" | "manager" | "admin" | "member" | "viewer" | string;
   status: "active" | "inactive" | "invited" | string;
   created_at: string;
+};
+
+export type OrganizationInvitationRow = {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: "owner" | "manager" | "member" | "viewer" | string;
+  invited_by: string;
+  token_hash: string;
+  status: "pending" | "accepted" | "expired" | "revoked" | string;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type DealRow = {
@@ -162,6 +177,24 @@ export type Database = {
           role?: string;
           status?: string;
           created_at?: string;
+        }
+      >;
+
+      organization_invitations: TableDefinition<
+        OrganizationInvitationRow,
+        {
+          id?: string;
+          organization_id: string;
+          email: string;
+          role?: string;
+          invited_by: string;
+          token_hash: string;
+          status?: string;
+          expires_at: string;
+          accepted_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
         }
       >;
 

@@ -20,10 +20,12 @@ import type {
   BillingInvoice,
   BillingSubscriptionSummary,
   IntegrationItem,
+  PendingInvitation,
   TeamMember,
   TeamMemberStatus,
   TeamRole,
 } from "@/types/user";
+import { getWorkspaceRoleLabel } from "@/lib/invitations/shared";
 import type {
   AuditLogRow,
   BillingSubscriptionRow,
@@ -203,10 +205,13 @@ function getMonthLabel(date: string): string {
     .replace(".", "");
 }
 
-export function sortByUpdatedAtDesc<T extends { created_at: string }>(items: T[]) {
+export function sortByUpdatedAtDesc<T extends { created_at: string }>(
+  items: T[],
+) {
   return [...items].sort(
     (first, second) =>
-      new Date(second.created_at).getTime() - new Date(first.created_at).getTime(),
+      new Date(second.created_at).getTime() -
+      new Date(first.created_at).getTime(),
   );
 }
 
@@ -381,7 +386,8 @@ function mapDealRow(
     emailInstructions,
     clientPhone,
     clientCompanyInfo,
-    callSummary: callSummary || "Le compte-rendu sera disponible après génération.",
+    callSummary:
+      callSummary || "Le compte-rendu sera disponible après génération.",
     hasCallSummary: Boolean(callSummary),
     hasProposal: Boolean(proposalContent),
     proposalEditUrl: getProposalEditUrl(row, documents),
@@ -436,7 +442,10 @@ export async function getDealsForOrganization(
   );
 
   return data.map((deal) =>
-    mapDealRow(deal, deal.created_by ? owners.get(deal.created_by) ?? null : null),
+    mapDealRow(
+      deal,
+      deal.created_by ? (owners.get(deal.created_by) ?? null) : null,
+    ),
   );
 }
 
@@ -476,7 +485,7 @@ export async function getDealDetail(
   return {
     deal: mapDealRow(
       dealRow,
-      dealRow.created_by ? owners.get(dealRow.created_by) ?? null : null,
+      dealRow.created_by ? (owners.get(dealRow.created_by) ?? null) : null,
       documents,
     ),
     activity: mapActivity(workflowRuns, auditLogs),
@@ -585,7 +594,8 @@ function mapActivity(
   return [...runEvents, ...auditEvents]
     .sort(
       (first, second) =>
-        new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime(),
+        new Date(second.createdAt).getTime() -
+        new Date(first.createdAt).getTime(),
     )
     .slice(0, 20);
 }
@@ -598,16 +608,22 @@ function makeChartData(
 
   for (const run of workflowRuns) {
     const month = getMonthLabel(run.created_at);
-    const current =
-      monthMap.get(month) ?? { month, propositions: 0, documents: 0 };
+    const current = monthMap.get(month) ?? {
+      month,
+      propositions: 0,
+      documents: 0,
+    };
     current.propositions += 1;
     monthMap.set(month, current);
   }
 
   for (const document of documents) {
     const month = getMonthLabel(document.created_at);
-    const current =
-      monthMap.get(month) ?? { month, propositions: 0, documents: 0 };
+    const current = monthMap.get(month) ?? {
+      month,
+      propositions: 0,
+      documents: 0,
+    };
     current.documents += 1;
     monthMap.set(month, current);
   }
@@ -831,15 +847,7 @@ export async function getIntegrationsForOrganization(
 }
 
 function roleLabel(role: string): TeamRole {
-  if (role === "owner") {
-    return "Propriétaire";
-  }
-
-  if (role === "admin") {
-    return "Gestionnaire";
-  }
-
-  return "Collaborateur";
+  return getWorkspaceRoleLabel(role) as TeamRole;
 }
 
 export async function getTeamMembersForOrganization(
@@ -884,6 +892,41 @@ export async function getTeamMembersForOrganization(
       lastActiveAt: profile?.created_at ?? member.created_at,
     };
   });
+}
+
+export async function getPendingInvitationsForOrganization(
+  organizationId: string | null,
+): Promise<PendingInvitation[]> {
+  if (!organizationId) {
+    return [];
+  }
+
+  const supabase = await getSupabaseDataClient();
+
+  if (!supabase) {
+    return [];
+  }
+
+  const { data: invitations, error } = await supabase
+    .from("organization_invitations")
+    .select("id, email, role, status, expires_at, created_at")
+    .eq("organization_id", organizationId)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
+  if (error || !invitations) {
+    return [];
+  }
+
+  return invitations.map((invitation) => ({
+    id: invitation.id,
+    email: invitation.email,
+    role: roleLabel(invitation.role),
+    status: "Invitation envoyée",
+    expiresAt: invitation.expires_at,
+    createdAt: invitation.created_at,
+  }));
 }
 
 function subscriptionStatusLabel(status: string | null | undefined) {
@@ -935,7 +978,9 @@ function mapSubscriptionSummary(
   };
 }
 
-function mapInvoices(subscription: BillingSubscriptionRow | null): BillingInvoice[] {
+function mapInvoices(
+  subscription: BillingSubscriptionRow | null,
+): BillingInvoice[] {
   if (!subscription?.current_period_end) {
     return [];
   }
