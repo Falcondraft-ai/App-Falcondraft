@@ -38,13 +38,14 @@ export type Deal = {
   clientEmail: string;
   clientPhone?: string;
   status: DealStatus;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
   lastAction: string;
   amountEstimate: number;
   ownerName: string;
   priority: DealPriority;
-  expectedCloseDate: string;
+  expectedCloseDate?: string;
   source: string;
   transcript: string;
   additionalContext: string;

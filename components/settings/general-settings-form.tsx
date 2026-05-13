@@ -20,6 +20,7 @@ const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
 type SettingsPreferences = {
   organizationName: string;
   defaultLanguage: string;
+  askExpectedCloseDate: boolean;
 };
 
 function getDefaultPreferences(
@@ -29,6 +30,7 @@ function getDefaultPreferences(
   return {
     organizationName,
     defaultLanguage,
+    askExpectedCloseDate: false,
   };
 }
 
@@ -53,10 +55,16 @@ function readStoredPreferences(
     return {
       ...fallback,
       ...Object.fromEntries(
-        Object.entries(parsedValue).filter(
-          ([key, value]) =>
-            key in fallback && typeof value === "string",
-        ),
+        Object.entries(parsedValue).filter(([key, value]) => {
+          if (!(key in fallback)) {
+            return false;
+          }
+
+          return (
+            typeof value === "string" ||
+            typeof value === "boolean"
+          );
+        }),
       ),
     };
   } catch {
@@ -171,6 +179,29 @@ export function GeneralSettingsForm({
               </SelectContent>
             </Select>
           </div>
+          <label
+            htmlFor="ask-expected-close-date"
+            className="flex items-start gap-3 rounded-md border bg-secondary/30 p-3 md:col-span-2"
+          >
+            <input
+              id="ask-expected-close-date"
+              type="checkbox"
+              className="mt-1 size-4 accent-primary"
+              checked={preferences.askExpectedCloseDate}
+              onChange={(event) =>
+                updatePreference("askExpectedCloseDate", event.target.checked)
+              }
+            />
+            <span>
+              <span className="block text-sm font-medium">
+                Demander une échéance cible
+              </span>
+              <span className="text-muted-foreground mt-1 block text-sm leading-5">
+                Ajoute un champ optionnel dans la création d’un dossier et dans
+                l’édition du dossier.
+              </span>
+            </span>
+          </label>
         </div>
         <div className="flex justify-end border-t p-4">
           <Button type="button" onClick={savePreferences}>

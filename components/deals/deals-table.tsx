@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { Ellipsis, Search, Trash2 } from "lucide-react";
+import { Archive, Ellipsis, RotateCcw, Search, Trash2 } from "lucide-react";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +52,13 @@ function getErrorMessage(result: unknown, fallback: string) {
   return fallback;
 }
 
-export function DealsTable({ deals }: { deals: Deal[] }) {
+export function DealsTable({
+  deals,
+  mode = "active",
+}: {
+  deals: Deal[];
+  mode?: "active" | "archived";
+}) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
@@ -60,6 +66,9 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
     () => new Set(),
   );
   const [deletingDealId, setDeletingDealId] = React.useState<string | null>(
+    null,
+  );
+  const [archivingDealId, setArchivingDealId] = React.useState<string | null>(
     null,
   );
 
@@ -100,6 +109,52 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
 
     toast.success("Dossier commercial supprimé", {
       description: "La liste des dossiers a été mise à jour.",
+    });
+    router.refresh();
+  }
+
+  async function updateArchiveState(deal: Deal) {
+    const isArchivedMode = mode === "archived";
+    const confirmed = window.confirm(
+      isArchivedMode
+        ? `Restaurer le dossier “${deal.name}” dans le pipeline commercial ?`
+        : `Archiver le dossier “${deal.name}” ? Il sortira du pipeline commercial.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setArchivingDealId(deal.id);
+
+    const response = await fetch(`/api/deals/${deal.id}/archive`, {
+      method: isArchivedMode ? "DELETE" : "PATCH",
+    }).catch(() => null);
+
+    setArchivingDealId(null);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+
+      toast.error(isArchivedMode ? "Restauration impossible" : "Archivage impossible", {
+        description: getErrorMessage(
+          result,
+          "Le dossier commercial n’a pas pu être mis à jour.",
+        ),
+      });
+      return;
+    }
+
+    setDeletedDealIds((current) => {
+      const next = new Set(current);
+      next.add(deal.id);
+      return next;
+    });
+
+    toast.success(isArchivedMode ? "Dossier restauré" : "Dossier archivé", {
+      description: isArchivedMode
+        ? "Le dossier revient dans le pipeline commercial."
+        : "Le dossier a été retiré du pipeline commercial.",
     });
     router.refresh();
   }
@@ -209,12 +264,30 @@ export function DealsTable({ deals }: { deals: Deal[] }) {
                         variant="ghost"
                         size="icon-sm"
                         aria-label={`Options du dossier ${deal.name}`}
-                        disabled={deletingDealId === deal.id}
+                        disabled={
+                          deletingDealId === deal.id ||
+                          archivingDealId === deal.id
+                        }
                       >
                         <Ellipsis aria-hidden="true" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        disabled={archivingDealId === deal.id}
+                        onSelect={() => void updateArchiveState(deal)}
+                      >
+                        {mode === "archived" ? (
+                          <RotateCcw aria-hidden="true" />
+                        ) : (
+                          <Archive aria-hidden="true" />
+                        )}
+                        {archivingDealId === deal.id
+                          ? "Mise à jour..."
+                          : mode === "archived"
+                            ? "Restaurer"
+                            : "Archiver"}
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
                         disabled={deletingDealId === deal.id}

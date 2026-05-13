@@ -1,5 +1,6 @@
 import {
   index,
+  date,
   numeric,
   pgTable,
   text,
@@ -75,6 +76,8 @@ export const deals = pgTable(
     proposalContent: text("proposal_content"),
     quoteContext: text("quote_context"),
     amountEstimate: numeric("amount_estimate", { mode: "number" }),
+    expectedCloseDate: date("expected_close_date"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -82,6 +85,7 @@ export const deals = pgTable(
   (table) => ({
     organizationIdx: index("deals_organization_id_idx").on(table.organizationId),
     statusIdx: index("deals_status_idx").on(table.status),
+    archivedAtIdx: index("deals_archived_at_idx").on(table.archivedAt),
   }),
 );
 

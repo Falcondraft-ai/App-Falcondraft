@@ -59,9 +59,9 @@ export default async function DashboardPage() {
             detail="Pipeline en cours"
           />
           <DashboardStatCard
-            label="Cycle moyen"
-            value={dashboard.averageCycleLabel}
-            detail="Création à document final"
+            label="À traiter"
+            value={String(dashboard.attentionCount)}
+            detail="Validation, document ou erreur"
           />
         </section>
 
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
                     <TableHead>Dossier commercial</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Budget</TableHead>
-                    <TableHead>Échéance</TableHead>
+                    <TableHead>Mise à jour</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
                       <TableCell className="font-mono">
                         {formatCurrency(deal.amountEstimate)}
                       </TableCell>
-                      <TableCell>{formatDate(deal.expectedCloseDate)}</TableCell>
+                      <TableCell>{formatDate(deal.updatedAt)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

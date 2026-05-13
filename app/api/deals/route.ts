@@ -13,6 +13,7 @@ const createDealSchema = z.object({
   phone: z.string().trim().optional(),
   transcript: z.string().trim().min(20),
   amountEstimate: z.number().optional(),
+  expectedCloseDate: z.string().trim().optional(),
   additionalContext: z.string().trim().optional(),
   emailInstructions: z.string().trim().optional(),
   clientCompanyInfo: z.string().trim().optional(),
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
       client_phone: values.phone || null,
       client_company_info: values.clientCompanyInfo || null,
       amount_estimate: values.amountEstimate ?? null,
+      expected_close_date: values.expectedCloseDate || null,
       created_by: user.id,
     })
     .select("id")

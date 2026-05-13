@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  Archive,
   FileText,
   LayoutDashboard,
   Menu,
@@ -59,6 +60,11 @@ const primaryNavItems: NavItem[] = [
     href: "/dashboard/documents",
     label: "Documents",
     icon: FileText,
+  },
+  {
+    href: "/dashboard/archive",
+    label: "Archives",
+    icon: Archive,
   },
   {
     href: "/dashboard/settings",

@@ -55,6 +55,8 @@ export type DealRow = {
   proposal_content: string | null;
   quote_context: string | null;
   amount_estimate: number | null;
+  expected_close_date: string | null;
+  archived_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -182,6 +184,8 @@ export type Database = {
           proposal_content?: string | null;
           quote_context?: string | null;
           amount_estimate?: number | null;
+          expected_close_date?: string | null;
+          archived_at?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;

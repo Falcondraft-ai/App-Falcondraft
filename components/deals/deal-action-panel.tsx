@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { LoadingDots } from "@/components/common/loading-dots";
+import { GeneratedDocumentButtons } from "@/components/deals/generated-documents-panel";
 import { ProposalValidationDialog } from "@/components/deals/proposal-validation-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/workflow-progress";
 import { cn } from "@/lib/utils";
 import type { DealStatus } from "@/types/deal";
+import type { GeneratedDealDocument } from "@/types/document";
 
 const dealActions = [
   {
@@ -35,6 +37,11 @@ const dealActions = [
     kind: "validate-proposal",
     label: "Valider la proposition",
     message: "Proposition marquée comme validée.",
+  },
+  {
+    kind: "download-quote",
+    label: "Télécharger le devis",
+    message: "Devis prêt au téléchargement.",
   },
   {
     kind: "download-final-pdf",
@@ -69,11 +76,11 @@ function getVisibleActionLimit(
   }
 
   if (status === "email_draft_ready") {
-    return 6;
+    return 7;
   }
 
   if (status === "signature_ready") {
-    return 6;
+    return 7;
   }
 
   if (status === "final_document_ready") {
@@ -105,12 +112,16 @@ export function DealActionPanel({
   hasCallSummary,
   hasProposal,
   proposalEditUrl,
+  quoteDocument,
+  finalDocument,
 }: {
   dealId: string;
   status: DealStatus;
   hasCallSummary: boolean;
   hasProposal: boolean;
   proposalEditUrl?: string;
+  quoteDocument?: GeneratedDealDocument;
+  finalDocument?: GeneratedDealDocument;
 }) {
   const router = useRouter();
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
@@ -120,6 +131,7 @@ export function DealActionPanel({
     React.useState(false);
   const [isProposalGenerating, setIsProposalGenerating] = React.useState(false);
   const [isDeletingDeal, setIsDeletingDeal] = React.useState(false);
+  const [isArchivingDeal, setIsArchivingDeal] = React.useState(false);
   const [isValidationDialogOpen, setIsValidationDialogOpen] =
     React.useState(false);
   const [localActionIndex, setLocalActionIndex] = React.useState<number | null>(
@@ -329,11 +341,82 @@ export function DealActionPanel({
     router.refresh();
   }
 
+  async function archiveDeal() {
+    const confirmed = window.confirm(
+      "Archiver ce dossier commercial ? Il ne sera plus comptabilisé dans le pipeline.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsArchivingDeal(true);
+
+    const response = await fetch(`/api/deals/${dealId}/archive`, {
+      method: "PATCH",
+    }).catch(() => null);
+
+    setIsArchivingDeal(false);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+      const message =
+        result &&
+        typeof result === "object" &&
+        "message" in result &&
+        typeof result.message === "string"
+          ? result.message
+          : "Le dossier commercial n’a pas pu être archivé.";
+
+      toast.error("Archivage impossible", {
+        description: message,
+      });
+      return;
+    }
+
+    toast.success("Dossier archivé", {
+      description: "Il a été retiré du pipeline commercial.",
+    });
+    router.replace("/dashboard/deals");
+    router.refresh();
+  }
+
   return (
     <div className="space-y-2">
       {dealActions.map((action, index) => {
-        const isAvailable = index <= visibleActionLimit;
+        const isDocumentActionAvailable =
+          (action.kind === "download-quote" && Boolean(quoteDocument)) ||
+          (action.kind === "download-final-pdf" && Boolean(finalDocument));
+        const isSignatureAction = action.kind === "open-signature-link";
+        const isAvailable =
+          !isSignatureAction && (index <= visibleActionLimit || isDocumentActionAvailable);
         const isNextAction = index === visibleActionLimit;
+
+        if (action.kind === "download-quote") {
+          return (
+            <GeneratedDocumentButtons
+              key={action.label}
+              document={quoteDocument}
+              compact
+              fullWidth
+              showOpen={false}
+              downloadLabel="Télécharger le devis"
+            />
+          );
+        }
+
+        if (action.kind === "download-final-pdf") {
+          return (
+            <GeneratedDocumentButtons
+              key={action.label}
+              document={finalDocument}
+              compact
+              fullWidth
+              showOpen={false}
+              downloadLabel="Télécharger le PDF final"
+            />
+          );
+        }
 
         return (
           <Button
@@ -342,11 +425,16 @@ export function DealActionPanel({
             variant={isAvailable ? "default" : "outline"}
             className={cn(
               "w-full justify-between gap-3",
+              isSignatureAction
+                ? "border-dashed bg-muted/30 text-muted-foreground opacity-100"
+                : "",
               isAvailable && !isNextAction
                 ? "bg-primary/88 hover:bg-primary/82"
                 : "",
             )}
             disabled={
+              !isAvailable ||
+              isSignatureAction ||
               isDeletingDeal ||
               (index === 0 &&
                 (isTriggeringCallSummary || isCallSummaryGenerating)) ||
@@ -402,7 +490,9 @@ export function DealActionPanel({
                   <LoadingDots />
                 </>
               ) : (
-                action.label
+                isSignatureAction
+                  ? "Signature — fonctionnalité à venir"
+                  : action.label
               )}
             </span>
             {isAvailable &&
@@ -417,13 +507,31 @@ export function DealActionPanel({
           </Button>
         );
       })}
-      <div className="pt-3">
+      <div className="space-y-2 pt-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-start"
+          disabled={
+            isArchivingDeal ||
+            isDeletingDeal ||
+            isTriggeringCallSummary ||
+            isCallSummaryGenerating ||
+            isTriggeringProposal ||
+            isProposalGenerating ||
+            localActionIndex !== null
+          }
+          onClick={() => void archiveDeal()}
+        >
+          {isArchivingDeal ? "Archivage..." : "Archiver le dossier"}
+        </Button>
         <Button
           type="button"
           variant="destructive"
           className="w-full justify-start"
           disabled={
             isDeletingDeal ||
+            isArchivingDeal ||
             isTriggeringCallSummary ||
             isCallSummaryGenerating ||
             isTriggeringProposal ||

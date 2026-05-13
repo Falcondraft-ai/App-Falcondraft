@@ -7,6 +7,10 @@ import { WorkflowTimeline } from "@/components/common/workflow-timeline";
 import { CallSummaryPanel } from "@/components/deals/call-summary-panel";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
 import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
+import {
+  GeneratedDocumentButtons,
+  GeneratedDocumentsPanel,
+} from "@/components/deals/generated-documents-panel";
 import { ProposalPanel } from "@/components/deals/proposal-panel";
 import { TranscriptPanel } from "@/components/deals/transcript-panel";
 import { requireCurrentUserContext } from "@/lib/auth/session";
@@ -22,7 +26,7 @@ type DealDetailPageProps = {
 export default async function DealDetailPage({ params }: DealDetailPageProps) {
   const { id } = await params;
   const context = await requireCurrentUserContext();
-  const { deal, activity } = await getDealDetail(
+  const { deal, activity, documents } = await getDealDetail(
     context.organization?.id ?? null,
     id,
   );
@@ -30,6 +34,11 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   if (!deal) {
     notFound();
   }
+
+  const quoteDocument = documents.find((document) => document.type === "quote_pdf");
+  const finalDocument = documents.find(
+    (document) => document.type === "final_document_pdf",
+  );
 
   return (
     <PageTransition>
@@ -86,20 +95,6 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   <div>
                     <dt className="text-muted-foreground">Source</dt>
                     <dd className="mt-1">{deal.source}</dd>
-                  </div>
-                  {deal.clientCompanyInfo ? (
-                    <div>
-                      <dt className="text-muted-foreground">
-                        Informations devis
-                      </dt>
-                      <dd className="mt-1 whitespace-pre-line leading-6">
-                        {deal.clientCompanyInfo}
-                      </dd>
-                    </div>
-                  ) : null}
-                  <div>
-                    <dt className="text-muted-foreground">Échéance visée</dt>
-                    <dd className="mt-1">{formatDate(deal.expectedCloseDate)}</dd>
                   </div>
                 </dl>
               </ActionCard>
@@ -164,24 +159,25 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                     editUrl={deal.proposalEditUrl}
                   />
                 </article>
-                {deal.quoteContext ? (
-                  <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                    <h3 className="text-sm font-medium">Info devis</h3>
-                    <div className="rounded-md border bg-secondary/35 p-3">
-                      <p className="text-muted-foreground whitespace-pre-line text-sm leading-6">
-                        {deal.quoteContext}
-                      </p>
-                    </div>
-                  </article>
-                ) : null}
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
                   <h3 className="text-sm font-medium">Document final</h3>
                   <div>
-                    <p className="font-mono text-sm">{deal.finalDocumentName}</p>
-                    <p className="text-muted-foreground mt-2 text-sm leading-6">
-                      Document final prêt à être partagé lorsque la proposition
-                      est validée.
+                    <p className="font-mono text-sm">
+                      {finalDocument?.title ?? deal.finalDocumentName}
                     </p>
+                    <p className="text-muted-foreground mt-2 text-sm leading-6">
+                      {finalDocument
+                        ? "Document final prêt à être téléchargé."
+                        : "Document final prêt à être partagé lorsque la proposition est validée."}
+                    </p>
+                    <div className="mt-3">
+                      <GeneratedDocumentButtons
+                        document={finalDocument}
+                        compact
+                        showOpen={false}
+                        downloadLabel="Télécharger le document final"
+                      />
+                    </div>
                   </div>
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
@@ -197,6 +193,13 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 </article>
               </div>
             </section>
+
+            <ActionCard
+              title="Documents générés"
+              description="Fichiers et liens produits pour ce dossier commercial."
+            >
+              <GeneratedDocumentsPanel documents={documents} />
+            </ActionCard>
 
             <ActionCard title="Brouillon email">
               <div className="rounded-md border bg-secondary/40 p-3">
@@ -233,6 +236,8 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 hasCallSummary={deal.hasCallSummary}
                 hasProposal={deal.hasProposal}
                 proposalEditUrl={deal.proposalEditUrl}
+                quoteDocument={quoteDocument}
+                finalDocument={finalDocument}
               />
             </ActionCard>
             <ActionCard title="Progression">

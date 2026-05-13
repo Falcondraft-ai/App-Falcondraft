@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Deal } from "@/types/deal";
 
+const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
+
 const emptyableFallbacks = new Set([
   "Client à renseigner",
   "Email à renseigner",
@@ -55,6 +57,7 @@ const dealEditSchema = z.object({
         message: "Indiquez un montant valide.",
       },
     ),
+  expectedCloseDate: z.string().trim().optional(),
   transcript: z.string().trim().min(1, "Ajoutez les notes du dossier."),
   additionalContext: z.string().trim().optional(),
   emailInstructions: z.string().trim().optional(),
@@ -96,6 +99,7 @@ function buildDefaultValues(deal: Deal): DealEditFormValues {
     clientPhone: deal.clientPhone ?? "",
     amountEstimate:
       deal.amountEstimate > 0 ? String(deal.amountEstimate) : "",
+    expectedCloseDate: deal.expectedCloseDate ?? "",
     transcript: cleanEditableValue(deal.transcript),
     additionalContext: cleanEditableValue(deal.additionalContext),
     emailInstructions: cleanEditableValue(deal.emailInstructions),
@@ -117,6 +121,9 @@ export function DealEditDialog({
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showExpectedCloseDate, setShowExpectedCloseDate] = React.useState(
+    Boolean(deal.expectedCloseDate),
+  );
   const form = useForm<DealEditFormValues>({
     resolver: zodResolver(dealEditSchema),
     defaultValues: buildDefaultValues(deal),
@@ -125,6 +132,25 @@ export function DealEditDialog({
   React.useEffect(() => {
     if (open) {
       form.reset(buildDefaultValues(deal));
+
+      try {
+        const storedValue = window.localStorage.getItem(
+          SETTINGS_PREFERENCES_STORAGE_KEY,
+        );
+        const parsedValue: unknown = storedValue ? JSON.parse(storedValue) : null;
+
+        setShowExpectedCloseDate(
+          Boolean(
+            deal.expectedCloseDate ||
+              (parsedValue &&
+                typeof parsedValue === "object" &&
+                "askExpectedCloseDate" in parsedValue &&
+                parsedValue.askExpectedCloseDate === true),
+          ),
+        );
+      } catch {
+        setShowExpectedCloseDate(Boolean(deal.expectedCloseDate));
+      }
     }
   }, [deal, form, open]);
 
@@ -143,6 +169,7 @@ export function DealEditDialog({
         clientEmail: values.clientEmail,
         clientPhone: values.clientPhone,
         amountEstimate: toAmountPayload(values.amountEstimate),
+        expectedCloseDate: values.expectedCloseDate || undefined,
         transcript: values.transcript,
         additionalContext: values.additionalContext,
         emailInstructions: values.emailInstructions,
@@ -270,6 +297,21 @@ export function DealEditDialog({
                   </FormItem>
                 )}
               />
+              {showExpectedCloseDate ? (
+                <FormField
+                  control={form.control}
+                  name="expectedCloseDate"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Échéance cible</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
             </div>
 
             <div className="space-y-4 border-t px-5 py-5">

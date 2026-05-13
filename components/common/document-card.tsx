@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MockActionButton } from "@/components/common/mock-action-button";
+import { GeneratedDocumentButtons } from "@/components/deals/generated-documents-panel";
 import {
   documentStatusLabels,
   documentTypeLabels,
@@ -16,21 +16,38 @@ const documentStatusStyles = {
 } satisfies Record<MockDocument["status"], string>;
 
 export function DocumentCard({ document }: { document: MockDocument }) {
+  const generatedDocument = {
+    id: document.id,
+    type: document.rawType,
+    label: documentTypeLabels[document.type],
+    title: document.title,
+    status: document.status,
+    createdAt: document.createdAt,
+    url: document.url,
+    hasStoragePath: document.hasStoragePath,
+  };
+
   return (
-    <article className="grid gap-4 border-b px-4 py-4 last:border-b-0 md:grid-cols-[1.2fr_1fr_auto] md:items-center">
+    <article className="grid gap-4 border-b px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.1fr)_minmax(13rem,0.9fr)_6rem_12rem] md:items-center">
       <div className="flex min-w-0 items-start gap-3">
         <span className="mt-1 h-8 w-1 shrink-0 bg-primary/75" aria-hidden="true" />
         <div className="min-w-0">
-          <p className="text-sm font-semibold">{document.title}</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {documentTypeLabels[document.type]} · {document.clientCompanyName}
+          <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
+            {documentTypeLabels[document.type]}
+          </p>
+          <p className="mt-1 truncate text-sm font-semibold tracking-[-0.01em]">
+            {document.clientCompanyName}
+          </p>
+          <p className="text-muted-foreground mt-1 truncate text-xs">
+            {document.title}
           </p>
         </div>
       </div>
       <div>
+        <p className="text-muted-foreground text-xs">Dossier</p>
         <Link
           href={`/dashboard/deals/${document.relatedDealId}`}
-          className="hover:text-primary text-sm font-medium transition-colors"
+          className="hover:text-primary mt-1 block text-sm font-medium transition-colors"
         >
           {document.relatedDealName}
         </Link>
@@ -39,7 +56,7 @@ export function DocumentCard({ document }: { document: MockDocument }) {
           <span>{document.ownerName}</span>
         </div>
       </div>
-      <div className="flex items-center gap-3 md:justify-end">
+      <div className="md:flex md:justify-start">
         <span
           className={cn(
             "border px-2 py-1 text-xs font-medium",
@@ -48,11 +65,22 @@ export function DocumentCard({ document }: { document: MockDocument }) {
         >
           {documentStatusLabels[document.status]}
         </span>
-        <MockActionButton
-          label="Ouvrir"
-          message={`${documentTypeLabels[document.type]} prêt à consulter.`}
-          variant="outline"
-          size="sm"
+      </div>
+      <div className="flex items-center md:justify-end">
+        <GeneratedDocumentButtons
+          document={generatedDocument}
+          compact
+          showOpen={
+            document.rawType !== "quote_pdf" &&
+            document.rawType !== "final_document_pdf"
+          }
+          downloadLabel={
+            document.rawType === "quote_pdf"
+              ? "Télécharger le devis"
+              : document.rawType === "final_document_pdf"
+                ? "Télécharger le document final"
+                : "Télécharger"
+          }
         />
       </div>
     </article>

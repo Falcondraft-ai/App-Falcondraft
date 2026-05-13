@@ -17,6 +17,7 @@ const updateDealSchema = z.object({
   emailInstructions: z.string().trim().optional(),
   clientCompanyInfo: z.string().trim().optional(),
   amountEstimate: z.number().min(0).nullable(),
+  expectedCloseDate: z.string().trim().optional(),
   callSummary: z.string().trim().optional(),
   proposalContent: z.string().trim().optional(),
 });
@@ -159,6 +160,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       client_phone: values.clientPhone || null,
       client_company_info: values.clientCompanyInfo || null,
       amount_estimate: values.amountEstimate,
+      expected_close_date: values.expectedCloseDate || null,
       call_summary: values.callSummary?.trim() || null,
       proposal_content: values.proposalContent?.trim() || null,
       updated_at: now,

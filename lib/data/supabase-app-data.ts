@@ -3,9 +3,19 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { DashboardChartDatum } from "@/components/dashboard/dashboard-activity-chart";
-import { dealStatuses, type Deal, type DealStatus } from "@/types/deal";
+import {
+  dealStatuses,
+  dealStatusLabels,
+  type Deal,
+  type DealStatus,
+} from "@/types/deal";
 import type { ActivityEvent } from "@/types/activity";
-import type { MockDocument, DocumentStatus, DocumentType } from "@/types/document";
+import type {
+  GeneratedDealDocument,
+  MockDocument,
+  DocumentStatus,
+  DocumentType,
+} from "@/types/document";
 import type {
   BillingInvoice,
   BillingSubscriptionSummary,
@@ -34,8 +44,8 @@ type DashboardData = {
   activeDeals: Deal[];
   readyDeals: Deal[];
   readyDocumentCount: number;
+  attentionCount: number;
   pipelineValue: number;
-  averageCycleLabel: string;
   featuredDeal: Deal | null;
   activity: ActivityEvent[];
   chartData: DashboardChartDatum[];
@@ -44,6 +54,7 @@ type DashboardData = {
 type DealDetailData = {
   deal: Deal | null;
   activity: ActivityEvent[];
+  documents: GeneratedDealDocument[];
 };
 
 const fallbackIsoDate = "2026-05-08T00:00:00.000Z";
@@ -75,11 +86,15 @@ function normalizeDocumentType(type: string): DocumentType {
   const typeMap: Record<string, DocumentType> = {
     summary: "proposal",
     proposal: "proposal",
+    proposal_gamma: "proposal_gamma",
     presentation: "proposal",
     quote: "quote",
+    quote_pdf: "quote_pdf",
     pdf: "proposal_pdf",
     proposal_pdf: "proposal_pdf",
+    proposal_pdf_initial: "proposal_pdf_initial",
     final_document: "final_document",
+    final_document_pdf: "final_document_pdf",
     signature: "signature_link",
     signature_link: "signature_link",
     email: "proposal",
@@ -145,6 +160,43 @@ function getProposalEditUrl(
   return matchingDocument?.url ?? extractGammaUrl(deal.proposal_content);
 }
 
+function getGeneratedDocumentLabel(type: string): string {
+  const labels: Record<string, string> = {
+    proposal_gamma: "Proposition éditable",
+    proposal_pdf: "PDF proposition",
+    proposal_pdf_initial: "PDF proposition initial",
+    quote_pdf: "Devis PDF",
+    final_document_pdf: "Document final prêt à signer",
+  };
+
+  return labels[type] ?? "Document";
+}
+
+function isGeneratedDealDocument(document: DocumentRow): boolean {
+  return [
+    "proposal_gamma",
+    "proposal_pdf",
+    "proposal_pdf_initial",
+    "quote_pdf",
+    "final_document_pdf",
+  ].includes(document.type);
+}
+
+function mapGeneratedDealDocuments(
+  documents: DocumentRow[],
+): GeneratedDealDocument[] {
+  return documents.filter(isGeneratedDealDocument).map((document) => ({
+    id: document.id,
+    type: document.type,
+    label: getGeneratedDocumentLabel(document.type),
+    title: document.title,
+    status: normalizeDocumentStatus(document),
+    createdAt: document.created_at,
+    url: document.url ?? undefined,
+    hasStoragePath: Boolean(document.storage_path),
+  }));
+}
+
 function getMonthLabel(date: string): string {
   return new Intl.DateTimeFormat("fr-FR", { month: "short" })
     .format(new Date(date))
@@ -181,12 +233,31 @@ async function getProfilesByUserId(
 }
 
 function lastDealAction(row: DealRow): string {
-  if (row.call_summary) {
-    return "Compte-rendu disponible";
+  const status = normalizeDealStatus(row.status);
+  const statusActionLabels: Partial<Record<DealStatus, string>> = {
+    validation_pending: "Proposition en validation",
+    final_document_generating: "Document final en préparation",
+    final_document_ready: "Document final disponible",
+    signature_ready: "Signature prête",
+    email_draft_ready: "Brouillon email prêt",
+    completed: "Dossier terminé",
+    failed: "Dernière génération en erreur",
+  };
+
+  if (statusActionLabels[status]) {
+    return statusActionLabels[status];
   }
 
   if (row.proposal_content) {
     return "Proposition disponible";
+  }
+
+  if (row.call_summary) {
+    return "Compte-rendu disponible";
+  }
+
+  if (status !== "draft") {
+    return dealStatusLabels[status];
   }
 
   if (row.status === "draft") {
@@ -296,13 +367,14 @@ function mapDealRow(
     clientContactName: row.client_contact_name || "Contact à renseigner",
     clientEmail: row.client_email || "Email à renseigner",
     status: effectiveStatus,
+    archivedAt: row.archived_at ?? undefined,
     createdAt: row.created_at ?? fallbackIsoDate,
     updatedAt,
     lastAction: lastDealAction(row),
     amountEstimate: row.amount_estimate ?? 0,
     ownerName: owner?.full_name ?? owner?.email ?? "Équipe FalconDraft",
     priority: "standard",
-    expectedCloseDate: updatedAt,
+    expectedCloseDate: row.expected_close_date ?? undefined,
     source: "Notes d’échange",
     transcript: parsedTranscript.transcript,
     additionalContext,
@@ -328,6 +400,7 @@ function mapDealRow(
 
 export async function getDealsForOrganization(
   organizationId: string | null,
+  options: { archive?: "exclude" | "only" | "all" } = {},
 ): Promise<Deal[]> {
   if (!organizationId) {
     return [];
@@ -339,11 +412,19 @@ export async function getDealsForOrganization(
     return [];
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("deals")
     .select("*")
     .eq("organization_id", organizationId)
     .order("updated_at", { ascending: false });
+
+  if (options.archive === "only") {
+    query = query.not("archived_at", "is", null);
+  } else if (options.archive !== "all") {
+    query = query.is("archived_at", null);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) {
     return [];
@@ -364,13 +445,13 @@ export async function getDealDetail(
   dealId: string,
 ): Promise<DealDetailData> {
   if (!organizationId) {
-    return { deal: null, activity: [] };
+    return { deal: null, activity: [], documents: [] };
   }
 
   const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
-    return { deal: null, activity: [] };
+    return { deal: null, activity: [], documents: [] };
   }
 
   const { data: dealRow, error } = await supabase
@@ -381,7 +462,7 @@ export async function getDealDetail(
     .maybeSingle();
 
   if (error || !dealRow) {
-    return { deal: null, activity: [] };
+    return { deal: null, activity: [], documents: [] };
   }
 
   const owners = await getProfilesByUserId(supabase, [dealRow.created_by]);
@@ -399,6 +480,7 @@ export async function getDealDetail(
       documents,
     ),
     activity: mapActivity(workflowRuns, auditLogs),
+    documents: mapGeneratedDealDocuments(documents),
   };
 }
 
@@ -542,8 +624,8 @@ export async function getDashboardData(
       activeDeals: [],
       readyDeals: [],
       readyDocumentCount: 0,
+      attentionCount: 0,
       pipelineValue: 0,
-      averageCycleLabel: "—",
       featuredDeal: null,
       activity: [],
       chartData: [],
@@ -562,6 +644,15 @@ export async function getDashboardData(
       deal.status,
     ),
   );
+  const attentionCount = deals.filter((deal) =>
+    [
+      "proposal_ready",
+      "validation_pending",
+      "final_document_ready",
+      "signature_ready",
+      "failed",
+    ].includes(deal.status),
+  ).length;
 
   return {
     deals,
@@ -570,11 +661,11 @@ export async function getDashboardData(
     readyDocumentCount: documents.filter((document) =>
       ["ready", "sent"].includes(normalizeDocumentStatus(document)),
     ).length,
+    attentionCount,
     pipelineValue: activeDeals.reduce(
       (total, deal) => total + deal.amountEstimate,
       0,
     ),
-    averageCycleLabel: "—",
     featuredDeal: deals[0] ?? null,
     activity: mapActivity(workflowRuns, auditLogs).slice(0, 4),
     chartData: makeChartData(workflowRuns, documents),
@@ -641,13 +732,27 @@ export async function getDocumentsForOrganization(
     getDealsForOrganization(organizationId),
   ]);
   const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
+  const latestDocumentsByTypeAndDeal = new Map<string, DocumentRow>();
 
-  return documents.map((document) => {
+  for (const document of documents) {
+    if (!["quote_pdf", "final_document_pdf"].includes(document.type)) {
+      continue;
+    }
+
+    const key = `${document.deal_id}:${document.type}`;
+
+    if (!latestDocumentsByTypeAndDeal.has(key)) {
+      latestDocumentsByTypeAndDeal.set(key, document);
+    }
+  }
+
+  return [...latestDocumentsByTypeAndDeal.values()].map((document) => {
     const deal = dealsById.get(document.deal_id);
 
     return {
       id: document.id,
       type: normalizeDocumentType(document.type),
+      rawType: document.type,
       title: document.title,
       relatedDealId: document.deal_id,
       relatedDealName: deal?.name ?? "Dossier commercial",
@@ -655,6 +760,8 @@ export async function getDocumentsForOrganization(
       createdAt: document.created_at,
       status: normalizeDocumentStatus(document),
       ownerName: deal?.ownerName ?? "Équipe FalconDraft",
+      url: document.url ?? undefined,
+      hasStoragePath: Boolean(document.storage_path),
     };
   });
 }

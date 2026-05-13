@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
+
 const newDealSchema = z.object({
   name: z.string().trim().min(3, "Indiquez un intitulé de dossier."),
   clientCompanyName: z.string().trim().min(2, "Indiquez l’entreprise cliente."),
@@ -42,6 +44,7 @@ const newDealSchema = z.object({
         message: "Indiquez un montant valide.",
       },
     ),
+  expectedCloseDate: z.string().trim().optional(),
   clientContactName: z.string().trim().min(2, "Indiquez le contact principal."),
   clientEmail: z.string().trim().email("Indiquez un email professionnel valide."),
   phone: z.string().trim().optional(),
@@ -61,6 +64,7 @@ const defaultValues: NewDealFormValues = {
   name: "",
   clientCompanyName: "",
   amountEstimate: "",
+  expectedCloseDate: "",
   clientContactName: "",
   clientEmail: "",
   phone: "",
@@ -138,15 +142,49 @@ export function NewDealForm() {
   const [stepIndex, setStepIndex] = React.useState(0);
   const [direction, setDirection] = React.useState(1);
   const [isLastStepReady, setIsLastStepReady] = React.useState(false);
+  const [askExpectedCloseDate, setAskExpectedCloseDate] =
+    React.useState(false);
   const form = useForm<NewDealFormValues>({
     resolver: zodResolver(newDealSchema),
     defaultValues,
     mode: "onTouched",
   });
 
-  const currentStep = onboardingSteps[stepIndex];
-  const isLastStep = stepIndex === onboardingSteps.length - 1;
-  const progress = ((stepIndex + 1) / onboardingSteps.length) * 100;
+  React.useEffect(() => {
+    try {
+      const storedValue = window.localStorage.getItem(
+        SETTINGS_PREFERENCES_STORAGE_KEY,
+      );
+      const parsedValue: unknown = storedValue ? JSON.parse(storedValue) : null;
+
+      setAskExpectedCloseDate(
+        Boolean(
+          parsedValue &&
+            typeof parsedValue === "object" &&
+            "askExpectedCloseDate" in parsedValue &&
+            parsedValue.askExpectedCloseDate === true,
+        ),
+      );
+    } catch {
+      setAskExpectedCloseDate(false);
+    }
+  }, []);
+
+  const effectiveOnboardingSteps = React.useMemo(
+    () =>
+      onboardingSteps.map((step, index) =>
+        index === 0 && askExpectedCloseDate
+          ? {
+              ...step,
+              fields: [...step.fields, "expectedCloseDate" as const],
+            }
+          : step,
+      ),
+    [askExpectedCloseDate],
+  );
+  const currentStep = effectiveOnboardingSteps[stepIndex];
+  const isLastStep = stepIndex === effectiveOnboardingSteps.length - 1;
+  const progress = ((stepIndex + 1) / effectiveOnboardingSteps.length) * 100;
   const values = useWatch({ control: form.control });
 
   React.useEffect(() => {
@@ -254,6 +292,7 @@ export function NewDealForm() {
       body: JSON.stringify({
         ...valuesToSubmit,
         amountEstimate,
+        expectedCloseDate: valuesToSubmit.expectedCloseDate || undefined,
       }),
     }).catch(() => null);
 
@@ -332,7 +371,7 @@ export function NewDealForm() {
               </div>
 
               <ol className="mt-7 space-y-2">
-                {onboardingSteps.map((step, index) => {
+                {effectiveOnboardingSteps.map((step, index) => {
                   const isActive = index === stepIndex;
                   const isDone = index < stepIndex;
 
@@ -386,7 +425,7 @@ export function NewDealForm() {
             <div className="flex min-h-[32rem] flex-col bg-card/92">
               <div className="border-b px-5 py-5 sm:px-6">
                 <p className="text-muted-foreground text-xs font-medium tracking-[0.12em] uppercase">
-                  Étape {stepIndex + 1} sur {onboardingSteps.length}
+                  Étape {stepIndex + 1} sur {effectiveOnboardingSteps.length}
                 </p>
                 <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
                   {currentStep.title}
@@ -472,6 +511,25 @@ export function NewDealForm() {
                             </FormItem>
                           )}
                         />
+                        {askExpectedCloseDate ? (
+                          <FormField
+                            control={form.control}
+                            name="expectedCloseDate"
+                            render={({ field }) => (
+                              <FormItem className="md:col-span-2">
+                                <FormLabel>Échéance cible</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Optionnel, utile si le dossier doit être prêt
+                                  avant une date précise.
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        ) : null}
                       </div>
                     ) : null}
 
