@@ -73,6 +73,7 @@ export const deals = pgTable(
     clientCompanyInfo: text("client_company_info"),
     callSummary: text("call_summary"),
     proposalContent: text("proposal_content"),
+    quoteContext: text("quote_context"),
     amountEstimate: numeric("amount_estimate", { mode: "number" }),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -122,6 +123,8 @@ export const documents = pgTable(
     type: text("type").notNull(),
     title: text("title").notNull(),
     url: text("url"),
+    storagePath: text("storage_path"),
+    externalId: text("external_id"),
     status: text("status").default("draft").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -130,6 +133,7 @@ export const documents = pgTable(
       table.organizationId,
     ),
     dealIdx: index("documents_deal_id_idx").on(table.dealId),
+    externalIdIdx: index("documents_external_id_idx").on(table.externalId),
   }),
 );
 

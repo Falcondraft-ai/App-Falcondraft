@@ -164,6 +164,16 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                     editUrl={deal.proposalEditUrl}
                   />
                 </article>
+                {deal.quoteContext ? (
+                  <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
+                    <h3 className="text-sm font-medium">Info devis</h3>
+                    <div className="rounded-md border bg-secondary/35 p-3">
+                      <p className="text-muted-foreground whitespace-pre-line text-sm leading-6">
+                        {deal.quoteContext}
+                      </p>
+                    </div>
+                  </article>
+                ) : null}
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
                   <h3 className="text-sm font-medium">Document final</h3>
                   <div>

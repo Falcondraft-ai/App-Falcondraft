@@ -53,6 +53,7 @@ export type DealRow = {
   client_company_info: string | null;
   call_summary: string | null;
   proposal_content: string | null;
+  quote_context: string | null;
   amount_estimate: number | null;
   created_by: string | null;
   created_at: string;
@@ -78,6 +79,8 @@ export type DocumentRow = {
   type: string;
   title: string;
   url: string | null;
+  storage_path: string | null;
+  external_id: string | null;
   status: string;
   created_at: string;
 };
@@ -177,6 +180,7 @@ export type Database = {
           client_company_info?: string | null;
           call_summary?: string | null;
           proposal_content?: string | null;
+          quote_context?: string | null;
           amount_estimate?: number | null;
           created_by?: string | null;
           created_at?: string;
@@ -208,6 +212,8 @@ export type Database = {
           type: string;
           title: string;
           url?: string | null;
+          storage_path?: string | null;
+          external_id?: string | null;
           status?: string;
           created_at?: string;
         }

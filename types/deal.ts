@@ -54,6 +54,7 @@ export type Deal = {
   hasCallSummary: boolean;
   hasProposal: boolean;
   proposalEditUrl?: string;
+  quoteContext?: string;
   proposalTitle: string;
   proposalExcerpt: string;
   finalDocumentName: string;

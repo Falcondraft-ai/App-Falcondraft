@@ -277,6 +277,7 @@ function mapDealRow(
   const clientPhone = row.client_phone?.trim() || parsedTranscript.clientPhone;
   const clientCompanyInfo = row.client_company_info?.trim();
   const callSummary = row.call_summary?.trim();
+  const quoteContext = row.quote_context?.trim();
   const normalizedStatus = normalizeDealStatus(row.status);
   const effectiveStatus =
     proposalContent &&
@@ -312,6 +313,7 @@ function mapDealRow(
     hasCallSummary: Boolean(callSummary),
     hasProposal: Boolean(proposalContent),
     proposalEditUrl: getProposalEditUrl(row, documents),
+    quoteContext,
     proposalTitle: `Proposition — ${clientCompanyName}`,
     proposalExcerpt:
       proposalContent || "La proposition sera disponible après génération.",

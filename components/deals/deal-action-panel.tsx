@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { LoadingDots } from "@/components/common/loading-dots";
+import { ProposalValidationDialog } from "@/components/deals/proposal-validation-dialog";
 import { Button } from "@/components/ui/button";
 import {
   CALL_SUMMARY_GENERATION_EVENT,
@@ -119,6 +120,8 @@ export function DealActionPanel({
     React.useState(false);
   const [isProposalGenerating, setIsProposalGenerating] = React.useState(false);
   const [isDeletingDeal, setIsDeletingDeal] = React.useState(false);
+  const [isValidationDialogOpen, setIsValidationDialogOpen] =
+    React.useState(false);
   const [localActionIndex, setLocalActionIndex] = React.useState<number | null>(
     null,
   );
@@ -367,6 +370,11 @@ export function DealActionPanel({
                 return;
               }
 
+              if (action.kind === "validate-proposal") {
+                setIsValidationDialogOpen(true);
+                return;
+              }
+
               runLocalAction(index, action.label, action.message);
             }}
           >
@@ -427,6 +435,11 @@ export function DealActionPanel({
           {isDeletingDeal ? "Suppression..." : "Supprimer le dossier"}
         </Button>
       </div>
+      <ProposalValidationDialog
+        dealId={dealId}
+        open={isValidationDialogOpen}
+        onOpenChange={setIsValidationDialogOpen}
+      />
     </div>
   );
 }

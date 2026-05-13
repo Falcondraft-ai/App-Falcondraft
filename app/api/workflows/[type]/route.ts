@@ -7,11 +7,13 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const workflowRequestSchema = z.object({
   dealId: z.string().uuid("dealId invalide."),
+  validationSource: z.enum(["initial_export", "uploaded_pdf"]).optional(),
 });
 
 const supportedWorkflowTypes = [
   "call_summary",
   "proposal_generation",
+  "proposal_validation",
 ] as const;
 
 type SupportedWorkflowType = (typeof supportedWorkflowTypes)[number];
@@ -37,6 +39,10 @@ function normalizeWorkflowType(type: string) {
 
   if (normalizedType === "proposal_generation") {
     return "proposal_generation";
+  }
+
+  if (normalizedType === "proposal_validation") {
+    return "proposal_validation";
   }
 
   return normalizedType;
@@ -135,7 +141,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const organizationId = organizationContext.organization.id;
-  const { dealId } = parsedBody.data;
+  const { dealId, validationSource } = parsedBody.data;
 
   const { data: deal } = await adminSupabase
     .from("deals")
@@ -146,6 +152,46 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (!deal) {
     return jsonError("Dossier commercial introuvable.", 404);
+  }
+
+  if (workflowType === "proposal_validation") {
+    if (!validationSource) {
+      return jsonError("Source de validation manquante.", 400);
+    }
+
+    const validationDocumentTypes =
+      validationSource === "initial_export"
+        ? ["proposal_pdf_initial", "proposal_pdf"]
+        : ["proposal_pdf_final_uploaded"];
+
+    const { data: validationDocuments, error: validationDocumentError } =
+      await adminSupabase
+        .from("documents")
+        .select("id, url, storage_path")
+        .eq("organization_id", organizationId)
+        .eq("deal_id", dealId)
+        .in("type", validationDocumentTypes)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+    if (validationDocumentError) {
+      return jsonError("Vérification du PDF impossible.", 500);
+    }
+
+    const validationDocument = validationDocuments?.[0];
+
+    if (!validationDocument) {
+      const message =
+        validationSource === "initial_export"
+          ? "Aucune version PDF initiale disponible. Importez la dernière version PDF."
+          : "Aucun PDF final importé pour ce dossier.";
+
+      return jsonError(message, 404);
+    }
+
+    if (!validationDocument.url && !validationDocument.storage_path) {
+      return jsonError("Le PDF de validation est incomplet.", 400);
+    }
   }
 
   const startedAt = new Date().toISOString();
@@ -187,6 +233,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       dealId,
       workflowType,
       workflowRunId: workflowRun.id,
+      validationSource,
     }),
   }).catch(() => null);
 
