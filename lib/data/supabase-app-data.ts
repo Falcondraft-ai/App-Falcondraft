@@ -26,6 +26,12 @@ import type {
   TeamRole,
 } from "@/types/user";
 import { getWorkspaceRoleLabel } from "@/lib/invitations/shared";
+import {
+  canUseOrganizationDataScope,
+  normalizeWorkspaceRole,
+  shouldUseOwnWorkspaceDataOnly,
+  type WorkspaceDataAccess,
+} from "@/lib/auth/workspace-permissions";
 import type {
   AuditLogRow,
   BillingSubscriptionRow,
@@ -57,6 +63,11 @@ type DealDetailData = {
   deal: Deal | null;
   activity: ActivityEvent[];
   documents: GeneratedDealDocument[];
+};
+
+type DealQueryOptions = {
+  archive?: "exclude" | "only" | "all";
+  access?: WorkspaceDataAccess;
 };
 
 const fallbackIsoDate = "2026-05-08T00:00:00.000Z";
@@ -213,6 +224,28 @@ export function sortByUpdatedAtDesc<T extends { created_at: string }>(
       new Date(second.created_at).getTime() -
       new Date(first.created_at).getTime(),
   );
+}
+
+async function getAccessibleDealIdsForOrganization(
+  supabase: SupabaseAppClient,
+  organizationId: string,
+  access?: WorkspaceDataAccess,
+) {
+  if (!access || !shouldUseOwnWorkspaceDataOnly(access)) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("deals")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("created_by", access.userId);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((deal) => deal.id);
 }
 
 async function getProfilesByUserId(
@@ -406,7 +439,7 @@ function mapDealRow(
 
 export async function getDealsForOrganization(
   organizationId: string | null,
-  options: { archive?: "exclude" | "only" | "all" } = {},
+  options: DealQueryOptions = {},
 ): Promise<Deal[]> {
   if (!organizationId) {
     return [];
@@ -423,6 +456,12 @@ export async function getDealsForOrganization(
     .select("*")
     .eq("organization_id", organizationId)
     .order("updated_at", { ascending: false });
+
+  const access = options.access;
+
+  if (access && shouldUseOwnWorkspaceDataOnly(access)) {
+    query = query.eq("created_by", access.userId);
+  }
 
   if (options.archive === "only") {
     query = query.not("archived_at", "is", null);
@@ -452,6 +491,7 @@ export async function getDealsForOrganization(
 export async function getDealDetail(
   organizationId: string | null,
   dealId: string,
+  access?: WorkspaceDataAccess,
 ): Promise<DealDetailData> {
   if (!organizationId) {
     return { deal: null, activity: [], documents: [] };
@@ -471,6 +511,17 @@ export async function getDealDetail(
     .maybeSingle();
 
   if (error || !dealRow) {
+    return { deal: null, activity: [], documents: [] };
+  }
+
+  if (
+    access &&
+    !canUseOrganizationDataScope(
+      access.role,
+      access.allowMemberCompanyVisibility,
+    ) &&
+    dealRow.created_by !== access.userId
+  ) {
     return { deal: null, activity: [], documents: [] };
   }
 
@@ -496,6 +547,7 @@ export async function getDealDetail(
 async function getWorkflowRunsForOrganization(
   organizationId: string,
   dealId?: string,
+  access?: WorkspaceDataAccess,
 ): Promise<WorkflowRunRow[]> {
   const supabase = await getSupabaseDataClient();
 
@@ -512,6 +564,20 @@ async function getWorkflowRunsForOrganization(
 
   if (dealId) {
     query = query.eq("deal_id", dealId);
+  } else {
+    const accessibleDealIds = await getAccessibleDealIdsForOrganization(
+      supabase,
+      organizationId,
+      access,
+    );
+
+    if (accessibleDealIds && accessibleDealIds.length === 0) {
+      return [];
+    }
+
+    if (accessibleDealIds) {
+      query = query.in("deal_id", accessibleDealIds);
+    }
   }
 
   const { data, error } = await query;
@@ -526,6 +592,7 @@ async function getWorkflowRunsForOrganization(
 async function getAuditLogsForOrganization(
   organizationId: string,
   dealId?: string,
+  access?: WorkspaceDataAccess,
 ): Promise<AuditLogRow[]> {
   const supabase = await getSupabaseDataClient();
 
@@ -542,6 +609,20 @@ async function getAuditLogsForOrganization(
 
   if (dealId) {
     query = query.eq("entity_id", dealId);
+  } else {
+    const accessibleDealIds = await getAccessibleDealIdsForOrganization(
+      supabase,
+      organizationId,
+      access,
+    );
+
+    if (accessibleDealIds && accessibleDealIds.length === 0) {
+      return [];
+    }
+
+    if (accessibleDealIds) {
+      query = query.in("entity_id", accessibleDealIds);
+    }
   }
 
   const { data, error } = await query;
@@ -633,6 +714,7 @@ function makeChartData(
 
 export async function getDashboardData(
   organizationId: string | null,
+  access?: WorkspaceDataAccess,
 ): Promise<DashboardData> {
   if (!organizationId) {
     return {
@@ -649,10 +731,10 @@ export async function getDashboardData(
   }
 
   const [deals, workflowRuns, documents, auditLogs] = await Promise.all([
-    getDealsForOrganization(organizationId),
-    getWorkflowRunsForOrganization(organizationId),
-    getDocumentRowsForOrganization(organizationId),
-    getAuditLogsForOrganization(organizationId),
+    getDealsForOrganization(organizationId, { access }),
+    getWorkflowRunsForOrganization(organizationId, undefined, access),
+    getDocumentRowsForOrganization(organizationId, access),
+    getAuditLogsForOrganization(organizationId, undefined, access),
   ]);
   const activeDeals = deals.filter((deal) => deal.status !== "completed");
   const readyDeals = deals.filter((deal) =>
@@ -690,6 +772,7 @@ export async function getDashboardData(
 
 async function getDocumentRowsForOrganization(
   organizationId: string,
+  access?: WorkspaceDataAccess,
 ): Promise<DocumentRow[]> {
   const supabase = await getSupabaseDataClient();
 
@@ -697,12 +780,28 @@ async function getDocumentRowsForOrganization(
     return [];
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("documents")
     .select("*")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  const accessibleDealIds = await getAccessibleDealIdsForOrganization(
+    supabase,
+    organizationId,
+    access,
+  );
+
+  if (accessibleDealIds && accessibleDealIds.length === 0) {
+    return [];
+  }
+
+  if (accessibleDealIds) {
+    query = query.in("deal_id", accessibleDealIds);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) {
     return [];
@@ -738,14 +837,15 @@ async function getDocumentRowsForDeal(
 
 export async function getDocumentsForOrganization(
   organizationId: string | null,
+  access?: WorkspaceDataAccess,
 ): Promise<MockDocument[]> {
   if (!organizationId) {
     return [];
   }
 
   const [documents, deals] = await Promise.all([
-    getDocumentRowsForOrganization(organizationId),
-    getDealsForOrganization(organizationId),
+    getDocumentRowsForOrganization(organizationId, access),
+    getDealsForOrganization(organizationId, { archive: "all", access }),
   ]);
   const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
   const latestDocumentsByTypeAndDeal = new Map<string, DocumentRow>();
@@ -850,6 +950,10 @@ function roleLabel(role: string): TeamRole {
   return getWorkspaceRoleLabel(role) as TeamRole;
 }
 
+function teamMemberRoleKey(role: string) {
+  return normalizeWorkspaceRole(role) ?? "member";
+}
+
 export async function getTeamMembersForOrganization(
   organizationId: string | null,
 ): Promise<TeamMember[]> {
@@ -885,9 +989,11 @@ export async function getTeamMembersForOrganization(
 
     return {
       id: member.id,
+      userId: member.user_id,
       name: profile?.full_name ?? "Utilisateur",
       email: profile?.email ?? "Email à renseigner",
       role: roleLabel(member.role),
+      roleKey: teamMemberRoleKey(member.role),
       status,
       lastActiveAt: profile?.created_at ?? member.created_at,
     };

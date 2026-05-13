@@ -26,11 +26,19 @@ import {
   invitationRoles,
   type InvitationRole,
 } from "@/lib/invitations/shared";
+import {
+  normalizeWorkspaceRole,
+  workspaceMemberRoles,
+  type WorkspaceMemberRole,
+} from "@/lib/auth/workspace-permissions";
 import { formatDateTime } from "@/lib/format";
 import type { PendingInvitation, TeamMember } from "@/types/user";
 
 type TeamManagementPanelProps = {
   organizationId: string | null;
+  currentUserId: string;
+  currentUserRole: string | null;
+  canManageMembers: boolean;
   canManageInvitations: boolean;
   members: TeamMember[];
   pendingInvitations: PendingInvitation[];
@@ -58,6 +66,23 @@ type CreatedInvitation = Extract<
   { success: true }
 >["invitation"];
 
+type MemberMutationApiResponse =
+  | {
+      success: true;
+      member: {
+        id: string;
+        userId: string;
+        role: TeamMember["role"];
+        roleKey: WorkspaceMemberRole;
+        status: TeamMember["status"];
+        lastActiveAt: string;
+      };
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
 function mapPendingInvitation(
   invitation: CreatedInvitation,
 ): PendingInvitation {
@@ -73,18 +98,60 @@ function mapPendingInvitation(
 
 export function TeamManagementPanel({
   organizationId,
+  currentUserId,
+  currentUserRole,
+  canManageMembers,
   canManageInvitations,
-  members,
+  members: initialMembers,
   pendingInvitations: initialPendingInvitations,
 }: TeamManagementPanelProps) {
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState<InvitationRole>("member");
   const [isInviting, setIsInviting] = React.useState(false);
   const [revokingId, setRevokingId] = React.useState<string | null>(null);
+  const [updatingMemberId, setUpdatingMemberId] = React.useState<string | null>(
+    null,
+  );
+  const [removingMemberId, setRemovingMemberId] = React.useState<string | null>(
+    null,
+  );
+  const [members, setMembers] = React.useState(initialMembers);
   const [pendingInvitations, setPendingInvitations] = React.useState(
     initialPendingInvitations,
   );
   const [error, setError] = React.useState<string | null>(null);
+  const currentRole = normalizeWorkspaceRole(currentUserRole);
+  const activeManagerCount = members.filter(
+    (member) => member.roleKey === "manager",
+  ).length;
+
+  function getMemberRoleOptions(member: TeamMember) {
+    if (member.roleKey === "manager" && activeManagerCount <= 1) {
+      return ["manager"] as const;
+    }
+
+    if (currentRole === "manager") {
+      return workspaceMemberRoles;
+    }
+
+    return [];
+  }
+
+  function canEditMember(member: TeamMember) {
+    if (!canManageMembers) {
+      return false;
+    }
+
+    return getMemberRoleOptions(member).length > 0;
+  }
+
+  function canRemoveMember(member: TeamMember) {
+    if (!canEditMember(member)) {
+      return false;
+    }
+
+    return !(member.roleKey === "manager" && activeManagerCount <= 1);
+  }
 
   async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,6 +241,102 @@ export function TeamManagementPanel({
     toast.success("Invitation révoquée");
   }
 
+  async function handleRoleChange(
+    member: TeamMember,
+    nextRole: WorkspaceMemberRole,
+  ) {
+    if (!canEditMember(member) || nextRole === member.roleKey) {
+      return;
+    }
+
+    setError(null);
+    setUpdatingMemberId(member.id);
+
+    const response = await fetch(`/api/organization-members/${member.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        role: nextRole,
+      }),
+    });
+    const result = (await response.json().catch(() => ({
+      success: false,
+      message: "Modification impossible.",
+    }))) as MemberMutationApiResponse;
+
+    setUpdatingMemberId(null);
+
+    if (!response.ok || !result.success) {
+      const message =
+        "message" in result ? result.message : "Modification impossible.";
+      setError(message);
+      toast.error("Rôle non modifié", {
+        description: message,
+      });
+      return;
+    }
+
+    setMembers((current) =>
+      current.map((currentMember) =>
+        currentMember.id === member.id
+          ? {
+              ...currentMember,
+              role: result.member.role,
+              roleKey: result.member.roleKey,
+              status: result.member.status,
+              lastActiveAt: result.member.lastActiveAt,
+            }
+          : currentMember,
+      ),
+    );
+    toast.success("Rôle mis à jour");
+  }
+
+  async function handleRemoveMember(member: TeamMember) {
+    if (!canRemoveMember(member)) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Retirer ${member.name} de cet espace de travail ? Son accès sera désactivé.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError(null);
+    setRemovingMemberId(member.id);
+
+    const response = await fetch(`/api/organization-members/${member.id}`, {
+      method: "DELETE",
+    });
+    const result = (await response.json().catch(() => ({
+      success: false,
+      message: "Retrait impossible.",
+    }))) as { success: boolean; message?: string };
+
+    setRemovingMemberId(null);
+
+    if (!response.ok || !result.success) {
+      const message = result.message ?? "Retrait impossible.";
+      setError(message);
+      toast.error("Membre conservé", {
+        description: message,
+      });
+      return;
+    }
+
+    setMembers((current) =>
+      current.filter((currentMember) => currentMember.id !== member.id),
+    );
+    toast.success("Membre retiré", {
+      description: `${member.name} n’a plus accès à l’espace.`,
+    });
+  }
+
   return (
     <div className="space-y-6">
       <section className="bg-card/80 rounded-lg border">
@@ -194,22 +357,80 @@ export function TeamManagementPanel({
                 <TableHead>Rôle</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Dernière activité</TableHead>
+                {canManageMembers ? (
+                  <TableHead className="text-right">Actions</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell className="font-medium">{member.name}</TableCell>
-                  <TableCell>{member.email}</TableCell>
-                  <TableCell>{member.role}</TableCell>
-                  <TableCell>
-                    <span className="bg-card border px-2 py-1 text-xs">
-                      {member.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{formatDateTime(member.lastActiveAt)}</TableCell>
-                </TableRow>
-              ))}
+              {members.map((member) => {
+                const roleOptions = getMemberRoleOptions(member);
+                const isUpdating = updatingMemberId === member.id;
+                const isRemoving = removingMemberId === member.id;
+
+                return (
+                  <TableRow key={member.id}>
+                    <TableCell className="font-medium">
+                      {member.name}
+                      {member.userId === currentUserId ? (
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          Vous
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>{member.email}</TableCell>
+                    <TableCell>
+                      {canEditMember(member) ? (
+                        <Select
+                          value={member.roleKey}
+                          disabled={isUpdating || isRemoving}
+                          onValueChange={(value) =>
+                            void handleRoleChange(
+                              member,
+                              value as WorkspaceMemberRole,
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {roleOptions.map((availableRole) => (
+                              <SelectItem
+                                key={availableRole}
+                                value={availableRole}
+                              >
+                                {getWorkspaceRoleLabel(availableRole)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        member.role
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="bg-card border px-2 py-1 text-xs">
+                        {member.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{formatDateTime(member.lastActiveAt)}</TableCell>
+                    {canManageMembers ? (
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={!canRemoveMember(member) || isRemoving}
+                          onClick={() => void handleRemoveMember(member)}
+                        >
+                          {isRemoving ? "Retrait..." : "Retirer"}
+                        </Button>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         ) : (
@@ -222,17 +443,23 @@ export function TeamManagementPanel({
         )}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="bg-card/80 rounded-lg border p-4">
-          <div>
-            <h2 className="text-sm font-semibold">Inviter un collaborateur</h2>
-            <p className="text-muted-foreground mt-1 text-sm leading-6">
-              Un lien privé est envoyé par email. Aucun accès public à la
-              création de compte n’est ouvert.
-            </p>
-          </div>
+      {error ? (
+        <p className="text-destructive text-sm leading-6">{error}</p>
+      ) : null}
 
-          {canManageInvitations ? (
+      {canManageInvitations ? (
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="bg-card/80 rounded-lg border p-4">
+            <div>
+              <h2 className="text-sm font-semibold">
+                Inviter un collaborateur
+              </h2>
+              <p className="text-muted-foreground mt-1 text-sm leading-6">
+                Un lien privé est envoyé par email. Aucun accès public à la
+                création de compte n’est ouvert.
+              </p>
+            </div>
+
             <form className="mt-5 space-y-4" onSubmit={handleInvite}>
               <div className="space-y-2">
                 <Label htmlFor="invite-email">Email professionnel</Label>
@@ -264,9 +491,6 @@ export function TeamManagementPanel({
                   </SelectContent>
                 </Select>
               </div>
-              {error ? (
-                <p className="text-destructive text-sm leading-6">{error}</p>
-              ) : null}
               <Button
                 type="submit"
                 disabled={isInviting || !organizationId}
@@ -275,77 +499,69 @@ export function TeamManagementPanel({
                 {isInviting ? "Envoi en cours..." : "Envoyer l’invitation"}
               </Button>
             </form>
-          ) : (
-            <div className="bg-background/70 mt-5 rounded-lg border p-4">
-              <p className="text-sm font-medium">Accès limité</p>
-              <p className="text-muted-foreground mt-1 text-sm leading-6">
-                Seuls les propriétaires et gestionnaires actifs peuvent inviter
-                ou révoquer des collaborateurs.
+          </div>
+
+          <div className="bg-card/80 rounded-lg border">
+            <div className="border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">Invitations en attente</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Liens actifs qui n’ont pas encore été acceptés.
               </p>
             </div>
-          )}
-        </div>
-
-        <div className="bg-card/80 rounded-lg border">
-          <div className="border-b px-4 py-3">
-            <h2 className="text-sm font-semibold">Invitations en attente</h2>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Liens actifs qui n’ont pas encore été acceptés.
-            </p>
-          </div>
-          {pendingInvitations.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead>Expiration</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingInvitations.map((invitation) => (
-                  <TableRow key={invitation.id}>
-                    <TableCell className="font-medium">
-                      {invitation.email}
-                    </TableCell>
-                    <TableCell>{invitation.role}</TableCell>
-                    <TableCell>
-                      {formatDateTime(invitation.expiresAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canManageInvitations ? (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          disabled={revokingId === invitation.id}
-                          onClick={() => void handleRevoke(invitation.id)}
-                        >
-                          {revokingId === invitation.id
-                            ? "Révocation..."
-                            : "Révoquer"}
-                        </Button>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">
-                          Lecture seule
-                        </span>
-                      )}
-                    </TableCell>
+            {pendingInvitations.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Rôle</TableHead>
+                    <TableHead>Expiration</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="p-4">
-              <EmptyState
-                title="Aucune invitation en attente"
-                description="Les invitations envoyées et non acceptées apparaîtront ici."
-              />
-            </div>
-          )}
-        </div>
-      </section>
+                </TableHeader>
+                <TableBody>
+                  {pendingInvitations.map((invitation) => (
+                    <TableRow key={invitation.id}>
+                      <TableCell className="font-medium">
+                        {invitation.email}
+                      </TableCell>
+                      <TableCell>{invitation.role}</TableCell>
+                      <TableCell>
+                        {formatDateTime(invitation.expiresAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {canManageInvitations ? (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={revokingId === invitation.id}
+                            onClick={() => void handleRevoke(invitation.id)}
+                          >
+                            {revokingId === invitation.id
+                              ? "Révocation..."
+                              : "Révoquer"}
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            Lecteur
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="p-4">
+                <EmptyState
+                  title="Aucune invitation en attente"
+                  description="Les invitations envoyées et non acceptées apparaîtront ici."
+                />
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

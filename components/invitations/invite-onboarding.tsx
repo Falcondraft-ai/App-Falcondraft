@@ -38,7 +38,7 @@ function getInvalidInvitationCopy(state: InvitationLookupResult["state"]) {
     return {
       title: "Invitation expirée",
       description:
-        "Ce lien n’est plus actif. Demandez à un propriétaire ou gestionnaire de l’espace d’envoyer une nouvelle invitation.",
+        "Ce lien n’est plus actif. Demandez à un gestionnaire de l’espace d’envoyer une nouvelle invitation.",
     };
   }
 

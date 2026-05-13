@@ -5,6 +5,7 @@ import {
   getPendingInvitationsForOrganization,
   getTeamMembersForOrganization,
 } from "@/lib/data/supabase-app-data";
+import { canManageWorkspace } from "@/lib/auth/workspace-permissions";
 import { canManageWorkspaceInvitations } from "@/lib/invitations/shared";
 
 export default async function TeamSettingsPage() {
@@ -19,6 +20,9 @@ export default async function TeamSettingsPage() {
     <PageTransition>
       <TeamManagementPanel
         organizationId={organizationId}
+        currentUserId={context.user.id}
+        currentUserRole={context.membership?.role ?? null}
+        canManageMembers={canManageWorkspace(context.membership?.role)}
         canManageInvitations={canManageWorkspaceInvitations(
           context.membership?.role,
         )}

@@ -1,13 +1,10 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireCurrentUserContext } from "@/lib/auth/session";
+import { canViewInternalAdmin } from "@/lib/internal-access";
 import { getWorkspaceRoleLabel } from "@/lib/invitations/shared";
 
 function roleLabel(role: string | null | undefined) {
   return role ? getWorkspaceRoleLabel(role) : "Collaborateur";
-}
-
-function canViewInternalAdmin(role: string | null | undefined) {
-  return role === "owner" || role === "manager" || role === "admin";
 }
 
 export default async function DashboardLayout({
@@ -33,7 +30,7 @@ export default async function DashboardLayout({
         email: context.user.email ?? "",
         roleLabel: roleLabel(context.membership?.role),
       }}
-      showInternalAdmin={canViewInternalAdmin(context.membership?.role)}
+      showInternalAdmin={canViewInternalAdmin(context)}
     >
       {children}
     </DashboardShell>

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { canMutateWorkspaceDeal } from "@/lib/auth/workspace-permissions";
 import type { CurrentUserContext } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -121,23 +122,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
   );
 
   if (!organizationContext.membership) {
-    return jsonError(
-      "Aucun espace client associé.",
-      403,
-      {
-        ...contextDetails(organizationContext, "active_membership_missing"),
-      },
-    );
+    return jsonError("Aucun espace client associé.", 403, {
+      ...contextDetails(organizationContext, "active_membership_missing"),
+    });
   }
 
   if (!organizationContext.organization) {
-    return jsonError(
-      "Organisation introuvable.",
-      403,
-      {
-        ...contextDetails(organizationContext, "organization_missing"),
-      },
-    );
+    return jsonError("Organisation introuvable.", 403, {
+      ...contextDetails(organizationContext, "organization_missing"),
+    });
   }
 
   const organizationId = organizationContext.organization.id;
@@ -145,13 +138,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { data: deal } = await adminSupabase
     .from("deals")
-    .select("id")
+    .select("id, created_by")
     .eq("id", dealId)
     .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (!deal) {
     return jsonError("Dossier commercial introuvable.", 404);
+  }
+
+  if (
+    !canMutateWorkspaceDeal(
+      {
+        userId: user.id,
+        role: organizationContext.membership.role,
+        allowMemberCompanyVisibility:
+          organizationContext.organization.allow_member_company_visibility,
+        scope: "organization",
+      },
+      deal.created_by,
+    )
+  ) {
+    return jsonError("Votre rôle ne permet pas de modifier ce dossier.", 403);
   }
 
   if (workflowType === "proposal_validation") {

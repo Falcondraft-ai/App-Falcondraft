@@ -18,6 +18,7 @@ export type OrganizationRow = {
   name: string;
   slug: string;
   billing_status: string;
+  allow_member_company_visibility: boolean;
   created_at: string;
 };
 
@@ -33,7 +34,7 @@ export type OrganizationMemberRow = {
   id: string;
   organization_id: string;
   user_id: string;
-  role: "owner" | "manager" | "admin" | "member" | "viewer" | string;
+  role: "manager" | "member" | "viewer" | string;
   status: "active" | "inactive" | "invited" | string;
   created_at: string;
 };
@@ -42,7 +43,7 @@ export type OrganizationInvitationRow = {
   id: string;
   organization_id: string;
   email: string;
-  role: "owner" | "manager" | "member" | "viewer" | string;
+  role: "manager" | "member" | "viewer" | string;
   invited_by: string;
   token_hash: string;
   status: "pending" | "accepted" | "expired" | "revoked" | string;
@@ -153,6 +154,15 @@ export type Database = {
           name: string;
           slug: string;
           billing_status?: string;
+          allow_member_company_visibility?: boolean;
+          created_at?: string;
+        },
+        {
+          id?: string;
+          name?: string;
+          slug?: string;
+          billing_status?: string;
+          allow_member_company_visibility?: boolean;
           created_at?: string;
         }
       >;

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { canMutateWorkspaceDeal } from "@/lib/auth/workspace-permissions";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -75,14 +76,39 @@ async function loadArchiveContext(context: RouteContext) {
   const dealId = parsedDealId.data;
   const { data: deal } = await adminSupabase
     .from("deals")
-    .select("id")
+    .select("id, created_by")
     .eq("id", dealId)
     .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (!deal) {
     return {
-      error: jsonError("Dossier commercial introuvable.", 404, "deal_not_found"),
+      error: jsonError(
+        "Dossier commercial introuvable.",
+        404,
+        "deal_not_found",
+      ),
+    };
+  }
+
+  if (
+    !canMutateWorkspaceDeal(
+      {
+        userId: user.id,
+        role: userContext.membership.role,
+        allowMemberCompanyVisibility:
+          userContext.organization.allow_member_company_visibility,
+        scope: "organization",
+      },
+      deal.created_by,
+    )
+  ) {
+    return {
+      error: jsonError(
+        "Votre rôle ne permet pas de modifier ce dossier.",
+        403,
+        "insufficient_role",
+      ),
     };
   }
 

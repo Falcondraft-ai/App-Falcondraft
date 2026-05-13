@@ -7,9 +7,19 @@ import { getDealsForOrganization } from "@/lib/data/supabase-app-data";
 
 export default async function ArchivePage() {
   const context = await requireCurrentUserContext();
-  const deals = await getDealsForOrganization(context.organization?.id ?? null, {
-    archive: "only",
-  });
+  const deals = await getDealsForOrganization(
+    context.organization?.id ?? null,
+    {
+      archive: "only",
+      access: {
+        userId: context.user.id,
+        role: context.membership?.role,
+        allowMemberCompanyVisibility:
+          context.organization?.allow_member_company_visibility ?? true,
+        scope: "organization",
+      },
+    },
+  );
 
   return (
     <PageTransition>
@@ -22,7 +32,7 @@ export default async function ArchivePage() {
         {deals.length > 0 ? (
           <DealsTable deals={deals} mode="archived" />
         ) : (
-          <section className="rounded-lg border bg-card/75 p-4">
+          <section className="bg-card/75 rounded-lg border p-4">
             <EmptyState
               title="Aucun dossier archivé"
               description="Les dossiers archivés apparaîtront ici sans entrer dans le pipeline commercial."

@@ -2,6 +2,7 @@ import { PageTransition } from "@/components/common/page-transition";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getAdminData } from "@/lib/data/supabase-app-data";
 import { formatDateTime } from "@/lib/format";
+import { canViewInternalAdmin } from "@/lib/internal-access";
 
 type AdminRow = {
   id: string;
@@ -11,15 +12,9 @@ type AdminRow = {
   updatedAt: string;
 };
 
-function AdminRows({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: AdminRow[];
-}) {
+function AdminRows({ title, rows }: { title: string; rows: AdminRow[] }) {
   return (
-    <section className="rounded-lg border bg-card">
+    <section className="bg-card rounded-lg border">
       <div className="border-b px-4 py-3">
         <h2 className="text-sm font-semibold">{title}</h2>
       </div>
@@ -36,7 +31,7 @@ function AdminRows({
                   {row.detail}
                 </p>
               </div>
-              <span className="w-fit rounded-md border bg-secondary px-2 py-1 text-xs">
+              <span className="bg-secondary w-fit rounded-md border px-2 py-1 text-xs">
                 {row.status}
               </span>
               <time className="text-muted-foreground text-xs">
@@ -45,7 +40,7 @@ function AdminRows({
             </article>
           ))
         ) : (
-          <div className="px-4 py-4 text-sm text-muted-foreground">
+          <div className="text-muted-foreground px-4 py-4 text-sm">
             Aucune ligne disponible.
           </div>
         )}
@@ -56,13 +51,12 @@ function AdminRows({
 
 export default async function AdminPage() {
   const context = await requireCurrentUserContext();
-  const hasInternalAccess =
-    context.membership?.role === "owner" || context.membership?.role === "admin";
+  const hasInternalAccess = canViewInternalAdmin(context);
 
   if (!hasInternalAccess) {
     return (
       <PageTransition>
-        <section className="rounded-lg border bg-card p-6">
+        <section className="bg-card rounded-lg border p-6">
           <p className="text-muted-foreground text-sm">Accès réservé</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
             Page interne FalconDraft
@@ -99,7 +93,7 @@ export default async function AdminPage() {
 
         <section className="grid gap-3 md:grid-cols-4">
           {adminData.metrics.map((metric) => (
-            <div key={metric.label} className="rounded-lg border bg-card p-4">
+            <div key={metric.label} className="bg-card rounded-lg border p-4">
               <p className="text-muted-foreground text-xs font-medium">
                 {metric.label}
               </p>

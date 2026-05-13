@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import type { CurrentUserContext } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -60,13 +61,9 @@ export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
 
   if (!supabase) {
-    return jsonError(
-      "Création indisponible.",
-      500,
-      {
-        reason: "supabase_unconfigured",
-      },
-    );
+    return jsonError("Création indisponible.", 500, {
+      reason: "supabase_unconfigured",
+    });
   }
 
   const {
@@ -74,13 +71,9 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return jsonError(
-      "Session requise.",
-      401,
-      {
-        ...contextDetails(null, "session_missing"),
-      },
-    );
+    return jsonError("Session requise.", 401, {
+      ...contextDetails(null, "session_missing"),
+    });
   }
 
   const adminSupabase = getSupabaseAdminClient();
@@ -101,23 +94,21 @@ export async function POST(request: NextRequest) {
   );
 
   if (!context.membership) {
-    return jsonError(
-      "Aucun espace client associé.",
-      403,
-      {
-        ...contextDetails(context, "active_membership_missing"),
-      },
-    );
+    return jsonError("Aucun espace client associé.", 403, {
+      ...contextDetails(context, "active_membership_missing"),
+    });
   }
 
   if (!context.organization) {
-    return jsonError(
-      "Organisation introuvable.",
-      403,
-      {
-        ...contextDetails(context, "organization_missing"),
-      },
-    );
+    return jsonError("Organisation introuvable.", 403, {
+      ...contextDetails(context, "organization_missing"),
+    });
+  }
+
+  if (!canCreateWorkspaceRecords(context.membership.role)) {
+    return jsonError("Votre rôle ne permet pas de créer un dossier.", 403, {
+      reason: "insufficient_role",
+    });
   }
 
   const organizationId = context.organization.id;
@@ -155,13 +146,9 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error || !data) {
-    return jsonError(
-      "Création impossible.",
-      500,
-      {
-        reason: error?.message ?? "insert_failed",
-      },
-    );
+    return jsonError("Création impossible.", 500, {
+      reason: error?.message ?? "insert_failed",
+    });
   }
 
   return NextResponse.json({

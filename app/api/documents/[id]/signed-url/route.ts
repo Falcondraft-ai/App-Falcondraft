@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { canAccessWorkspaceDeal } from "@/lib/auth/workspace-permissions";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -72,12 +73,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { data: document } = await adminSupabase
     .from("documents")
-    .select("id, organization_id, storage_path, title")
+    .select("id, organization_id, deal_id, storage_path, title")
     .eq("id", parsedDocumentId.data)
     .eq("organization_id", userContext.organization.id)
     .maybeSingle();
 
   if (!document) {
+    return jsonError("Document introuvable.", 404, "document_not_found");
+  }
+
+  const { data: deal } = await adminSupabase
+    .from("deals")
+    .select("id, created_by")
+    .eq("id", document.deal_id)
+    .eq("organization_id", userContext.organization.id)
+    .maybeSingle();
+
+  if (
+    !deal ||
+    !canAccessWorkspaceDeal(
+      {
+        userId: user.id,
+        role: userContext.membership.role,
+        allowMemberCompanyVisibility:
+          userContext.organization.allow_member_company_visibility,
+        scope: "organization",
+      },
+      deal.created_by,
+    )
+  ) {
     return jsonError("Document introuvable.", 404, "document_not_found");
   }
 

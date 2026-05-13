@@ -22,7 +22,13 @@ import { formatCurrency, formatDate } from "@/lib/format";
 
 export default async function DashboardPage() {
   const context = await requireCurrentUserContext();
-  const dashboard = await getDashboardData(context.organization?.id ?? null);
+  const dashboard = await getDashboardData(context.organization?.id ?? null, {
+    userId: context.user.id,
+    role: context.membership?.role,
+    allowMemberCompanyVisibility:
+      context.organization?.allow_member_company_visibility ?? true,
+    scope: "organization",
+  });
 
   return (
     <PageTransition>
@@ -66,12 +72,10 @@ export default async function DashboardPage() {
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-          <section className="rounded-lg border bg-card/75">
+          <section className="bg-card/75 rounded-lg border">
             <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold">
-                  Dossiers récents
-                </h2>
+                <h2 className="text-sm font-semibold">Dossiers récents</h2>
                 <p className="text-muted-foreground mt-1 text-sm">
                   Dossiers qui demandent une attention commerciale.
                 </p>
@@ -132,7 +136,7 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          <section className="rounded-lg border bg-card/75">
+          <section className="bg-card/75 rounded-lg border">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">Dossier à suivre</h2>
               <p className="text-muted-foreground mt-1 text-sm">
@@ -150,7 +154,10 @@ export default async function DashboardPage() {
                       {dashboard.featuredDeal.clientCompanyName}
                     </p>
                   </div>
-                  <WorkflowTimeline status={dashboard.featuredDeal.status} compact />
+                  <WorkflowTimeline
+                    status={dashboard.featuredDeal.status}
+                    compact
+                  />
                 </>
               ) : (
                 <p className="text-muted-foreground text-sm">
@@ -162,7 +169,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-lg border bg-card/75">
+          <section className="bg-card/75 rounded-lg border">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">Activité de génération</h2>
               <p className="text-muted-foreground mt-1 text-sm">
@@ -174,7 +181,7 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border bg-card/75">
+          <section className="bg-card/75 rounded-lg border">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">Journal récent</h2>
               <p className="text-muted-foreground mt-1 text-sm">

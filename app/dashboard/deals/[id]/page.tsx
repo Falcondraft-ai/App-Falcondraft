@@ -29,13 +29,22 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   const { deal, activity, documents } = await getDealDetail(
     context.organization?.id ?? null,
     id,
+    {
+      userId: context.user.id,
+      role: context.membership?.role,
+      allowMemberCompanyVisibility:
+        context.organization?.allow_member_company_visibility ?? true,
+      scope: "organization",
+    },
   );
 
   if (!deal) {
     notFound();
   }
 
-  const quoteDocument = documents.find((document) => document.type === "quote_pdf");
+  const quoteDocument = documents.find(
+    (document) => document.type === "quote_pdf",
+  );
   const finalDocument = documents.find(
     (document) => document.type === "final_document_pdf",
   );
@@ -43,7 +52,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <header className="grid gap-4 rounded-lg border bg-card/45 p-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <header className="bg-card/45 grid gap-4 rounded-lg border p-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
               Dossier commercial
@@ -131,7 +140,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               />
             </ActionCard>
 
-            <section className="overflow-hidden rounded-lg border bg-card/80">
+            <section className="bg-card/80 overflow-hidden rounded-lg border">
               <div className="border-b px-4 py-3.5">
                 <h2 className="text-[0.82rem] font-semibold tracking-[-0.01em]">
                   Production documentaire
@@ -186,7 +195,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                     <p className="text-sm font-medium">
                       Lien de signature préparé
                     </p>
-                    <p className="text-muted-foreground mt-2 break-all text-sm leading-6">
+                    <p className="text-muted-foreground mt-2 text-sm leading-6 break-all">
                       {deal.signatureUrl}
                     </p>
                   </div>
@@ -202,9 +211,9 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
             </ActionCard>
 
             <ActionCard title="Brouillon email">
-              <div className="rounded-md border bg-secondary/40 p-3">
+              <div className="bg-secondary/40 rounded-md border p-3">
                 <p className="text-sm font-medium">{deal.emailDraft.subject}</p>
-                <p className="text-muted-foreground mt-3 whitespace-pre-line text-sm leading-6">
+                <p className="text-muted-foreground mt-3 text-sm leading-6 whitespace-pre-line">
                   {deal.emailDraft.body}
                 </p>
               </div>

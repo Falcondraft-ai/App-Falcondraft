@@ -2,7 +2,7 @@ import "server-only";
 
 import { getResendClient } from "@/lib/resend/client";
 
-const LOGO_URL = "https://app.falcondraft.fr/falcondraft-logo%20off.png";
+const LOGO_URL = "https://app.falcondraft.fr/falcondraft-logo-off.png";
 
 type InvitationEmailInput = {
   to: string;

@@ -1,3 +1,5 @@
+import { canManageWorkspace } from "@/lib/auth/workspace-permissions";
+
 export const invitationRoles = ["manager", "member", "viewer"] as const;
 
 export type InvitationRole = (typeof invitationRoles)[number];
@@ -33,21 +35,17 @@ export function normalizeEmail(value: string) {
 }
 
 export function getWorkspaceRoleLabel(role: string) {
-  if (role === "owner") {
-    return "Propriétaire";
-  }
-
-  if (role === "manager" || role === "admin") {
+  if (role === "manager" || role === "owner" || role === "admin") {
     return "Gestionnaire";
   }
 
   if (role === "viewer") {
-    return "Lecture seule";
+    return "Lecteur";
   }
 
   return "Collaborateur";
 }
 
 export function canManageWorkspaceInvitations(role: string | null | undefined) {
-  return role === "owner" || role === "manager" || role === "admin";
+  return canManageWorkspace(role);
 }

@@ -1,31 +1,33 @@
-import type {
-  BillingInvoice,
-  IntegrationItem,
-  TeamMember,
-} from "@/types/user";
+import type { BillingInvoice, IntegrationItem, TeamMember } from "@/types/user";
 
 export const mockTeamMembers: TeamMember[] = [
   {
     id: "team-clemence",
+    userId: "user-clemence",
     name: "Clémence Varlet",
     email: "clemence@falcondraft.local",
-    role: "Propriétaire",
+    role: "Gestionnaire",
+    roleKey: "manager",
     status: "Actif",
     lastActiveAt: "2026-05-06T16:12:00.000Z",
   },
   {
     id: "team-noemie",
+    userId: "user-noemie",
     name: "Noémie Abadie",
     email: "noemie@falcondraft.local",
     role: "Gestionnaire",
+    roleKey: "manager",
     status: "Actif",
     lastActiveAt: "2026-05-06T11:42:00.000Z",
   },
   {
     id: "team-victor",
+    userId: "user-victor",
     name: "Victor Lemaire",
     email: "victor@falcondraft.local",
     role: "Collaborateur",
+    roleKey: "member",
     status: "Invitation envoyée",
     lastActiveAt: "2026-05-02T09:20:00.000Z",
   },
@@ -35,7 +37,8 @@ export const mockIntegrations: IntegrationItem[] = [
   {
     id: "messaging",
     name: "Messagerie",
-    description: "Prépare les brouillons d’envoi dans la messagerie de l’équipe.",
+    description:
+      "Prépare les brouillons d’envoi dans la messagerie de l’équipe.",
     status: "not_connected",
     actionLabel: "Connecter",
   },

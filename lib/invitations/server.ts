@@ -64,7 +64,7 @@ export async function assertCanManageOrganization(
     return {
       success: false,
       status: 403,
-      message: "Accès réservé aux propriétaires et gestionnaires actifs.",
+      message: "Accès réservé aux gestionnaires actifs.",
       reason: "insufficient_role",
     };
   }

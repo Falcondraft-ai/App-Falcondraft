@@ -1,16 +1,16 @@
-export type TeamRole =
-  | "Propriétaire"
-  | "Gestionnaire"
-  | "Collaborateur"
-  | "Lecture seule";
+import type { WorkspaceMemberRole } from "@/lib/auth/workspace-permissions";
+
+export type TeamRole = "Gestionnaire" | "Collaborateur" | "Lecteur";
 
 export type TeamMemberStatus = "Actif" | "Invitation envoyée";
 
 export type TeamMember = {
   id: string;
+  userId: string;
   name: string;
   email: string;
   role: TeamRole;
+  roleKey: WorkspaceMemberRole;
   status: TeamMemberStatus;
   lastActiveAt: string;
 };

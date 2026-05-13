@@ -1,5 +1,6 @@
 import {
   index,
+  boolean,
   date,
   numeric,
   pgTable,
@@ -14,6 +15,9 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   slug: text("slug").notNull(),
   billingStatus: text("billing_status").notNull(),
+  allowMemberCompanyVisibility: boolean("allow_member_company_visibility")
+    .default(true)
+    .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
