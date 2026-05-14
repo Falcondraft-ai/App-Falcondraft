@@ -117,6 +117,16 @@ async function loadMemberMutationContext(context: RouteContext) {
   const actorRole = normalizeWorkspaceRole(userContext.membership.role);
   const targetRole = normalizeWorkspaceRole(targetMember.role);
 
+  if (!actorRole || !targetRole) {
+    return {
+      error: jsonError(
+        "Rôle workspace non autorisé.",
+        403,
+        "unsupported_workspace_role",
+      ),
+    };
+  }
+
   return {
     adminSupabase,
     actorUserId: user.id,
@@ -253,25 +263,31 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
   }
 
-  const { error } = await mutationContext.adminSupabase
+  const { data: deactivatedMember, error } = await mutationContext.adminSupabase
     .from("organization_members")
     .update({
       status: "inactive",
     })
     .eq("id", mutationContext.targetMember.id)
     .eq("organization_id", mutationContext.organizationId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .select("id")
+    .single();
 
-  if (error) {
-    return jsonError("Retrait impossible.", 500, error.message);
+  if (error || !deactivatedMember) {
+    return jsonError(
+      "Retrait impossible.",
+      500,
+      error?.message ?? "deactivation_failed",
+    );
   }
 
   await mutationContext.adminSupabase.from("audit_logs").insert({
     organization_id: mutationContext.organizationId,
     user_id: mutationContext.actorUserId,
-    action: "organization_member_deactivated",
+    action: "member_deactivated",
     entity_type: "organization_member",
-    entity_id: mutationContext.targetMember.id,
+    entity_id: deactivatedMember.id,
   });
 
   return NextResponse.json({

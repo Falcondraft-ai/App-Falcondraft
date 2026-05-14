@@ -35,7 +35,7 @@ export function normalizeEmail(value: string) {
 }
 
 export function getWorkspaceRoleLabel(role: string) {
-  if (role === "manager" || role === "owner" || role === "admin") {
+  if (role === "manager") {
     return "Gestionnaire";
   }
 

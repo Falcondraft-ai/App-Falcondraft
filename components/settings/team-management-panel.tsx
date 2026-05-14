@@ -300,7 +300,7 @@ export function TeamManagementPanel({
     }
 
     const confirmed = window.confirm(
-      `Retirer ${member.name} de cet espace de travail ? Son accès sera désactivé.`,
+      `Retirer ${member.name} du workspace ? Son accès sera désactivé.`,
     );
 
     if (!confirmed) {
@@ -424,7 +424,9 @@ export function TeamManagementPanel({
                           disabled={!canRemoveMember(member) || isRemoving}
                           onClick={() => void handleRemoveMember(member)}
                         >
-                          {isRemoving ? "Retrait..." : "Retirer"}
+                          {isRemoving
+                            ? "Retrait..."
+                            : "Retirer du workspace"}
                         </Button>
                       </TableCell>
                     ) : null}

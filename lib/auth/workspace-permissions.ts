@@ -13,7 +13,7 @@ export type WorkspaceDataAccess = {
 export function normalizeWorkspaceRole(
   role: string | null | undefined,
 ): WorkspaceMemberRole | null {
-  if (role === "manager" || role === "owner" || role === "admin") {
+  if (role === "manager") {
     return "manager";
   }
 
