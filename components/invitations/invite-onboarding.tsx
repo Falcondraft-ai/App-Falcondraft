@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import {
-  getWorkspaceRoleLabel,
   normalizeEmail,
   type InvitationLookupResult,
 } from "@/lib/invitations/shared";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type InviteOnboardingProps = {
@@ -36,32 +38,28 @@ type ApiResult =
 function getInvalidInvitationCopy(state: InvitationLookupResult["state"]) {
   if (state === "expired") {
     return {
-      title: "Invitation expirée",
-      description:
-        "Ce lien n’est plus actif. Demandez à un gestionnaire de l’espace d’envoyer une nouvelle invitation.",
+      title: "invite.invalid.expired.title",
+      description: "invite.invalid.expired.description",
     };
   }
 
   if (state === "revoked") {
     return {
-      title: "Invitation révoquée",
-      description:
-        "Cette invitation a été annulée. Contactez votre interlocuteur FalconDraft si vous pensez qu’il s’agit d’une erreur.",
+      title: "invite.invalid.revoked.title",
+      description: "invite.invalid.revoked.description",
     };
   }
 
   if (state === "accepted") {
     return {
-      title: "Invitation déjà acceptée",
-      description:
-        "Ce lien a déjà été utilisé. Connectez-vous avec le compte associé pour accéder à votre espace.",
+      title: "invite.invalid.accepted.title",
+      description: "invite.invalid.accepted.description",
     };
   }
 
   return {
-    title: "Invitation invalide",
-    description:
-      "Ce lien d’invitation est introuvable ou incomplet. Vérifiez l’email reçu ou demandez une nouvelle invitation.",
+    title: "invite.invalid.default.title",
+    description: "invite.invalid.default.description",
   };
 }
 
@@ -82,6 +80,7 @@ export function InviteOnboarding({
   currentUserEmail,
 }: InviteOnboardingProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const invitation = lookup.invitation;
   const [fullName, setFullName] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -99,11 +98,13 @@ export function InviteOnboarding({
         <Alert
           variant={lookup.state === "accepted" ? "default" : "destructive"}
         >
-          <AlertTitle>{copy.title}</AlertTitle>
-          <AlertDescription>{copy.description}</AlertDescription>
+          <AlertTitle>{t(copy.title as TranslationKey)}</AlertTitle>
+          <AlertDescription>
+            {t(copy.description as TranslationKey)}
+          </AlertDescription>
         </Alert>
         <Button asChild className="w-full">
-          <Link href="/login">Aller à la connexion</Link>
+          <Link href="/login">{t("invite.goLogin")}</Link>
         </Button>
       </div>
     );
@@ -133,19 +134,16 @@ export function InviteOnboarding({
     setIsAccepting(false);
 
     if (!response.ok || !result.success) {
-      const message = getApiErrorMessage(
-        result,
-        "Invitation impossible à accepter.",
-      );
+      const message = getApiErrorMessage(result, t("invite.acceptFallback"));
       setError(message);
-      toast.error("Invitation non acceptée", {
+      toast.error(t("invite.acceptError"), {
         description: message,
       });
       return;
     }
 
-    toast.success("Invitation acceptée", {
-      description: "Votre accès à l’espace FalconDraft est prêt.",
+    toast.success(t("invite.accepted"), {
+      description: t("invite.acceptedDescription"),
     });
     router.replace("/dashboard");
     router.refresh();
@@ -172,11 +170,11 @@ export function InviteOnboarding({
     if (!signupResponse.ok || !signupResult.success) {
       const message = getApiErrorMessage(
         signupResult,
-        "Création impossible. Connectez-vous si votre compte existe déjà.",
+        t("invite.createFallback"),
       );
       setError(message);
       setIsCreatingAccount(false);
-      toast.error("Compte non créé", {
+      toast.error(t("invite.accountNotCreated"), {
         description: message,
       });
       return;
@@ -185,9 +183,7 @@ export function InviteOnboarding({
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      setError(
-        "Connexion indisponible. La configuration Supabase est manquante.",
-      );
+      setError(t("invite.signInUnavailable"));
       setIsCreatingAccount(false);
       return;
     }
@@ -198,9 +194,7 @@ export function InviteOnboarding({
     });
 
     if (signInError) {
-      setError(
-        "Compte créé. Connectez-vous avec votre email et votre mot de passe pour accepter l’invitation.",
-      );
+      setError(t("invite.createdSignIn"));
       setIsCreatingAccount(false);
       return;
     }
@@ -228,20 +222,24 @@ export function InviteOnboarding({
     <div className="space-y-6">
       <div className="bg-background/70 rounded-xl border p-4">
         <p className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">
-          Espace invité
+          {t("invite.guestSpace")}
         </p>
         <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em]">
           {invitation.organizationName}
         </h2>
         <dl className="mt-4 grid gap-3 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-muted-foreground">Email</dt>
+            <dt className="text-muted-foreground">
+              {t("invite.invitedEmail")}
+            </dt>
             <dd className="font-medium">{invitedEmail}</dd>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-muted-foreground">Rôle</dt>
+            <dt className="text-muted-foreground">{t("invite.role")}</dt>
             <dd className="font-medium">
-              {getWorkspaceRoleLabel(invitation.role)}
+              {t(
+                `roles.${normalizeWorkspaceRole(invitation.role) ?? "member"}` as TranslationKey,
+              )}
             </dd>
           </div>
         </dl>
@@ -249,7 +247,7 @@ export function InviteOnboarding({
 
       {error ? (
         <Alert variant="destructive">
-          <AlertTitle>Action impossible</AlertTitle>
+          <AlertTitle>{t("invite.actionImpossible")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -258,7 +256,7 @@ export function InviteOnboarding({
         <div className="space-y-5">
           <form className="space-y-4" onSubmit={createAccount}>
             <div className="space-y-2">
-              <Label htmlFor="invite-email">Email invité</Label>
+              <Label htmlFor="invite-email">{t("invite.invitedEmail")}</Label>
               <Input
                 id="invite-email"
                 type="email"
@@ -268,17 +266,17 @@ export function InviteOnboarding({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invite-full-name">Nom complet</Label>
+              <Label htmlFor="invite-full-name">{t("invite.fullName")}</Label>
               <Input
                 id="invite-full-name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
-                placeholder="Votre nom"
+                placeholder={t("invite.fullNamePlaceholder")}
                 autoComplete="name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invite-password">Mot de passe</Label>
+              <Label htmlFor="invite-password">{t("invite.password")}</Label>
               <div className="relative">
                 <Input
                   id="invite-password"
@@ -304,18 +302,18 @@ export function InviteOnboarding({
               disabled={isCreatingAccount || isAccepting}
             >
               {isCreatingAccount || isAccepting
-                ? "Préparation de l’accès..."
-                : "Créer mon compte et rejoindre"}
+                ? t("invite.preparing")
+                : t("invite.createAndJoin")}
             </Button>
           </form>
           <div className="bg-card rounded-lg border px-4 py-3 text-sm">
             <p className="text-muted-foreground">
-              Vous avez déjà un compte FalconDraft ?{" "}
+              {t("invite.existingAccount")}{" "}
               <Link
                 href={loginHref}
                 className="text-foreground font-medium underline underline-offset-4"
               >
-                Connectez-vous pour accepter l’invitation.
+                {t("invite.loginToAccept")}
               </Link>
             </p>
           </div>
@@ -323,10 +321,12 @@ export function InviteOnboarding({
       ) : authenticatedEmailMatches ? (
         <div className="space-y-4">
           <Alert>
-            <AlertTitle>Compte reconnu</AlertTitle>
+            <AlertTitle>{t("invite.accountRecognized")}</AlertTitle>
             <AlertDescription>
-              Vous êtes connecté avec {currentEmail}. Vous pouvez maintenant
-              rejoindre l’espace {invitation.organizationName}.
+              {t("invite.accountRecognizedDescription", {
+                email: currentEmail,
+                organization: invitation.organizationName,
+              })}
             </AlertDescription>
           </Alert>
           <Button
@@ -336,16 +336,18 @@ export function InviteOnboarding({
             disabled={isAccepting}
             onClick={() => void acceptInvitation()}
           >
-            {isAccepting ? "Acceptation..." : "Accepter l’invitation"}
+            {isAccepting ? t("invite.accepting") : t("invite.accept")}
           </Button>
         </div>
       ) : (
         <div className="space-y-4">
           <Alert variant="destructive">
-            <AlertTitle>Email différent</AlertTitle>
+            <AlertTitle>{t("invite.emailDifferent")}</AlertTitle>
             <AlertDescription>
-              Cette invitation est destinée à {invitedEmail}. Vous êtes connecté
-              avec {currentEmail}. Déconnectez-vous pour utiliser le bon compte.
+              {t("invite.emailDifferentDescription", {
+                invitedEmail,
+                currentEmail: currentEmail ?? "",
+              })}
             </AlertDescription>
           </Alert>
           <Button
@@ -355,7 +357,7 @@ export function InviteOnboarding({
             disabled={isSigningOut}
             onClick={() => void switchAccount()}
           >
-            {isSigningOut ? "Déconnexion..." : "Changer de compte"}
+            {isSigningOut ? t("invite.switching") : t("invite.switchAccount")}
           </Button>
         </div>
       )}

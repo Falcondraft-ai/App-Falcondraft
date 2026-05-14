@@ -6,24 +6,24 @@ export function PageHeader({
   description,
   actions,
 }: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-4 border-b pb-6 sm:flex-row sm:items-end">
-      <div className="border-l-2 border-primary/75 pl-4">
+    <div className="flex flex-col justify-between gap-4 border-b pb-4 sm:flex-row sm:items-end">
+      <div className="border-primary/75 border-l-2 pl-4">
         {eyebrow ? (
           <p className="text-muted-foreground text-xs font-medium tracking-[0.12em] uppercase">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.045em] sm:text-3xl">
+        <h1 className="mt-1.5 text-2xl font-semibold tracking-[-0.045em] sm:text-[2rem]">
           {title}
         </h1>
         {description ? (
-          <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-6">
+          <p className="text-muted-foreground mt-1.5 max-w-2xl text-sm leading-6">
             {description}
           </p>
         ) : null}

@@ -1,6 +1,8 @@
 import { getWorkflowSteps } from "@/types/workflow";
+import { T } from "@/components/i18n/translated-text";
 import type { DealStatus } from "@/types/deal";
 import { cn } from "@/lib/utils";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 const stepStyles = {
   done: "border-primary bg-primary",
@@ -19,12 +21,7 @@ export function WorkflowTimeline({
   const steps = getWorkflowSteps(status);
 
   return (
-    <ol
-      className={cn(
-        "relative space-y-0",
-        compact ? "text-xs" : "text-sm",
-      )}
-    >
+    <ol className={cn("relative space-y-0", compact ? "text-xs" : "text-sm")}>
       {steps.map((step, index) => (
         <li key={step.id} className="relative grid grid-cols-[1rem_1fr] gap-3">
           {index < steps.length - 1 ? (
@@ -42,19 +39,23 @@ export function WorkflowTimeline({
           />
           <div className={cn("pb-4", compact && "pb-3")}>
             <div className="flex items-center justify-between gap-3">
-              <p className="font-medium">{step.label}</p>
+              <p className="font-medium">
+                <T tx={`workflow.${step.id}.label` as TranslationKey} />
+              </p>
               <span className="text-muted-foreground text-[11px]">
-                {step.status === "done"
-                  ? "Fait"
-                  : step.status === "active"
-                    ? "Actif"
-                    : step.status === "failed"
-                      ? "À corriger"
-                      : "À venir"}
+                {step.status === "done" ? (
+                  <T tx="common.status.done" />
+                ) : step.status === "active" ? (
+                  <T tx="common.status.active" />
+                ) : step.status === "failed" ? (
+                  <T tx="common.status.failed" />
+                ) : (
+                  <T tx="common.status.pending" />
+                )}
               </span>
             </div>
             <p className="text-muted-foreground mt-1 leading-5">
-              {step.description}
+              <T tx={`workflow.${step.id}.description` as TranslationKey} />
             </p>
           </div>
         </li>

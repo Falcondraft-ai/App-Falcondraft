@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useI18n } from "@/components/i18n/language-provider";
 import { useMounted } from "@/hooks/use-mounted";
 
 export type DashboardChartDatum = {
@@ -23,18 +24,19 @@ export function DashboardActivityChart({
   data: DashboardChartDatum[];
 }) {
   const mounted = useMounted();
+  const { t } = useI18n();
 
   if (!mounted) {
     return (
       <div
-        className="bg-muted/40 h-64 w-full rounded-md border"
-        aria-label="Chargement du graphique d’activité"
+        className="bg-muted/40 h-56 w-full rounded-md border"
+        aria-label={t("dashboard.chart.title")}
       />
     );
   }
 
   return (
-    <div className="h-64 w-full">
+    <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -69,7 +71,7 @@ export function DashboardActivityChart({
             fill="var(--primary)"
             fillOpacity={0.12}
             strokeWidth={2}
-            name="Propositions"
+            name={t("documentType.proposal")}
           />
           <Area
             type="monotone"
@@ -78,7 +80,7 @@ export function DashboardActivityChart({
             fill="var(--chart-1)"
             fillOpacity={0.12}
             strokeWidth={2}
-            name="Documents"
+            name={t("nav.documents")}
           />
         </AreaChart>
       </ResponsiveContainer>

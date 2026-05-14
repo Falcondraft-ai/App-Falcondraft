@@ -1,5 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
+import { T } from "@/components/i18n/translated-text";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -23,13 +24,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <AuthShell
-      eyebrow="Connexion"
-      title="Accéder à FalconDraft"
-      cardTitle="Compte professionnel"
-      cardDescription="Connectez-vous pour rejoindre votre espace de travail."
+      eyebrow={<T tx="auth.login.eyebrow" />}
+      title={<T tx="auth.login.title" />}
+      cardTitle={<T tx="auth.login.cardTitle" />}
+      cardDescription={<T tx="auth.login.cardDescription" />}
       footer={
         <>
-          <span>Accès réservé aux utilisateurs invités.</span>
+          <span>
+            <T tx="auth.shell.invitedOnly" />
+          </span>
           <span className="hidden sm:inline">FalconDraft</span>
         </>
       }

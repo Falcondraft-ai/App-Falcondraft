@@ -636,14 +636,14 @@ async function getAuditLogsForOrganization(
 
 function workflowRunTitle(run: WorkflowRunRow): string {
   if (run.status === "failed") {
-    return "Génération échouée";
+    return "workflow:failed";
   }
 
   if (run.status === "completed") {
-    return "Génération terminée";
+    return "workflow:completed";
   }
 
-  return "Génération en cours";
+  return "workflow:running";
 }
 
 function workflowRunDate(run: WorkflowRunRow): string {
@@ -658,18 +658,18 @@ function mapActivity(
     id: `workflow-${run.id}`,
     dealId: run.deal_id,
     title: workflowRunTitle(run),
-    description: run.error_message ?? `Flux ${run.type} · statut ${run.status}`,
+    description: run.error_message ?? `workflow:${run.type}:${run.status}`,
     createdAt: workflowRunDate(run),
-    actorName: "FalconDraft",
+    actorName: "system",
   }));
 
   const auditEvents = auditLogs.map<ActivityEvent>((log) => ({
     id: `audit-${log.id}`,
     dealId: log.entity_id ?? "",
-    title: log.action,
-    description: `${log.entity_type} mis à jour`,
+    title: `audit:${log.action}`,
+    description: `entity:${log.entity_type}`,
     createdAt: log.created_at,
-    actorName: "Équipe",
+    actorName: "team",
   }));
 
   return [...runEvents, ...auditEvents]
@@ -1029,6 +1029,7 @@ export async function getPendingInvitationsForOrganization(
     id: invitation.id,
     email: invitation.email,
     role: roleLabel(invitation.role),
+    roleKey: teamMemberRoleKey(invitation.role),
     status: "Invitation envoyée",
     expiresAt: invitation.expires_at,
     createdAt: invitation.created_at,

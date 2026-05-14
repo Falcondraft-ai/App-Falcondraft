@@ -3,8 +3,10 @@
 import { Download, ExternalLink } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import type { GeneratedDealDocument } from "@/types/document";
 
 function getErrorMessage(result: unknown, fallback: string) {
@@ -68,8 +70,9 @@ export function GeneratedDocumentButtons({
   compact?: boolean;
   fullWidth?: boolean;
   showOpen?: boolean;
-  downloadLabel?: string;
+  downloadLabel?: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const [loadingAction, setLoadingAction] = React.useState<
     "open" | "download" | null
   >(null);
@@ -88,12 +91,15 @@ export function GeneratedDocumentButtons({
       const url = await resolveDocumentUrl(document, download);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error(download ? "Téléchargement impossible" : "Ouverture impossible", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Le document n’a pas pu être ouvert.",
-      });
+      toast.error(
+        download ? "Téléchargement impossible" : "Ouverture impossible",
+        {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Le document n’a pas pu être ouvert.",
+        },
+      );
     } finally {
       setLoadingAction(null);
     }
@@ -108,13 +114,13 @@ export function GeneratedDocumentButtons({
           size={compact ? "sm" : "default"}
           className={cn(
             fullWidth &&
-              "w-full justify-between rounded-md bg-card/75 px-3 shadow-none hover:bg-secondary/60",
+              "bg-card/75 hover:bg-secondary/60 w-full justify-between rounded-md px-3 shadow-none",
           )}
           disabled={!document || loadingAction !== null}
           onClick={() => void openDocument(false)}
         >
           <ExternalLink aria-hidden="true" />
-          {loadingAction === "open" ? "Ouverture..." : "Ouvrir"}
+          {loadingAction === "open" ? "Ouverture..." : t("common.actions.open")}
         </Button>
       ) : null}
       <Button
@@ -123,7 +129,7 @@ export function GeneratedDocumentButtons({
         size={compact ? "sm" : "default"}
         className={cn(
           fullWidth &&
-            "w-full justify-between rounded-md bg-card/75 px-3 shadow-none hover:bg-secondary/60",
+            "bg-card/75 hover:bg-secondary/60 w-full justify-between rounded-md px-3 shadow-none",
         )}
         disabled={!document || loadingAction !== null}
         onClick={() => void openDocument(true)}
@@ -131,7 +137,7 @@ export function GeneratedDocumentButtons({
         <Download aria-hidden="true" />
         {loadingAction === "download"
           ? "Préparation..."
-          : (downloadLabel ?? "Télécharger")}
+          : (downloadLabel ?? t("common.actions.download"))}
       </Button>
     </div>
   );
@@ -142,25 +148,30 @@ export function GeneratedDocumentsPanel({
 }: {
   documents: GeneratedDealDocument[];
 }) {
+  const { t } = useI18n();
+
   if (documents.length === 0) {
     return (
       <p className="text-muted-foreground text-sm leading-6">
-        Les documents générés apparaîtront ici dès qu’ils seront disponibles.
+        {t("common.empty.documents.description")}
       </p>
     );
   }
 
   return (
-    <div className="divide-y rounded-md border bg-card/70">
+    <div className="bg-card/70 divide-y rounded-md border">
       {documents.map((document) => (
         <div
           key={document.id}
           className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
-            <p className="text-sm font-medium">{document.label}</p>
+            <p className="text-sm font-medium">
+              {t(`documentType.${document.type}` as TranslationKey)}
+            </p>
             <p className="text-muted-foreground mt-1 text-xs">
-              {document.status === "ready" ? "Prêt" : document.status} · {document.title}
+              {t(`common.status.${document.status}` as TranslationKey)} ·{" "}
+              {document.title}
             </p>
           </div>
           <GeneratedDocumentButtons
@@ -172,10 +183,10 @@ export function GeneratedDocumentsPanel({
             }
             downloadLabel={
               document.type === "quote_pdf"
-                ? "Télécharger le devis"
+                ? t("common.actions.downloadQuote")
                 : document.type === "final_document_pdf"
-                  ? "Télécharger le document final"
-                  : "Télécharger"
+                  ? t("common.actions.downloadFinalDocument")
+                  : t("common.actions.download")
             }
           />
         </div>

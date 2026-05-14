@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 
 type WorkspaceVisibilitySettingsProps = {
@@ -24,6 +25,7 @@ export function WorkspaceVisibilitySettings({
   const [allowMemberCompanyVisibility, setAllowMemberCompanyVisibility] =
     React.useState(initialAllowMemberCompanyVisibility);
   const [isSaving, setIsSaving] = React.useState(false);
+  const { t } = useI18n();
 
   async function saveVisibilityPreference() {
     setIsSaving(true);
@@ -39,35 +41,34 @@ export function WorkspaceVisibilitySettings({
     });
     const result = (await response.json().catch(() => ({
       success: false,
-      message: "Mise à jour impossible.",
+      message: t("visibility.saveError"),
     }))) as VisibilityApiResponse;
 
     setIsSaving(false);
 
     if (!response.ok || !result.success) {
       const message =
-        "message" in result ? result.message : "Mise à jour impossible.";
-      toast.error("Préférence non enregistrée", {
+        "message" in result ? result.message : t("visibility.saveError");
+      toast.error(t("visibility.notSaved"), {
         description: message,
       });
       return;
     }
 
     setAllowMemberCompanyVisibility(result.allow_member_company_visibility);
-    toast.success("Visibilité mise à jour", {
+    toast.success(t("visibility.saved"), {
       description: result.allow_member_company_visibility
-        ? "Les collaborateurs peuvent ouvrir les vues entreprise."
-        : "Les collaborateurs voient uniquement leurs dossiers et documents.",
+        ? t("visibility.savedOpen")
+        : t("visibility.savedRestricted"),
     });
   }
 
   return (
     <section className="bg-card/80 rounded-lg border">
       <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Visibilité équipe</h2>
+        <h2 className="text-sm font-semibold">{t("visibility.title")}</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Contrôlez l’accès des collaborateurs aux vues globales dossiers et
-          documents.
+          {t("visibility.description")}
         </p>
       </div>
       <div className="space-y-4 p-4">
@@ -86,13 +87,10 @@ export function WorkspaceVisibilitySettings({
           />
           <span>
             <span className="block text-sm font-medium">
-              Autoriser les vues “Toute l’entreprise”
+              {t("visibility.option")}
             </span>
             <span className="text-muted-foreground mt-1 block text-sm leading-5">
-              Quand cette option est désactivée, les collaborateurs ne voient
-              plus l’onglet entreprise et accèdent uniquement à leurs propres
-              dossiers et documents. Les gestionnaires conservent la vue
-              globale.
+              {t("visibility.optionDescription")}
             </span>
           </span>
         </label>
@@ -103,7 +101,7 @@ export function WorkspaceVisibilitySettings({
           onClick={saveVisibilityPreference}
           disabled={isSaving}
         >
-          {isSaving ? "Enregistrement..." : "Enregistrer"}
+          {isSaving ? t("common.actions.saving") : t("common.actions.save")}
         </Button>
       </div>
     </section>

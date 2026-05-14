@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,7 @@ function getSafeNextPath(value: string | undefined) {
 
 export function LoginForm({ nextPath }: { nextPath?: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const safeNextPath = getSafeNextPath(nextPath);
@@ -34,8 +36,8 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
         const supabase = getSupabaseBrowserClient();
 
         if (!supabase) {
-          toast.error("Connexion indisponible", {
-            description: "La configuration Supabase est manquante.",
+          toast.error(t("auth.login.unavailable"), {
+            description: t("auth.login.unavailableDescription"),
           });
           return;
         }
@@ -50,21 +52,21 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
         setIsSubmitting(false);
 
         if (error) {
-          toast.error("Connexion refusée", {
-            description: "Vérifiez votre email et votre mot de passe.",
+          toast.error(t("auth.login.refused"), {
+            description: t("auth.login.refusedDescription"),
           });
           return;
         }
 
-        toast.success("Connexion validée", {
-          description: "Ouverture de votre espace FalconDraft.",
+        toast.success(t("auth.login.success"), {
+          description: t("auth.login.successDescription"),
         });
         router.replace(safeNextPath);
         router.refresh();
       }}
     >
       <div className="space-y-2">
-        <Label htmlFor="email">Email professionnel</Label>
+        <Label htmlFor="email">{t("auth.login.email")}</Label>
         <Input
           id="email"
           name="email"
@@ -76,12 +78,12 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">
-          <Label htmlFor="password">Mot de passe</Label>
+          <Label htmlFor="password">{t("auth.login.password")}</Label>
           <a
             href="/forgot-password"
             className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
           >
-            Mot de passe oublié
+            {t("auth.login.forgotPassword")}
           </a>
         </div>
         <div className="relative">
@@ -106,7 +108,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
         size="lg"
         disabled={isSubmitting}
       >
-        {isSubmitting ? "Connexion..." : "Se connecter"}
+        {isSubmitting ? t("auth.login.submitting") : t("auth.login.submit")}
       </Button>
     </form>
   );

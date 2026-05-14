@@ -1,7 +1,9 @@
 import { DocumentCard } from "@/components/common/document-card";
+import type { ReactNode } from "react";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
+import { T } from "@/components/i18n/translated-text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { canUseOrganizationDataScope } from "@/lib/auth/workspace-permissions";
@@ -13,12 +15,14 @@ function DocumentsLibrary({
   description,
 }: {
   documents: MockDocument[];
-  description: string;
+  description: ReactNode;
 }) {
   return (
     <section className="bg-card/75 rounded-lg border">
       <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Bibliothèque de travail</h2>
+        <h2 className="text-sm font-semibold">
+          <T tx="documents.libraryTitle" />
+        </h2>
         <p className="text-muted-foreground mt-1 text-sm">{description}</p>
       </div>
       <div>
@@ -29,8 +33,8 @@ function DocumentsLibrary({
         ) : (
           <div className="p-4">
             <EmptyState
-              title="Aucun document"
-              description="Les documents apparaîtront ici dès qu’ils seront préparés pour un dossier commercial."
+              title={<T tx="common.empty.documents.title" />}
+              description={<T tx="common.empty.documents.description" />}
             />
           </div>
         )}
@@ -69,33 +73,37 @@ export default async function DocumentsPage() {
     <PageTransition>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Documents"
-          title="Documents générés"
-          description="Propositions, devis, documents finaux et liens de signature associés aux dossiers commerciaux."
+          eyebrow={<T tx="documents.eyebrow" />}
+          title={<T tx="documents.title" />}
+          description={<T tx="documents.description" />}
         />
         {canOpenCompanyView ? (
           <Tabs defaultValue="mine" className="gap-4">
             <TabsList>
-              <TabsTrigger value="mine">Mes documents</TabsTrigger>
-              <TabsTrigger value="organization">Toute l’entreprise</TabsTrigger>
+              <TabsTrigger value="mine">
+                <T tx="documents.tabs.mine" />
+              </TabsTrigger>
+              <TabsTrigger value="organization">
+                <T tx="documents.tabs.organization" />
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="mine">
               <DocumentsLibrary
                 documents={ownDocuments}
-                description="Dernières pièces préparées pour vos dossiers."
+                description={<T tx="documents.libraryMine" />}
               />
             </TabsContent>
             <TabsContent value="organization">
               <DocumentsLibrary
                 documents={companyDocuments}
-                description="Dernières pièces préparées pour tous les dossiers actifs."
+                description={<T tx="documents.libraryOrganization" />}
               />
             </TabsContent>
           </Tabs>
         ) : (
           <DocumentsLibrary
             documents={ownDocuments}
-            description="Dernières pièces préparées pour vos dossiers."
+            description={<T tx="documents.libraryMine" />}
           />
         )}
       </div>

@@ -1,16 +1,19 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { T } from "@/components/i18n/translated-text";
 
 export default function ForgotPasswordPage() {
   return (
     <AuthShell
-      eyebrow="Mot de passe oublié"
-      title="Recevoir un lien sécurisé"
-      cardTitle="Réinitialisation"
-      cardDescription="Indiquez l’email associé à votre compte FalconDraft."
+      eyebrow={<T tx="auth.forgot.eyebrow" />}
+      title={<T tx="auth.forgot.title" />}
+      cardTitle={<T tx="auth.forgot.cardTitle" />}
+      cardDescription={<T tx="auth.forgot.cardDescription" />}
       footer={
         <>
-          <span>Lien valable temporairement.</span>
+          <span>
+            <T tx="auth.forgot.footer" />
+          </span>
           <span className="hidden sm:inline">FalconDraft</span>
         </>
       }

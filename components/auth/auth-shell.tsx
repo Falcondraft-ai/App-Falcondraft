@@ -4,6 +4,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LanguageSelector } from "@/components/i18n/language-selector";
+import { T } from "@/components/i18n/translated-text";
 
 export function AuthShell({
   eyebrow,
@@ -13,10 +15,10 @@ export function AuthShell({
   footer,
   children,
 }: {
-  eyebrow: string;
-  title: string;
-  cardTitle: string;
-  cardDescription: string;
+  eyebrow: ReactNode;
+  title: ReactNode;
+  cardTitle: ReactNode;
+  cardDescription: ReactNode;
   footer: ReactNode;
   children: ReactNode;
 }) {
@@ -31,7 +33,7 @@ export function AuthShell({
 
   return (
     <main className="min-h-dvh bg-[#f8f4ec]">
-      <section className="grid min-h-dvh overflow-hidden bg-card lg:grid-cols-[minmax(18rem,32vw)_1fr]">
+      <section className="bg-card grid min-h-dvh overflow-hidden lg:grid-cols-[minmax(18rem,32vw)_1fr]">
         <aside className="hidden bg-[#142033] p-9 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
             <Link
@@ -43,25 +45,27 @@ export function AuthShell({
                 FalconDraft
               </span>
               <span className="mt-1.5 text-xs font-medium tracking-[0.16em] text-white/50 uppercase">
-                Espace client
+                <T tx="auth.shell.clientWorkspace" />
               </span>
             </Link>
           </div>
 
           <div className="max-w-[22rem] border-l border-[#c18a45]/75 pl-5">
             <p className="text-xs font-medium tracking-[0.18em] text-white/58 uppercase">
-              Accès privé
+              <T tx="auth.shell.privateAccess" />
             </p>
             <p className="mt-4 text-4xl leading-[1.02] font-semibold tracking-[-0.06em] xl:text-[2.65rem]">
-              Connexion à votre espace FalconDraft.
+              <T tx="auth.shell.privateTitle" />
             </p>
             <p className="mt-5 text-base leading-7 text-white/66">
-              Un accès sécurisé pour suivre les dossiers, documents et validations de votre espace client.
+              <T tx="auth.shell.privateDescription" />
             </p>
           </div>
 
           <div className="flex items-center justify-between border-t border-white/12 pt-4 text-xs text-white/48">
-            <span>Espace client</span>
+            <span>
+              <T tx="auth.shell.clientWorkspace" />
+            </span>
             <span>FalconDraft</span>
           </div>
         </aside>
@@ -82,19 +86,19 @@ export function AuthShell({
                 priority
               />
             </Link>
-            <Link
-              href="/"
-              className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
-            >
-              Accueil
-            </Link>
+            <div className="flex items-center gap-3">
+              <LanguageSelector triggerClassName="h-9 w-[8.5rem]" />
+              <Link
+                href="/"
+                className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
+              >
+                <T tx="auth.shell.home" />
+              </Link>
+            </div>
           </header>
 
           <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8 lg:py-12">
-            <motion.div
-              className="w-full max-w-[28rem]"
-              {...formMotionProps}
-            >
+            <motion.div className="w-full max-w-[28rem]" {...formMotionProps}>
               <div className="mb-7">
                 <p className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
                   {eyebrow}
@@ -104,7 +108,7 @@ export function AuthShell({
                 </h1>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border bg-card shadow-[0_18px_55px_-45px_rgba(20,32,51,0.55)]">
+              <div className="bg-card overflow-hidden rounded-2xl border shadow-[0_18px_55px_-45px_rgba(20,32,51,0.55)]">
                 <div className="border-b px-7 py-5">
                   <p className="text-base font-medium">{cardTitle}</p>
                   <p className="text-muted-foreground mt-1 text-sm leading-6">
@@ -115,7 +119,7 @@ export function AuthShell({
                 <div className="px-7 py-7">{children}</div>
               </div>
 
-              <div className="mt-5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+              <div className="text-muted-foreground mt-5 flex items-center justify-between gap-4 text-xs">
                 {footer}
               </div>
             </motion.div>

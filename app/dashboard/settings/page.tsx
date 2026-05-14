@@ -15,7 +15,6 @@ export default async function SettingsPage() {
       <div className="space-y-5">
         <GeneralSettingsForm
           organizationName={organization?.name ?? "Espace client"}
-          defaultLanguage="Français"
           userName={userName}
           userEmail={context.user.email ?? ""}
         />

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function UpdatePasswordForm() {
   const router = useRouter();
+  const { t } = useI18n();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [hasRecoverySession, setHasRecoverySession] = React.useState<
@@ -42,22 +44,22 @@ export function UpdatePasswordForm() {
         const supabase = getSupabaseBrowserClient();
 
         if (password.length < 8) {
-          toast.error("Mot de passe trop court", {
-            description: "Utilisez au moins 8 caractères.",
+          toast.error(t("auth.update.tooShort"), {
+            description: t("auth.update.tooShortDescription"),
           });
           return;
         }
 
         if (password !== confirmPassword) {
-          toast.error("Confirmation différente", {
-            description: "Les deux mots de passe doivent être identiques.",
+          toast.error(t("auth.update.mismatch"), {
+            description: t("auth.update.mismatchDescription"),
           });
           return;
         }
 
         if (!supabase) {
-          toast.error("Mise à jour indisponible", {
-            description: "La configuration Supabase est manquante.",
+          toast.error(t("auth.update.unavailable"), {
+            description: t("auth.login.unavailableDescription"),
           });
           return;
         }
@@ -65,8 +67,8 @@ export function UpdatePasswordForm() {
         const { data: sessionData } = await supabase.auth.getSession();
 
         if (!sessionData.session) {
-          toast.error("Lien invalide ou expiré", {
-            description: "Demandez un nouveau lien de réinitialisation.",
+          toast.error(t("auth.update.invalid"), {
+            description: t("auth.update.invalidDescription"),
           });
           return;
         }
@@ -76,21 +78,21 @@ export function UpdatePasswordForm() {
         setIsSubmitting(false);
 
         if (error) {
-          toast.error("Mise à jour impossible", {
-            description: "Le lien a peut-être expiré. Demandez un nouveau lien.",
+          toast.error(t("auth.update.error"), {
+            description: t("auth.update.errorDescription"),
           });
           return;
         }
 
-        toast.success("Mot de passe modifié", {
-          description: "Vous pouvez accéder à votre espace FalconDraft.",
+        toast.success(t("auth.update.success"), {
+          description: t("auth.update.successDescription"),
         });
         router.replace("/dashboard");
         router.refresh();
       }}
     >
       <div className="space-y-2">
-        <Label htmlFor="password">Nouveau mot de passe</Label>
+        <Label htmlFor="password">{t("auth.update.password")}</Label>
         <div className="relative">
           <Input
             id="password"
@@ -108,7 +110,9 @@ export function UpdatePasswordForm() {
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+        <Label htmlFor="confirmPassword">
+          {t("auth.update.confirmPassword")}
+        </Label>
         <Input
           id="confirmPassword"
           name="confirmPassword"
@@ -125,19 +129,21 @@ export function UpdatePasswordForm() {
         size="lg"
         disabled={isSubmitting || hasRecoverySession === false}
       >
-        {isSubmitting ? "Mise à jour..." : "Enregistrer le mot de passe"}
+        {isSubmitting ? t("auth.update.submitting") : t("auth.update.submit")}
       </Button>
 
       {hasRecoverySession === false ? (
-        <div className="rounded-lg border bg-secondary/35 p-3 text-sm leading-6">
-          Le lien de réinitialisation est invalide ou expiré. Demandez un
-          nouveau lien pour définir votre mot de passe.
+        <div className="bg-secondary/35 rounded-lg border p-3 text-sm leading-6">
+          {t("auth.update.invalidPanel")}
         </div>
       ) : null}
 
-      <p className="text-center text-sm text-muted-foreground">
-        <Link href="/forgot-password" className="hover:text-foreground font-medium transition-colors">
-          Demander un nouveau lien
+      <p className="text-muted-foreground text-center text-sm">
+        <Link
+          href="/forgot-password"
+          className="hover:text-foreground font-medium transition-colors"
+        >
+          {t("auth.update.newLink")}
         </Link>
       </p>
     </form>

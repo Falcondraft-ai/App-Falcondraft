@@ -19,6 +19,7 @@ export type PendingInvitation = {
   id: string;
   email: string;
   role: TeamRole;
+  roleKey: WorkspaceMemberRole;
   status: TeamMemberStatus;
   expiresAt: string;
   createdAt: string;

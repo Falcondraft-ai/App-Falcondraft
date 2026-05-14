@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { WorkflowTimeline } from "@/components/common/workflow-timeline";
 import { DashboardActivityChart } from "@/components/dashboard/dashboard-activity-chart";
+import { T } from "@/components/i18n/translated-text";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -32,66 +33,78 @@ export default async function DashboardPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <PageHeader
-          eyebrow="Tableau de bord"
-          title="Suivi commercial"
-          description="Vue de travail pour suivre les dossiers commerciaux, les documents et les étapes de validation."
+          eyebrow={<T tx="dashboard.eyebrow" />}
+          title={<T tx="dashboard.title" />}
+          description={<T tx="dashboard.description" />}
           actions={
             <Button asChild>
               <Link href="/dashboard/deals/new">
-                Créer un dossier commercial
+                <T tx="common.actions.createDeal" />
               </Link>
             </Button>
           }
         />
 
-        <section className="grid gap-3 md:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <DashboardStatCard
-            label="Dossiers actifs"
+            label={<T tx="dashboard.stats.activeDeals" />}
             value={String(dashboard.activeDeals.length)}
-            detail="Hors dossiers terminés"
+            detail={<T tx="dashboard.stats.activeDealsDetail" />}
             tone="accent"
           />
           <DashboardStatCard
-            label="Documents prêts"
+            label={<T tx="dashboard.stats.readyDocuments" />}
             value={String(dashboard.readyDocumentCount)}
-            detail="À valider ou envoyer"
+            detail={<T tx="dashboard.stats.readyDocumentsDetail" />}
             tone="success"
           />
           <DashboardStatCard
-            label="Valeur estimée"
+            label={<T tx="dashboard.stats.pipelineValue" />}
             value={formatCurrency(dashboard.pipelineValue)}
-            detail="Pipeline en cours"
+            detail={<T tx="dashboard.stats.pipelineValueDetail" />}
           />
           <DashboardStatCard
-            label="À traiter"
+            label={<T tx="dashboard.stats.attention" />}
             value={String(dashboard.attentionCount)}
-            detail="Validation, document ou erreur"
+            detail={<T tx="dashboard.stats.attentionDetail" />}
           />
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-          <section className="bg-card/75 rounded-lg border">
+        <div className="grid gap-4 xl:grid-cols-[1.45fr_0.55fr]">
+          <section className="bg-card/80 overflow-hidden rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
             <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold">Dossiers récents</h2>
+                <h2 className="text-sm font-semibold">
+                  <T tx="dashboard.recentDeals.title" />
+                </h2>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Dossiers qui demandent une attention commerciale.
+                  <T tx="dashboard.recentDeals.description" />
                 </p>
               </div>
               <Button asChild variant="outline">
-                <Link href="/dashboard/deals">Tout voir</Link>
+                <Link href="/dashboard/deals">
+                  <T tx="common.actions.viewAll" />
+                </Link>
               </Button>
             </div>
             {dashboard.deals.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Dossier commercial</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Budget</TableHead>
-                    <TableHead>Mise à jour</TableHead>
+                    <TableHead>
+                      <T tx="table.deal" />
+                    </TableHead>
+                    <TableHead>
+                      <T tx="table.status" />
+                    </TableHead>
+                    <TableHead>
+                      <T tx="table.budget" />
+                    </TableHead>
+                    <TableHead>
+                      <T tx="table.updated" />
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -122,12 +135,12 @@ export default async function DashboardPage() {
             ) : (
               <div className="p-4">
                 <EmptyState
-                  title="Aucun dossier commercial"
-                  description="Créez un premier dossier commercial pour suivre le pipeline et les documents associés."
+                  title={<T tx="common.empty.deals.title" />}
+                  description={<T tx="common.empty.deals.description" />}
                   action={
                     <Button asChild>
                       <Link href="/dashboard/deals/new">
-                        Créer un dossier commercial
+                        <T tx="common.actions.createDeal" />
                       </Link>
                     </Button>
                   }
@@ -136,11 +149,13 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          <section className="bg-card/75 rounded-lg border">
+          <section className="bg-card/80 rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
             <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Dossier à suivre</h2>
+              <h2 className="text-sm font-semibold">
+                <T tx="dashboard.featured.title" />
+              </h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Prochaine avancée commerciale à surveiller.
+                <T tx="dashboard.featured.description" />
               </p>
             </div>
             <div className="p-4">
@@ -161,19 +176,21 @@ export default async function DashboardPage() {
                 </>
               ) : (
                 <p className="text-muted-foreground text-sm">
-                  Aucun dossier prioritaire pour le moment.
+                  <T tx="dashboard.featured.empty" />
                 </p>
               )}
             </div>
           </section>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="bg-card/75 rounded-lg border">
+        <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
+          <section className="bg-card/80 rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
             <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Activité de génération</h2>
+              <h2 className="text-sm font-semibold">
+                <T tx="dashboard.chart.title" />
+              </h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Volume mensuel des propositions et documents finaux.
+                <T tx="dashboard.chart.description" />
               </p>
             </div>
             <div className="p-4">
@@ -181,11 +198,13 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <section className="bg-card/75 rounded-lg border">
+          <section className="bg-card/80 rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
             <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Journal récent</h2>
+              <h2 className="text-sm font-semibold">
+                <T tx="dashboard.activity.title" />
+              </h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Derniers changements significatifs.
+                <T tx="dashboard.activity.description" />
               </p>
             </div>
             <div className="p-4">

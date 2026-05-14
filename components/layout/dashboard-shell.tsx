@@ -14,6 +14,7 @@ import {
 import * as React from "react";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/common/brand-mark";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,37 +39,39 @@ import {
 } from "@/lib/profile-photo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import type { WorkspaceMemberRole } from "@/lib/auth/workspace-permissions";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 type NavItem = {
   href: string;
-  label: string;
+  label: TranslationKey;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
 const primaryNavItems: NavItem[] = [
   {
     href: "/dashboard",
-    label: "Tableau de bord",
+    label: "nav.dashboard",
     icon: LayoutDashboard,
   },
   {
     href: "/dashboard/deals",
-    label: "Dossiers",
+    label: "nav.deals",
     icon: BarChart3,
   },
   {
     href: "/dashboard/documents",
-    label: "Documents",
+    label: "nav.documents",
     icon: FileText,
   },
   {
     href: "/dashboard/archive",
-    label: "Archives",
+    label: "nav.archives",
     icon: Archive,
   },
   {
     href: "/dashboard/settings",
-    label: "Paramètres",
+    label: "nav.settings",
     icon: Settings,
   },
 ];
@@ -76,7 +79,7 @@ const primaryNavItems: NavItem[] = [
 const internalNavItems: NavItem[] = [
   {
     href: "/admin",
-    label: "Admin interne",
+    label: "nav.internalAdmin",
     icon: ShieldCheck,
   },
 ];
@@ -92,7 +95,7 @@ function isNavItemActive(pathname: string, href: string): boolean {
 type DashboardShellUser = {
   name: string;
   email: string;
-  roleLabel: string;
+  roleKey: WorkspaceMemberRole;
 };
 
 type DashboardShellOrganization = {
@@ -113,14 +116,16 @@ function WorkspaceContext({
 }: {
   organization: DashboardShellOrganization | null;
 }) {
+  const { t } = useI18n();
+
   return (
     <section className="flex min-h-24 items-center border-y border-white/[0.10] bg-[#101a2a] px-5 py-4 text-[#f7f1e8]">
       <div className="border-l-2 border-[#c69a61] pl-3">
         <p className="truncate text-sm font-semibold tracking-tight">
-          Production commerciale
+          {t("shell.workspaceTitle")}
         </p>
         <p className="mt-0.5 truncate text-xs text-white/[0.58]">
-          {organization?.name ?? "Dossiers, documents et suivi"}
+          {organization?.name ?? t("shell.workspaceFallback")}
         </p>
       </div>
     </section>
@@ -129,7 +134,7 @@ function WorkspaceContext({
 
 function SidebarBrandHeader() {
   return (
-    <div className="flex h-16 items-center border-b border-[#d8ccba] bg-[#e7dece] px-5 text-foreground dark:bg-card">
+    <div className="text-foreground dark:bg-card flex h-16 items-center border-b border-[#d8ccba] bg-[#e7dece] px-5">
       <BrandMark
         href="/dashboard"
         size="md"
@@ -148,8 +153,10 @@ function NavList({
   onNavigate?: () => void;
   showInternalAdmin: boolean;
 }) {
+  const { t } = useI18n();
+
   return (
-    <nav className="space-y-5" aria-label="Navigation principale">
+    <nav className="space-y-5" aria-label={t("nav.primaryLabel")}>
       <div className="space-y-1">
         {primaryNavItems.map((item) => {
           const active = isNavItemActive(pathname, item.href);
@@ -167,12 +174,8 @@ function NavList({
                   : "text-white/[0.62] hover:bg-white/[0.055] hover:text-white",
               )}
             >
-              <Icon
-                className="size-4"
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-              <span>{item.label}</span>
+              <Icon className="size-4" strokeWidth={1.75} aria-hidden="true" />
+              <span>{t(item.label)}</span>
             </Link>
           );
         })}
@@ -181,7 +184,7 @@ function NavList({
       {showInternalAdmin ? (
         <div className="border-t pt-4">
           <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-white/[0.45] uppercase">
-            Interne
+            {t("nav.internal")}
           </p>
           <div className="space-y-1">
             {internalNavItems.map((item) => {
@@ -206,7 +209,7 @@ function NavList({
                       strokeWidth={1.75}
                       aria-hidden="true"
                     />
-                    <span>{item.label}</span>
+                    <span>{t(item.label)}</span>
                   </span>
                   <span
                     className={cn(
@@ -216,7 +219,7 @@ function NavList({
                         : "border-white/[0.15] text-white/[0.50]",
                     )}
                   >
-                    Interne
+                    {t("nav.internalBadge")}
                   </span>
                 </Link>
               );
@@ -241,6 +244,7 @@ export function DashboardShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useI18n();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(
     null,
@@ -248,7 +252,9 @@ export function DashboardShell({
 
   React.useEffect(() => {
     function readProfilePhoto() {
-      setProfilePhotoUrl(window.localStorage.getItem(PROFILE_PHOTO_STORAGE_KEY));
+      setProfilePhotoUrl(
+        window.localStorage.getItem(PROFILE_PHOTO_STORAGE_KEY),
+      );
     }
 
     readProfilePhoto();
@@ -261,12 +267,6 @@ export function DashboardShell({
     };
   }, []);
 
-  function openHelp() {
-    toast("Aide FalconDraft", {
-      description: "Le centre d’aide sera disponible depuis cet espace.",
-    });
-  }
-
   async function signOut() {
     const supabase = getSupabaseBrowserClient();
 
@@ -274,13 +274,13 @@ export function DashboardShell({
       await supabase.auth.signOut();
     }
 
-    toast.success("Session fermée");
+    toast.success(t("shell.signOutSuccess"));
     router.replace("/login");
     router.refresh();
   }
 
   return (
-    <div className="min-h-dvh bg-[#e7dece] dark:bg-background">
+    <div className="dark:bg-background min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(198,154,97,0.18),transparent_30rem),#e7dece]">
       <aside className="fixed inset-y-0 left-0 hidden w-[17.5rem] border-r border-[#cfc2ad] bg-[#142033] text-[#f7f1e8] lg:flex lg:flex-col">
         <SidebarBrandHeader />
         <WorkspaceContext organization={organization} />
@@ -289,13 +289,13 @@ export function DashboardShell({
         </div>
         <div className="border-t border-white/[0.10] px-4 py-3">
           <div className="text-xs leading-5 text-white/[0.54]">
-            FalconDraft · Propositions commerciales
+            {t("shell.footer")}
           </div>
         </div>
       </aside>
 
       <div className="lg:pl-[17.5rem]">
-        <header className="sticky top-0 z-40 border-b bg-[#e7dece]/95 backdrop-blur dark:bg-background/95">
+        <header className="dark:bg-background/95 sticky top-0 z-40 border-b bg-[#e7dece]/95 backdrop-blur">
           <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -304,7 +304,7 @@ export function DashboardShell({
                     variant="outline"
                     size="icon"
                     className="lg:hidden"
-                    aria-label="Ouvrir la navigation"
+                    aria-label={t("nav.open")}
                   >
                     <Menu className="size-4" strokeWidth={1.75} />
                   </Button>
@@ -314,9 +314,9 @@ export function DashboardShell({
                   className="w-80 border-[#21324d] bg-[#142033] p-0 text-[#f7f1e8]"
                 >
                   <SheetHeader className="sr-only">
-                    <SheetTitle>Navigation FalconDraft</SheetTitle>
+                    <SheetTitle>{t("nav.sheetTitle")}</SheetTitle>
                     <SheetDescription>
-                      Accès aux principales sections de l’espace client.
+                      {t("nav.sheetDescription")}
                     </SheetDescription>
                   </SheetHeader>
                   <div className="flex h-full flex-col">
@@ -337,7 +337,7 @@ export function DashboardShell({
               </div>
               <div className="hidden lg:block">
                 <p className="text-muted-foreground text-sm tracking-[-0.01em]">
-                  Dossier commercial → proposition → validation → envoi
+                  {t("shell.pipeline")}
                 </p>
               </div>
             </div>
@@ -345,14 +345,14 @@ export function DashboardShell({
             <div className="flex items-center gap-2">
               <Button asChild className="hidden sm:inline-flex">
                 <Link href="/dashboard/deals/new">
-                  Créer un dossier commercial
+                  {t("common.actions.createDeal")}
                 </Link>
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     className="hover:bg-muted flex items-center gap-2 rounded-md p-1.5 transition-colors"
-                    aria-label="Menu utilisateur"
+                    aria-label={t("shell.userMenu")}
                   >
                     <Avatar className="size-8 rounded-md after:rounded-md">
                       {profilePhotoUrl ? (
@@ -372,17 +372,19 @@ export function DashboardShell({
                   <DropdownMenuLabel>
                     <span className="block text-sm">{user.name}</span>
                     <span className="text-muted-foreground block text-xs font-normal">
-                      {user.roleLabel}
+                      {t(`roles.${user.roleKey}`)}
                     </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard/settings">Profil</Link>
+                    <Link href="/dashboard/settings">{t("shell.profile")}</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={openHelp}>Aide</DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/support">{t("shell.help")}</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={signOut}>
-                    Déconnexion
+                    {t("shell.signOut")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -390,7 +392,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-[92rem] px-4 py-5 sm:px-6 lg:px-7">
           {children}
         </main>
       </div>

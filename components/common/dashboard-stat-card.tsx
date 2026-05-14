@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 export function DashboardStatCard({
   label,
@@ -6,17 +7,17 @@ export function DashboardStatCard({
   detail,
   tone = "neutral",
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
-  detail: string;
+  detail: ReactNode;
   tone?: "neutral" | "accent" | "success";
 }) {
   return (
     <section
       className={cn(
-        "border-l bg-card/55 px-4 py-3.5",
-        tone === "accent" && "border-l-accent bg-accent/[0.07]",
-        tone === "success" && "border-l-emerald-700 bg-card/70",
+        "group bg-card/70 hover:bg-card/90 rounded-xl border px-4 py-3.5 shadow-[0_16px_55px_-48px_rgba(20,32,51,0.75)] transition-all duration-200 hover:-translate-y-0.5",
+        tone === "accent" && "border-l-accent bg-accent/[0.07] border-l-4",
+        tone === "success" && "bg-card/80 border-l-4 border-l-emerald-700",
       )}
     >
       <p className="text-muted-foreground text-xs font-medium tracking-[0.01em]">

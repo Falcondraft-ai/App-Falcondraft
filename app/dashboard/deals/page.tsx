@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DealsTable } from "@/components/deals/deals-table";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
+import { T } from "@/components/i18n/translated-text";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireCurrentUserContext } from "@/lib/auth/session";
@@ -36,13 +37,13 @@ export default async function DealsPage() {
     <PageTransition>
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Dossiers commerciaux"
-          title="Pipeline commercial"
-          description="Liste de travail des dossiers commerciaux et de leur progression documentaire."
+          eyebrow={<T tx="deals.eyebrow" />}
+          title={<T tx="deals.title" />}
+          description={<T tx="deals.description" />}
           actions={
             <Button asChild>
               <Link href="/dashboard/deals/new">
-                Nouveau dossier commercial
+                <T tx="common.actions.newDeal" />
               </Link>
             </Button>
           }
@@ -50,8 +51,12 @@ export default async function DealsPage() {
         {canOpenCompanyView ? (
           <Tabs defaultValue="mine" className="gap-4">
             <TabsList>
-              <TabsTrigger value="mine">Mes dossiers</TabsTrigger>
-              <TabsTrigger value="organization">Toute l’entreprise</TabsTrigger>
+              <TabsTrigger value="mine">
+                <T tx="deals.tabs.mine" />
+              </TabsTrigger>
+              <TabsTrigger value="organization">
+                <T tx="deals.tabs.organization" />
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="mine">
               <DealsTable deals={ownDeals} />

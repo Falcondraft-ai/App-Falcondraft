@@ -3,12 +3,14 @@
 import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function ForgotPasswordForm() {
+  const { t } = useI18n();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [hasSentRequest, setHasSentRequest] = React.useState(false);
 
@@ -22,8 +24,8 @@ export function ForgotPasswordForm() {
         const supabase = getSupabaseBrowserClient();
 
         if (!supabase) {
-          toast.error("Réinitialisation indisponible", {
-            description: "La configuration Supabase est manquante.",
+          toast.error(t("auth.forgot.unavailable"), {
+            description: t("auth.login.unavailableDescription"),
           });
           return;
         }
@@ -35,21 +37,20 @@ export function ForgotPasswordForm() {
         setIsSubmitting(false);
 
         if (error) {
-          toast.error("Demande impossible", {
-            description: "La demande n’a pas pu être envoyée pour le moment.",
+          toast.error(t("auth.forgot.error"), {
+            description: t("auth.forgot.errorDescription"),
           });
           return;
         }
 
         setHasSentRequest(true);
-        toast.success("Email envoyé", {
-          description:
-            "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.",
+        toast.success(t("auth.forgot.sent"), {
+          description: t("auth.forgot.sentDescription"),
         });
       }}
     >
       <div className="space-y-2">
-        <Label htmlFor="email">Email professionnel</Label>
+        <Label htmlFor="email">{t("auth.login.email")}</Label>
         <Input
           id="email"
           name="email"
@@ -61,19 +62,26 @@ export function ForgotPasswordForm() {
       </div>
 
       {hasSentRequest ? (
-        <div className="rounded-lg border bg-secondary/35 p-3 text-sm leading-6">
-          Si un compte existe avec cet email, un lien de réinitialisation a été
-          envoyé.
+        <div className="bg-secondary/35 rounded-lg border p-3 text-sm leading-6">
+          {t("auth.forgot.sentDescription")}
         </div>
       ) : null}
 
-      <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-        {isSubmitting ? "Envoi..." : "Recevoir le lien"}
+      <Button
+        type="submit"
+        className="w-full"
+        size="lg"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? t("auth.forgot.submitting") : t("auth.forgot.submit")}
       </Button>
 
-      <p className="text-center text-sm text-muted-foreground">
-        <Link href="/login" className="hover:text-foreground font-medium transition-colors">
-          Retour à la connexion
+      <p className="text-muted-foreground text-center text-sm">
+        <Link
+          href="/login"
+          className="hover:text-foreground font-medium transition-colors"
+        >
+          {t("auth.forgot.back")}
         </Link>
       </p>
     </form>

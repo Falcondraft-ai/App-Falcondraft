@@ -3,6 +3,8 @@
 import { useTheme } from "next-themes";
 import * as React from "react";
 import { toast } from "sonner";
+import { LanguageSelector } from "@/components/i18n/language-selector";
+import { useI18n } from "@/components/i18n/language-provider";
 import { ProfilePhotoControl } from "@/components/settings/profile-photo-control";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,17 +21,12 @@ const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
 
 type SettingsPreferences = {
   organizationName: string;
-  defaultLanguage: string;
   askExpectedCloseDate: boolean;
 };
 
-function getDefaultPreferences(
-  organizationName: string,
-  defaultLanguage: string,
-): SettingsPreferences {
+function getDefaultPreferences(organizationName: string): SettingsPreferences {
   return {
     organizationName,
-    defaultLanguage,
     askExpectedCloseDate: false,
   };
 }
@@ -60,10 +57,7 @@ function readStoredPreferences(
             return false;
           }
 
-          return (
-            typeof value === "string" ||
-            typeof value === "boolean"
-          );
+          return typeof value === "string" || typeof value === "boolean";
         }),
       ),
     };
@@ -74,20 +68,19 @@ function readStoredPreferences(
 
 export function GeneralSettingsForm({
   organizationName,
-  defaultLanguage,
   userName,
   userEmail,
 }: {
   organizationName: string;
-  defaultLanguage: string;
   userName: string;
   userEmail: string;
 }) {
   const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
   const [isMounted, setIsMounted] = React.useState(false);
   const fallbackPreferences = React.useMemo(
-    () => getDefaultPreferences(organizationName, defaultLanguage),
-    [defaultLanguage, organizationName],
+    () => getDefaultPreferences(organizationName),
+    [organizationName],
   );
   const [preferences, setPreferences] =
     React.useState<SettingsPreferences>(fallbackPreferences);
@@ -112,16 +105,18 @@ export function GeneralSettingsForm({
       SETTINGS_PREFERENCES_STORAGE_KEY,
       JSON.stringify(preferences),
     );
-    toast.success("Paramètres enregistrés.");
+    toast.success(t("settings.saved"));
   }
 
   return (
     <div className="space-y-5">
-      <section className="rounded-lg border bg-card/80">
+      <section className="bg-card/80 rounded-lg border">
         <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Profil</h2>
+          <h2 className="text-sm font-semibold">
+            {t("settings.profile.title")}
+          </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Photo et identité affichées dans votre espace client.
+            {t("settings.profile.description")}
           </p>
         </div>
         <div className="p-4">
@@ -129,16 +124,20 @@ export function GeneralSettingsForm({
         </div>
       </section>
 
-      <section className="rounded-lg border bg-card/80">
+      <section className="bg-card/80 rounded-lg border">
         <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Préférences</h2>
+          <h2 className="text-sm font-semibold">
+            {t("settings.preferences.title")}
+          </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Réglages utiles pour adapter l’espace à votre usage quotidien.
+            {t("settings.preferences.description")}
           </p>
         </div>
         <div className="grid gap-4 p-4 md:grid-cols-2">
           <div className="grid gap-2">
-            <Label htmlFor="organization-name">Nom de l’organisation</Label>
+            <Label htmlFor="organization-name">
+              {t("settings.organizationName")}
+            </Label>
             <Input
               id="organization-name"
               value={preferences.organizationName}
@@ -148,45 +147,43 @@ export function GeneralSettingsForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="default-language">Langue par défaut</Label>
-            <Select
-              value={preferences.defaultLanguage}
-              onValueChange={(value) =>
-                updatePreference("defaultLanguage", value)
-              }
-            >
-              <SelectTrigger id="default-language" className="w-full">
-                <SelectValue placeholder="Sélectionner une langue" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Français">Français</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="default-language">
+              {t("settings.defaultLanguage")}
+            </Label>
+            <LanguageSelector id="default-language" triggerClassName="w-full" />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="appearance-mode">Mode d’affichage</Label>
+            <Label htmlFor="appearance-mode">{t("settings.appearance")}</Label>
             <Select
               value={isMounted ? (theme ?? "light") : "light"}
               onValueChange={setTheme}
             >
               <SelectTrigger id="appearance-mode" className="w-full">
-                <SelectValue placeholder="Choisir un thème" />
+                <SelectValue
+                  placeholder={t("settings.appearancePlaceholder")}
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="light">Clair</SelectItem>
-                <SelectItem value="dark">Sombre</SelectItem>
-                <SelectItem value="system">Système</SelectItem>
+                <SelectItem value="light">
+                  {t("settings.appearance.light")}
+                </SelectItem>
+                <SelectItem value="dark">
+                  {t("settings.appearance.dark")}
+                </SelectItem>
+                <SelectItem value="system">
+                  {t("settings.appearance.system")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <label
             htmlFor="ask-expected-close-date"
-            className="flex items-start gap-3 rounded-md border bg-secondary/30 p-3 md:col-span-2"
+            className="bg-secondary/30 flex items-start gap-3 rounded-md border p-3 md:col-span-2"
           >
             <input
               id="ask-expected-close-date"
               type="checkbox"
-              className="mt-1 size-4 accent-primary"
+              className="accent-primary mt-1 size-4"
               checked={preferences.askExpectedCloseDate}
               onChange={(event) =>
                 updatePreference("askExpectedCloseDate", event.target.checked)
@@ -194,18 +191,17 @@ export function GeneralSettingsForm({
             />
             <span>
               <span className="block text-sm font-medium">
-                Demander une échéance cible
+                {t("settings.askCloseDate")}
               </span>
               <span className="text-muted-foreground mt-1 block text-sm leading-5">
-                Ajoute un champ optionnel dans la création d’un dossier et dans
-                l’édition du dossier.
+                {t("settings.askCloseDateDescription")}
               </span>
             </span>
           </label>
         </div>
         <div className="flex justify-end border-t p-4">
           <Button type="button" onClick={savePreferences}>
-            Enregistrer
+            {t("common.actions.save")}
           </Button>
         </div>
       </section>

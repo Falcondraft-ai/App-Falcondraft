@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import { T } from "@/components/i18n/translated-text";
 import { PageTransition } from "@/components/common/page-transition";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getAdminData } from "@/lib/data/supabase-app-data";
@@ -12,7 +14,7 @@ type AdminRow = {
   updatedAt: string;
 };
 
-function AdminRows({ title, rows }: { title: string; rows: AdminRow[] }) {
+function AdminRows({ title, rows }: { title: ReactNode; rows: AdminRow[] }) {
   return (
     <section className="bg-card rounded-lg border">
       <div className="border-b px-4 py-3">
@@ -41,7 +43,7 @@ function AdminRows({ title, rows }: { title: string; rows: AdminRow[] }) {
           ))
         ) : (
           <div className="text-muted-foreground px-4 py-4 text-sm">
-            Aucune ligne disponible.
+            <T tx="admin.empty" />
           </div>
         )}
       </div>
@@ -57,13 +59,14 @@ export default async function AdminPage() {
     return (
       <PageTransition>
         <section className="bg-card rounded-lg border p-6">
-          <p className="text-muted-foreground text-sm">Accès réservé</p>
+          <p className="text-muted-foreground text-sm">
+            <T tx="admin.restricted" />
+          </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Page interne FalconDraft
+            <T tx="admin.restrictedTitle" />
           </h1>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-6">
-            Cette route est prévue pour une vérification de rôle interne et ne
-            doit pas apparaître dans l’espace client standard.
+            <T tx="admin.restrictedDescription" />
           </p>
         </section>
       </PageTransition>
@@ -77,17 +80,18 @@ export default async function AdminPage() {
       <div className="space-y-6">
         <div className="border border-slate-900/15 bg-slate-950 p-5 text-white">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm text-white/72">Console interne</p>
+            <p className="text-sm text-white/72">
+              <T tx="admin.console" />
+            </p>
             <span className="border border-white/15 px-2 py-1 text-xs text-white/72">
-              Accès interne
+              <T tx="admin.access" />
             </span>
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Supervision FalconDraft
+            <T tx="admin.title" />
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/72">
-            Console réservée à l’équipe FalconDraft pour surveiller les
-            organisations, les utilisateurs et les cycles de génération.
+            <T tx="admin.description" />
           </p>
         </div>
 
@@ -108,8 +112,11 @@ export default async function AdminPage() {
         </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <AdminRows title="Dossiers commerciaux" rows={adminData.rows} />
-          <AdminRows title="Générations échouées" rows={adminData.failedRuns} />
+          <AdminRows title={<T tx="admin.deals" />} rows={adminData.rows} />
+          <AdminRows
+            title={<T tx="admin.failedRuns" />}
+            rows={adminData.failedRuns}
+          />
         </div>
       </div>
     </PageTransition>

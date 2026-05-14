@@ -1,11 +1,7 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireCurrentUserContext } from "@/lib/auth/session";
+import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { canViewInternalAdmin } from "@/lib/internal-access";
-import { getWorkspaceRoleLabel } from "@/lib/invitations/shared";
-
-function roleLabel(role: string | null | undefined) {
-  return role ? getWorkspaceRoleLabel(role) : "Collaborateur";
-}
 
 export default async function AdminLayout({
   children,
@@ -29,7 +25,7 @@ export default async function AdminLayout({
       user={{
         name: displayName,
         email: context.user.email ?? "",
-        roleLabel: roleLabel(context.membership?.role),
+        roleKey: normalizeWorkspaceRole(context.membership?.role) ?? "member",
       }}
       showInternalAdmin={showInternalAdmin}
     >

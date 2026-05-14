@@ -3,6 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/empty-state";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ import {
 } from "@/lib/auth/workspace-permissions";
 import { formatDateTime } from "@/lib/format";
 import type { PendingInvitation, TeamMember } from "@/types/user";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 type TeamManagementPanelProps = {
   organizationId: string | null;
@@ -90,6 +92,7 @@ function mapPendingInvitation(
     id: invitation.id,
     email: invitation.email,
     role: getWorkspaceRoleLabel(invitation.role),
+    roleKey: normalizeWorkspaceRole(invitation.role) ?? "member",
     status: "Invitation envoyée",
     expiresAt: invitation.expires_at,
     createdAt: invitation.created_at,
@@ -120,10 +123,21 @@ export function TeamManagementPanel({
     initialPendingInvitations,
   );
   const [error, setError] = React.useState<string | null>(null);
+  const { t } = useI18n();
   const currentRole = normalizeWorkspaceRole(currentUserRole);
   const activeManagerCount = members.filter(
     (member) => member.roleKey === "manager",
   ).length;
+
+  function roleLabel(roleKey: WorkspaceMemberRole) {
+    return t(`roles.${roleKey}` as TranslationKey);
+  }
+
+  function memberStatusLabel(status: TeamMember["status"]) {
+    return status === "Invitation envoyée"
+      ? t("team.status.invited")
+      : t("team.status.active");
+  }
 
   function getMemberRoleOptions(member: TeamMember) {
     if (member.roleKey === "manager" && activeManagerCount <= 1) {
@@ -176,16 +190,16 @@ export function TeamManagementPanel({
     });
     const result = (await response.json().catch(() => ({
       success: false,
-      message: "Invitation impossible.",
+      message: t("team.invite.error"),
     }))) as InvitationApiResponse;
 
     setIsInviting(false);
 
     if (!response.ok || !result.success) {
       const message =
-        "message" in result ? result.message : "Invitation impossible.";
+        "message" in result ? result.message : t("team.invite.error");
       setError(message);
-      toast.error("Invitation non envoyée", {
+      toast.error(t("team.invite.error"), {
         description: message,
       });
       return;
@@ -197,8 +211,10 @@ export function TeamManagementPanel({
     ]);
     setEmail("");
     setRole("member");
-    toast.success("Invitation envoyée", {
-      description: `${result.invitation.email} a reçu son lien FalconDraft.`,
+    toast.success(t("team.invite.sent"), {
+      description: t("team.invite.sentDescription", {
+        email: result.invitation.email,
+      }),
     });
   }
 
@@ -238,7 +254,7 @@ export function TeamManagementPanel({
     setPendingInvitations((current) =>
       current.filter((invitation) => invitation.id !== invitationId),
     );
-    toast.success("Invitation révoquée");
+    toast.success(t("team.invitations.revoked"));
   }
 
   async function handleRoleChange(
@@ -272,7 +288,7 @@ export function TeamManagementPanel({
       const message =
         "message" in result ? result.message : "Modification impossible.";
       setError(message);
-      toast.error("Rôle non modifié", {
+      toast.error(t("team.roleUpdateError"), {
         description: message,
       });
       return;
@@ -291,7 +307,7 @@ export function TeamManagementPanel({
           : currentMember,
       ),
     );
-    toast.success("Rôle mis à jour");
+    toast.success(t("team.roleUpdateSuccess"));
   }
 
   async function handleRemoveMember(member: TeamMember) {
@@ -300,7 +316,7 @@ export function TeamManagementPanel({
     }
 
     const confirmed = window.confirm(
-      `Retirer ${member.name} du workspace ? Son accès sera désactivé.`,
+      t("team.confirmRemove", { name: member.name }),
     );
 
     if (!confirmed) {
@@ -315,15 +331,15 @@ export function TeamManagementPanel({
     });
     const result = (await response.json().catch(() => ({
       success: false,
-      message: "Retrait impossible.",
+      message: t("team.errorRemove"),
     }))) as { success: boolean; message?: string };
 
     setRemovingMemberId(null);
 
     if (!response.ok || !result.success) {
-      const message = result.message ?? "Retrait impossible.";
+      const message = result.message ?? t("team.errorRemove");
       setError(message);
-      toast.error("Membre conservé", {
+      toast.error(t("team.kept"), {
         description: message,
       });
       return;
@@ -332,8 +348,8 @@ export function TeamManagementPanel({
     setMembers((current) =>
       current.filter((currentMember) => currentMember.id !== member.id),
     );
-    toast.success("Membre retiré", {
-      description: `${member.name} n’a plus accès à l’espace.`,
+    toast.success(t("team.removed"), {
+      description: t("team.removedDescription", { name: member.name }),
     });
   }
 
@@ -342,9 +358,9 @@ export function TeamManagementPanel({
       <section className="bg-card/80 rounded-lg border">
         <div className="flex flex-col justify-between gap-3 border-b px-4 py-3 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-semibold">Collaborateurs</h2>
+            <h2 className="text-sm font-semibold">{t("team.title")}</h2>
             <p className="text-muted-foreground mt-1 text-sm">
-              Membres actifs, rôles et accès à l’espace de travail.
+              {t("team.description")}
             </p>
           </div>
         </div>
@@ -352,13 +368,15 @@ export function TeamManagementPanel({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Rôle</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Dernière activité</TableHead>
+                <TableHead>{t("team.columns.name")}</TableHead>
+                <TableHead>{t("team.columns.email")}</TableHead>
+                <TableHead>{t("team.columns.role")}</TableHead>
+                <TableHead>{t("team.columns.status")}</TableHead>
+                <TableHead>{t("team.columns.lastActive")}</TableHead>
                 {canManageMembers ? (
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">
+                    {t("team.columns.actions")}
+                  </TableHead>
                 ) : null}
               </TableRow>
             </TableHeader>
@@ -374,7 +392,7 @@ export function TeamManagementPanel({
                       {member.name}
                       {member.userId === currentUserId ? (
                         <span className="text-muted-foreground ml-2 text-xs">
-                          Vous
+                          {t("team.you")}
                         </span>
                       ) : null}
                     </TableCell>
@@ -400,18 +418,18 @@ export function TeamManagementPanel({
                                 key={availableRole}
                                 value={availableRole}
                               >
-                                {getWorkspaceRoleLabel(availableRole)}
+                                {roleLabel(availableRole)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       ) : (
-                        member.role
+                        roleLabel(member.roleKey)
                       )}
                     </TableCell>
                     <TableCell>
                       <span className="bg-card border px-2 py-1 text-xs">
-                        {member.status}
+                        {memberStatusLabel(member.status)}
                       </span>
                     </TableCell>
                     <TableCell>{formatDateTime(member.lastActiveAt)}</TableCell>
@@ -424,9 +442,7 @@ export function TeamManagementPanel({
                           disabled={!canRemoveMember(member) || isRemoving}
                           onClick={() => void handleRemoveMember(member)}
                         >
-                          {isRemoving
-                            ? "Retrait..."
-                            : "Retirer du workspace"}
+                          {isRemoving ? t("team.removing") : t("team.remove")}
                         </Button>
                       </TableCell>
                     ) : null}
@@ -438,8 +454,8 @@ export function TeamManagementPanel({
         ) : (
           <div className="p-4">
             <EmptyState
-              title="Aucun membre"
-              description="Les membres associés à cet espace client apparaîtront ici."
+              title={t("team.emptyTitle")}
+              description={t("team.emptyDescription")}
             />
           </div>
         )}
@@ -454,29 +470,28 @@ export function TeamManagementPanel({
           <div className="bg-card/80 rounded-lg border p-4">
             <div>
               <h2 className="text-sm font-semibold">
-                Inviter un collaborateur
+                {t("team.invite.title")}
               </h2>
               <p className="text-muted-foreground mt-1 text-sm leading-6">
-                Un lien privé est envoyé par email. Aucun accès public à la
-                création de compte n’est ouvert.
+                {t("team.invite.description")}
               </p>
             </div>
 
             <form className="mt-5 space-y-4" onSubmit={handleInvite}>
               <div className="space-y-2">
-                <Label htmlFor="invite-email">Email professionnel</Label>
+                <Label htmlFor="invite-email">{t("team.invite.email")}</Label>
                 <Input
                   id="invite-email"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="collaborateur@cabinet.com"
+                  placeholder={t("team.invite.placeholder")}
                   autoComplete="email"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invite-role">Rôle</Label>
+                <Label htmlFor="invite-role">{t("team.invite.role")}</Label>
                 <Select
                   value={role}
                   onValueChange={(value) => setRole(value as InvitationRole)}
@@ -487,7 +502,7 @@ export function TeamManagementPanel({
                   <SelectContent>
                     {invitationRoles.map((availableRole) => (
                       <SelectItem key={availableRole} value={availableRole}>
-                        {getWorkspaceRoleLabel(availableRole)}
+                        {roleLabel(availableRole)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -498,26 +513,32 @@ export function TeamManagementPanel({
                 disabled={isInviting || !organizationId}
                 className="w-full"
               >
-                {isInviting ? "Envoi en cours..." : "Envoyer l’invitation"}
+                {isInviting
+                  ? t("team.invite.submitting")
+                  : t("team.invite.submit")}
               </Button>
             </form>
           </div>
 
           <div className="bg-card/80 rounded-lg border">
             <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Invitations en attente</h2>
+              <h2 className="text-sm font-semibold">
+                {t("team.invitations.title")}
+              </h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Liens actifs qui n’ont pas encore été acceptés.
+                {t("team.invitations.description")}
               </p>
             </div>
             {pendingInvitations.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Rôle</TableHead>
-                    <TableHead>Expiration</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead>{t("team.columns.email")}</TableHead>
+                    <TableHead>{t("team.columns.role")}</TableHead>
+                    <TableHead>{t("team.invitations.expires")}</TableHead>
+                    <TableHead className="text-right">
+                      {t("team.invitations.action")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -526,7 +547,7 @@ export function TeamManagementPanel({
                       <TableCell className="font-medium">
                         {invitation.email}
                       </TableCell>
-                      <TableCell>{invitation.role}</TableCell>
+                      <TableCell>{roleLabel(invitation.roleKey)}</TableCell>
                       <TableCell>
                         {formatDateTime(invitation.expiresAt)}
                       </TableCell>
@@ -540,12 +561,12 @@ export function TeamManagementPanel({
                             onClick={() => void handleRevoke(invitation.id)}
                           >
                             {revokingId === invitation.id
-                              ? "Révocation..."
-                              : "Révoquer"}
+                              ? t("team.invitations.revoking")
+                              : t("team.invitations.revoke")}
                           </Button>
                         ) : (
                           <span className="text-muted-foreground text-xs">
-                            Lecteur
+                            {t("roles.viewer")}
                           </span>
                         )}
                       </TableCell>
@@ -556,8 +577,8 @@ export function TeamManagementPanel({
             ) : (
               <div className="p-4">
                 <EmptyState
-                  title="Aucune invitation en attente"
-                  description="Les invitations envoyées et non acceptées apparaîtront ici."
+                  title={t("team.invitations.emptyTitle")}
+                  description={t("team.invitations.emptyDescription")}
                 />
               </div>
             )}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Archive, Ellipsis, RotateCcw, Search, Trash2 } from "lucide-react";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,12 +31,8 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
-import {
-  dealStatusLabels,
-  dealStatuses,
-  type Deal,
-  type DealStatus,
-} from "@/types/deal";
+import { dealStatuses, type Deal, type DealStatus } from "@/types/deal";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 type StatusFilter = DealStatus | "all";
 
@@ -60,6 +57,7 @@ export function DealsTable({
   mode?: "active" | "archived";
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [deletedDealIds, setDeletedDealIds] = React.useState<Set<string>>(
@@ -136,12 +134,15 @@ export function DealsTable({
     if (!response?.ok) {
       const result: unknown = await response?.json().catch(() => null);
 
-      toast.error(isArchivedMode ? "Restauration impossible" : "Archivage impossible", {
-        description: getErrorMessage(
-          result,
-          "Le dossier commercial n’a pas pu être mis à jour.",
-        ),
-      });
+      toast.error(
+        isArchivedMode ? "Restauration impossible" : "Archivage impossible",
+        {
+          description: getErrorMessage(
+            result,
+            "Le dossier commercial n’a pas pu être mis à jour.",
+          ),
+        },
+      );
       return;
     }
 
@@ -179,7 +180,7 @@ export function DealsTable({
   });
 
   return (
-    <section className="rounded-lg border bg-card/75">
+    <section className="bg-card/75 rounded-lg border">
       <div className="grid gap-3 border-b p-4 md:grid-cols-[1fr_auto]">
         <div className="relative">
           <Search
@@ -189,7 +190,7 @@ export function DealsTable({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Rechercher un dossier, un client ou un contact"
+            placeholder={t("deals.searchPlaceholder")}
             className="pl-8"
           />
         </div>
@@ -198,13 +199,13 @@ export function DealsTable({
           onValueChange={(value) => setStatus(value as StatusFilter)}
         >
           <SelectTrigger className="w-full md:w-60">
-            <SelectValue placeholder="Filtrer par statut" />
+            <SelectValue placeholder={t("deals.statusPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
+            <SelectItem value="all">{t("deals.allStatuses")}</SelectItem>
             {dealStatuses.map((statusOption) => (
               <SelectItem key={statusOption} value={statusOption}>
-                {dealStatusLabels[statusOption]}
+                {t(`dealStatus.${statusOption}` as TranslationKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -213,12 +214,12 @@ export function DealsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Dossier commercial</TableHead>
-            <TableHead>Client</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead>Budget</TableHead>
-            <TableHead>Mis à jour</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>{t("table.deal")}</TableHead>
+            <TableHead>{t("deals.client")}</TableHead>
+            <TableHead>{t("table.status")}</TableHead>
+            <TableHead>{t("table.budget")}</TableHead>
+            <TableHead>{t("table.updated")}</TableHead>
+            <TableHead className="text-right">{t("deals.actions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -255,7 +256,9 @@ export function DealsTable({
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1.5">
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/dashboard/deals/${deal.id}`}>Ouvrir</Link>
+                    <Link href={`/dashboard/deals/${deal.id}`}>
+                      {t("deals.open")}
+                    </Link>
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -283,10 +286,10 @@ export function DealsTable({
                           <Archive aria-hidden="true" />
                         )}
                         {archivingDealId === deal.id
-                          ? "Mise à jour..."
+                          ? t("deals.updating")
                           : mode === "archived"
-                            ? "Restaurer"
-                            : "Archiver"}
+                            ? t("deals.restore")
+                            : t("deals.archive")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
@@ -295,8 +298,8 @@ export function DealsTable({
                       >
                         <Trash2 aria-hidden="true" />
                         {deletingDealId === deal.id
-                          ? "Suppression..."
-                          : "Supprimer"}
+                          ? t("deals.deleting")
+                          : t("deals.delete")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -307,8 +310,8 @@ export function DealsTable({
         </TableBody>
       </Table>
       {filteredDeals.length === 0 ? (
-        <div className="border-t p-6 text-center text-sm text-muted-foreground">
-          Aucun dossier commercial ne correspond à ces critères.
+        <div className="text-muted-foreground border-t p-6 text-center text-sm">
+          {t("deals.emptyFiltered")}
         </div>
       ) : null}
     </section>

@@ -1,16 +1,19 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { UpdatePasswordForm } from "@/components/auth/update-password-form";
+import { T } from "@/components/i18n/translated-text";
 
 export default function UpdatePasswordPage() {
   return (
     <AuthShell
-      eyebrow="Nouveau mot de passe"
-      title="Sécuriser votre accès"
-      cardTitle="Définir un nouveau mot de passe"
-      cardDescription="Choisissez un mot de passe solide pour votre compte."
+      eyebrow={<T tx="auth.update.eyebrow" />}
+      title={<T tx="auth.update.title" />}
+      cardTitle={<T tx="auth.update.cardTitle" />}
+      cardDescription={<T tx="auth.update.cardDescription" />}
       footer={
         <>
-          <span>Session de réinitialisation sécurisée.</span>
+          <span>
+            <T tx="auth.update.footer" />
+          </span>
           <span className="hidden sm:inline">FalconDraft</span>
         </>
       }
