@@ -87,7 +87,7 @@ function getFromEmail() {
 }
 
 function getSupportEmail() {
-  return process.env.SUPPORT_EMAIL?.trim() || "support@falcondraft.fr";
+  return process.env.SUPPORT_EMAIL?.trim() || "falcondraft@outlook.fr";
 }
 
 function buildSupportNotificationText(input: SupportRequestEmailInput) {
