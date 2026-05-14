@@ -64,12 +64,14 @@ export function GeneratedDocumentButtons({
   compact = false,
   fullWidth = false,
   showOpen = true,
+  showDownload = true,
   downloadLabel,
 }: {
   document?: GeneratedDealDocument;
   compact?: boolean;
   fullWidth?: boolean;
   showOpen?: boolean;
+  showDownload?: boolean;
   downloadLabel?: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -123,24 +125,30 @@ export function GeneratedDocumentButtons({
           {loadingAction === "open" ? "Ouverture..." : t("common.actions.open")}
         </Button>
       ) : null}
-      <Button
-        type="button"
-        variant="outline"
-        size={compact ? "sm" : "default"}
-        className={cn(
-          fullWidth &&
-            "bg-card/75 hover:bg-secondary/60 w-full justify-between rounded-md px-3 shadow-none",
-        )}
-        disabled={!document || loadingAction !== null}
-        onClick={() => void openDocument(true)}
-      >
-        <Download aria-hidden="true" />
-        {loadingAction === "download"
-          ? "Préparation..."
-          : (downloadLabel ?? t("common.actions.download"))}
-      </Button>
+      {showDownload ? (
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? "sm" : "default"}
+          className={cn(
+            fullWidth &&
+              "bg-card/75 hover:bg-secondary/60 w-full justify-between rounded-md px-3 shadow-none",
+          )}
+          disabled={!document || loadingAction !== null}
+          onClick={() => void openDocument(true)}
+        >
+          <Download aria-hidden="true" />
+          {loadingAction === "download"
+            ? "Préparation..."
+            : (downloadLabel ?? t("common.actions.download"))}
+        </Button>
+      ) : null}
     </div>
   );
+}
+
+function isOpenOnlyDocument(document: GeneratedDealDocument): boolean {
+  return ["proposal_gamma", "proposal_pdf"].includes(document.type);
 }
 
 export function GeneratedDocumentsPanel({
@@ -178,9 +186,11 @@ export function GeneratedDocumentsPanel({
             document={document}
             compact
             showOpen={
-              document.type !== "quote_pdf" &&
-              document.type !== "final_document_pdf"
+              isOpenOnlyDocument(document) ||
+              (document.type !== "quote_pdf" &&
+                document.type !== "final_document_pdf")
             }
+            showDownload={!isOpenOnlyDocument(document)}
             downloadLabel={
               document.type === "quote_pdf"
                 ? t("common.actions.downloadQuote")

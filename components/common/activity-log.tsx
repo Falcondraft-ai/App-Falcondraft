@@ -15,6 +15,9 @@ const auditTitleKeys: Record<string, TranslationKey> = {
     "activity.audit.organization_member_role_updated",
   organization_visibility_updated:
     "activity.audit.organization_visibility_updated",
+  email_provider_connected: "activity.audit.email_provider_connected",
+  email_provider_disconnected: "activity.audit.email_provider_disconnected",
+  email_draft_workflow_started: "activity.audit.email_draft_workflow_started",
   "Dossier commercial modifié": "activity.audit.deal_updated",
   "Proposition supprimée": "activity.audit.proposal_deleted",
   "Compte-rendu supprimé": "activity.audit.summary_deleted",

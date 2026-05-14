@@ -71,6 +71,7 @@ type DealQueryOptions = {
 };
 
 const fallbackIsoDate = "2026-05-08T00:00:00.000Z";
+const selectedProposalPdfExternalId = "selected_proposal_pdf";
 
 async function getSupabaseDataClient(): Promise<SupabaseAppClient | null> {
   return getSupabaseAdminClient() ?? (await getSupabaseServerClient());
@@ -146,6 +147,20 @@ function extractGammaUrl(value: string | null | undefined): string | undefined {
   return url.toLowerCase().includes("gamma") ? url : undefined;
 }
 
+function isPdfUrl(url: string | null | undefined): boolean {
+  if (!url) {
+    return false;
+  }
+
+  const normalizedUrl = url.toLowerCase();
+
+  return (
+    normalizedUrl.includes(".pdf") ||
+    normalizedUrl.includes("application/pdf") ||
+    normalizedUrl.includes("/proposal-pdfs/")
+  );
+}
+
 function getProposalEditUrl(
   deal: DealRow,
   documents: DocumentRow[] = [],
@@ -159,14 +174,16 @@ function getProposalEditUrl(
     const title = document.title.toLowerCase();
     const url = document.url.toLowerCase();
 
+    if (isPdfUrl(document.url) || type.includes("pdf")) {
+      return false;
+    }
+
     return (
       url.includes("gamma") ||
       type.includes("gamma") ||
       title.includes("gamma") ||
       title.includes("édition") ||
-      title.includes("edition") ||
-      (type.includes("proposal") && !type.includes("pdf")) ||
-      (type.includes("proposition") && !type.includes("pdf"))
+      title.includes("edition")
     );
   });
 
@@ -178,6 +195,7 @@ function getGeneratedDocumentLabel(type: string): string {
     proposal_gamma: "Proposition éditable",
     proposal_pdf: "PDF proposition",
     proposal_pdf_initial: "PDF proposition initial",
+    proposal_pdf_final_uploaded: "PDF proposition",
     quote_pdf: "Devis PDF",
     final_document_pdf: "Document final prêt à signer",
   };
@@ -185,29 +203,85 @@ function getGeneratedDocumentLabel(type: string): string {
   return labels[type] ?? "Document";
 }
 
+function isProposalPdfDocumentType(type: string): boolean {
+  return [
+    "proposal_pdf",
+    "proposal_pdf_initial",
+    "proposal_pdf_final_uploaded",
+  ].includes(type);
+}
+
 function isGeneratedDealDocument(document: DocumentRow): boolean {
   return [
     "proposal_gamma",
-    "proposal_pdf",
-    "proposal_pdf_initial",
     "quote_pdf",
     "final_document_pdf",
-  ].includes(document.type);
+  ].includes(document.type) || isProposalPdfDocumentType(document.type);
+}
+
+function hasCompletedProposalValidation(
+  workflowRuns: WorkflowRunRow[],
+): boolean {
+  return workflowRuns.some(
+    (run) =>
+      run.type === "proposal_validation" &&
+      run.status !== "failed" &&
+      (run.status === "completed" || Boolean(run.completed_at)),
+  );
+}
+
+function isPastProposalValidation(status: DealStatus): boolean {
+  return [
+    "final_document_generating",
+    "final_document_ready",
+    "signature_ready",
+    "email_draft_ready",
+    "completed",
+  ].includes(status);
 }
 
 function mapGeneratedDealDocuments(
   documents: DocumentRow[],
+  options: { showProposalPdf?: boolean } = {},
 ): GeneratedDealDocument[] {
-  return documents.filter(isGeneratedDealDocument).map((document) => ({
-    id: document.id,
-    type: document.type,
-    label: getGeneratedDocumentLabel(document.type),
-    title: document.title,
-    status: normalizeDocumentStatus(document),
-    createdAt: document.created_at,
-    url: document.url ?? undefined,
-    hasStoragePath: Boolean(document.storage_path),
-  }));
+  const latestProposalPdf = documents.find((document) =>
+    isProposalPdfDocumentType(document.type),
+  );
+  const selectedProposalPdf = documents.find(
+    (document) =>
+      isProposalPdfDocumentType(document.type) &&
+      document.external_id === selectedProposalPdfExternalId,
+  );
+  const visibleProposalPdf = selectedProposalPdf ?? latestProposalPdf;
+
+  return documents
+    .filter((document) => {
+      if (!isGeneratedDealDocument(document)) {
+        return false;
+      }
+
+      if (!isProposalPdfDocumentType(document.type)) {
+        return true;
+      }
+
+      return options.showProposalPdf && document.id === visibleProposalPdf?.id;
+    })
+    .map((document) => {
+      const type = isProposalPdfDocumentType(document.type)
+        ? "proposal_pdf"
+        : document.type;
+
+      return {
+        id: document.id,
+        type,
+        label: getGeneratedDocumentLabel(type),
+        title: document.title,
+        status: normalizeDocumentStatus(document),
+        createdAt: document.created_at,
+        url: document.url ?? undefined,
+        hasStoragePath: Boolean(document.storage_path),
+      };
+    });
 }
 
 function getMonthLabel(date: string): string {
@@ -532,6 +606,10 @@ export async function getDealDetail(
     getAuditLogsForOrganization(organizationId, dealId),
     getDocumentRowsForDeal(organizationId, dealId),
   ]);
+  const normalizedStatus = normalizeDealStatus(dealRow.status);
+  const showProposalPdf =
+    hasCompletedProposalValidation(workflowRuns) ||
+    isPastProposalValidation(normalizedStatus);
 
   return {
     deal: mapDealRow(
@@ -540,7 +618,7 @@ export async function getDealDetail(
       documents,
     ),
     activity: mapActivity(workflowRuns, auditLogs),
-    documents: mapGeneratedDealDocuments(documents),
+    documents: mapGeneratedDealDocuments(documents, { showProposalPdf }),
   };
 }
 

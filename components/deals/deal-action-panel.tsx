@@ -91,7 +91,11 @@ function getVisibleActionLimit(
     return 4;
   }
 
-  if (hasProposal || status === "proposal_ready" || status === "validation_pending") {
+  if (
+    hasProposal ||
+    status === "proposal_ready" ||
+    status === "validation_pending"
+  ) {
     return 3;
   }
 
@@ -127,6 +131,8 @@ export function DealActionPanel({
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
     React.useState(false);
   const [isTriggeringProposal, setIsTriggeringProposal] = React.useState(false);
+  const [isTriggeringEmailDraft, setIsTriggeringEmailDraft] =
+    React.useState(false);
   const [isCallSummaryGenerating, setIsCallSummaryGenerating] =
     React.useState(false);
   const [isProposalGenerating, setIsProposalGenerating] = React.useState(false);
@@ -194,7 +200,10 @@ export function DealActionPanel({
 
     return () => {
       window.removeEventListener("storage", syncGenerationState);
-      window.removeEventListener(PROPOSAL_GENERATION_EVENT, syncGenerationState);
+      window.removeEventListener(
+        PROPOSAL_GENERATION_EVENT,
+        syncGenerationState,
+      );
     };
   }, [dealId, hasProposal, status]);
 
@@ -269,7 +278,8 @@ export function DealActionPanel({
     }
 
     toast.success("Génération de proposition lancée", {
-      description: "Le dossier se mettra à jour lorsque la proposition sera prête.",
+      description:
+        "Le dossier se mettra à jour lorsque la proposition sera prête.",
     });
     window.localStorage.setItem(
       getProposalGenerationStorageKey(dealId),
@@ -277,6 +287,39 @@ export function DealActionPanel({
     );
     window.dispatchEvent(new Event(PROPOSAL_GENERATION_EVENT));
     setIsProposalGenerating(true);
+    router.refresh();
+  }
+
+  async function triggerEmailDraftGeneration() {
+    setIsTriggeringEmailDraft(true);
+
+    const response = await fetch("/api/workflows/email-draft-generation", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ dealId }),
+    }).catch(() => null);
+
+    setIsTriggeringEmailDraft(false);
+
+    if (!response?.ok) {
+      const result: unknown = await response?.json().catch(() => null);
+      const message =
+        result &&
+        typeof result === "object" &&
+        "message" in result &&
+        typeof result.message === "string"
+          ? result.message
+          : "Le brouillon Gmail n’a pas pu être lancé.";
+
+      toast.error("Création du brouillon impossible", {
+        description: message,
+      });
+      return;
+    }
+
+    toast.success("Création du brouillon Gmail lancée.");
     router.refresh();
   }
 
@@ -384,12 +427,19 @@ export function DealActionPanel({
   return (
     <div className="space-y-2">
       {dealActions.map((action, index) => {
+        const hasReadyFinalDocument = Boolean(
+          finalDocument?.hasStoragePath && finalDocument.status === "ready",
+        );
         const isDocumentActionAvailable =
           (action.kind === "download-quote" && Boolean(quoteDocument)) ||
           (action.kind === "download-final-pdf" && Boolean(finalDocument));
         const isSignatureAction = action.kind === "open-signature-link";
+        const isEmailDraftAction = action.kind === "prepare-email-draft";
         const isAvailable =
-          !isSignatureAction && (index <= visibleActionLimit || isDocumentActionAvailable);
+          !isSignatureAction &&
+          (isEmailDraftAction
+            ? hasReadyFinalDocument
+            : index <= visibleActionLimit || isDocumentActionAvailable);
         const isNextAction = index === visibleActionLimit;
 
         if (action.kind === "download-quote") {
@@ -418,7 +468,7 @@ export function DealActionPanel({
           );
         }
 
-        return (
+        const button = (
           <Button
             key={action.label}
             type="button"
@@ -426,7 +476,7 @@ export function DealActionPanel({
             className={cn(
               "w-full justify-between gap-3",
               isSignatureAction
-                ? "border-dashed bg-muted/30 text-muted-foreground opacity-100"
+                ? "bg-muted/30 text-muted-foreground border-dashed opacity-100"
                 : "",
               isAvailable && !isNextAction
                 ? "bg-primary/88 hover:bg-primary/82"
@@ -438,8 +488,8 @@ export function DealActionPanel({
               isDeletingDeal ||
               (index === 0 &&
                 (isTriggeringCallSummary || isCallSummaryGenerating)) ||
-              (index === 1 &&
-                (isTriggeringProposal || isProposalGenerating)) ||
+              (index === 1 && (isTriggeringProposal || isProposalGenerating)) ||
+              isTriggeringEmailDraft ||
               localActionIndex !== null
             }
             onClick={() => {
@@ -460,6 +510,11 @@ export function DealActionPanel({
 
               if (action.kind === "validate-proposal") {
                 setIsValidationDialogOpen(true);
+                return;
+              }
+
+              if (isEmailDraftAction) {
+                void triggerEmailDraftGeneration();
                 return;
               }
 
@@ -484,27 +539,46 @@ export function DealActionPanel({
                   Génération en cours
                   <LoadingDots />
                 </>
+              ) : isEmailDraftAction && isTriggeringEmailDraft ? (
+                <>
+                  Lancement
+                  <LoadingDots />
+                </>
               ) : localActionIndex === index ? (
                 <>
                   Traitement en cours
                   <LoadingDots />
                 </>
+              ) : isSignatureAction ? (
+                "Signature — fonctionnalité à venir"
               ) : (
-                isSignatureAction
-                  ? "Signature — fonctionnalité à venir"
-                  : action.label
+                action.label
               )}
             </span>
             {isAvailable &&
             !isCallSummaryGenerating &&
             !isTriggeringProposal &&
             !isProposalGenerating &&
+            !isTriggeringEmailDraft &&
             localActionIndex === null ? (
               <span className="text-[10px] font-medium tracking-[0.12em] uppercase opacity-70">
                 {isNextAction ? "Suivant" : "Prêt"}
               </span>
             ) : null}
           </Button>
+        );
+
+        if (!isEmailDraftAction || hasReadyFinalDocument) {
+          return button;
+        }
+
+        return (
+          <div key={action.label} className="space-y-1.5">
+            {button}
+            <p className="text-muted-foreground px-1 text-xs leading-5">
+              Validez d’abord la proposition pour générer le document final.
+            </p>
+          </div>
         );
       })}
       <div className="space-y-2 pt-3">
@@ -519,6 +593,7 @@ export function DealActionPanel({
             isCallSummaryGenerating ||
             isTriggeringProposal ||
             isProposalGenerating ||
+            isTriggeringEmailDraft ||
             localActionIndex !== null
           }
           onClick={() => void archiveDeal()}
@@ -536,6 +611,7 @@ export function DealActionPanel({
             isCallSummaryGenerating ||
             isTriggeringProposal ||
             isProposalGenerating ||
+            isTriggeringEmailDraft ||
             localActionIndex !== null
           }
           onClick={() => void deleteDeal()}

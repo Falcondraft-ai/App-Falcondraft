@@ -57,6 +57,34 @@ cp .env.example .env.local
 
 Step 1 intentionally works with empty environment variables. Do not commit real secrets.
 
+### Gmail OAuth
+
+Gmail connections create drafts only; FalconDraft never sends commercial emails automatically.
+
+Required server-side variables:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`, ending with `/api/email/oauth/google/callback`
+- `TOKEN_ENCRYPTION_KEY`, generated with `openssl rand -base64 32`
+- `N8N_EMAIL_DRAFT_SECRET`, shared only with n8n for server-to-server draft creation
+
+The Google OAuth consent screen must allow the exact callback URL configured in
+`GOOGLE_REDIRECT_URI`. The app requests the Gmail draft scope only:
+`https://www.googleapis.com/auth/gmail.compose`.
+
+### n8n Gmail Draft Endpoint
+
+n8n can create Gmail drafts through `POST /api/email/gmail/drafts/create`.
+Authenticate with `Authorization: Bearer $N8N_EMAIL_DRAFT_SECRET` or
+`x-n8n-email-draft-secret`. The request body must include `organization_id`,
+`user_id`, `to`, `subject`, and `body`; `deal_id` is optional. A single PDF
+attachment is supported through `attachments[0].contentBase64` or
+`attachments[0].data` with `contentType: "application/pdf"`.
+
+The endpoint creates Gmail drafts only. Gmail access and refresh tokens stay on
+the FalconDraft server and are never exposed to n8n or the client.
+
 ## What Step 1 Prepared
 
 - Minimal routes: `/`, `/login`, `/dashboard`

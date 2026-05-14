@@ -112,6 +112,20 @@ export type IntegrationRow = {
   created_at: string;
 };
 
+export type EmailConnectionRow = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  provider: "gmail" | string;
+  email: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  status: "connected" | "disconnected" | "error" | string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type BillingSubscriptionRow = {
   id: string;
   organization_id: string;
@@ -275,6 +289,36 @@ export type Database = {
           status?: string;
           connected_email?: string | null;
           created_at?: string;
+        }
+      >;
+
+      email_connections: TableDefinition<
+        EmailConnectionRow,
+        {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          provider: string;
+          email: string;
+          access_token: string;
+          refresh_token: string;
+          expires_at: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          organization_id?: string;
+          user_id?: string;
+          provider?: string;
+          email?: string;
+          access_token?: string;
+          refresh_token?: string;
+          expires_at?: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
         }
       >;
 

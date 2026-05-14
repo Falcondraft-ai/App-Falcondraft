@@ -13,6 +13,15 @@ const documentStatusStyles = {
   sent: "text-slate-900 border-slate-400",
 } satisfies Record<MockDocument["status"], string>;
 
+function isOpenOnlyDocumentType(type: string): boolean {
+  return [
+    "proposal_gamma",
+    "proposal_pdf",
+    "proposal_pdf_initial",
+    "proposal_pdf_final_uploaded",
+  ].includes(type);
+}
+
 export function DocumentCard({ document }: { document: MockDocument }) {
   const generatedDocument = {
     id: document.id,
@@ -74,9 +83,11 @@ export function DocumentCard({ document }: { document: MockDocument }) {
           document={generatedDocument}
           compact
           showOpen={
-            document.rawType !== "quote_pdf" &&
-            document.rawType !== "final_document_pdf"
+            isOpenOnlyDocumentType(document.rawType) ||
+            (document.rawType !== "quote_pdf" &&
+              document.rawType !== "final_document_pdf")
           }
+          showDownload={!isOpenOnlyDocumentType(document.rawType)}
           downloadLabel={
             document.rawType === "quote_pdf" ? (
               <T tx="common.actions.downloadQuote" />

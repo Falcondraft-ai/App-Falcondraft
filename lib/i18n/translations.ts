@@ -388,6 +388,9 @@ export type TranslationKey =
   | "activity.audit.member_deactivated"
   | "activity.audit.organization_member_role_updated"
   | "activity.audit.organization_visibility_updated"
+  | "activity.audit.email_provider_connected"
+  | "activity.audit.email_provider_disconnected"
+  | "activity.audit.email_draft_workflow_started"
   | "activity.audit.deal_updated"
   | "activity.audit.proposal_deleted"
   | "activity.audit.summary_deleted"
@@ -866,6 +869,10 @@ export const translations: Record<Language, Dictionary> = {
       "Rôle collaborateur mis à jour",
     "activity.audit.organization_visibility_updated":
       "Visibilité du workspace mise à jour",
+    "activity.audit.email_provider_connected": "Messagerie connectée",
+    "activity.audit.email_provider_disconnected": "Messagerie déconnectée",
+    "activity.audit.email_draft_workflow_started":
+      "Création du brouillon Gmail lancée",
     "activity.audit.deal_updated": "Dossier commercial mis à jour",
     "activity.audit.proposal_deleted": "Proposition supprimée",
     "activity.audit.summary_deleted": "Compte-rendu supprimé",
@@ -1326,6 +1333,10 @@ export const translations: Record<Language, Dictionary> = {
       "Collaborator role updated",
     "activity.audit.organization_visibility_updated":
       "Workspace visibility updated",
+    "activity.audit.email_provider_connected": "Email provider connected",
+    "activity.audit.email_provider_disconnected": "Email provider disconnected",
+    "activity.audit.email_draft_workflow_started":
+      "Gmail draft creation started",
     "activity.audit.deal_updated": "Deal updated",
     "activity.audit.proposal_deleted": "Proposal deleted",
     "activity.audit.summary_deleted": "Call summary deleted",

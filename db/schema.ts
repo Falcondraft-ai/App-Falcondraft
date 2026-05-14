@@ -164,6 +164,35 @@ export const integrations = pgTable(
   }),
 );
 
+export const emailConnections = pgTable(
+  "email_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    provider: text("provider").notNull(),
+    email: text("email").notNull(),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    status: text("status").default("connected").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("email_connections_organization_id_idx").on(
+      table.organizationId,
+    ),
+    userProviderIdx: uniqueIndex("email_connections_user_provider_idx").on(
+      table.organizationId,
+      table.userId,
+      table.provider,
+    ),
+  }),
+);
+
 export const billingSubscriptions = pgTable(
   "billing_subscriptions",
   {

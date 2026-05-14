@@ -15,7 +15,14 @@ const supportedWorkflowTypes = [
   "call_summary",
   "proposal_generation",
   "proposal_validation",
+  "email_draft_generation",
 ] as const;
+const proposalPdfDocumentTypes = [
+  "proposal_pdf_initial",
+  "proposal_pdf",
+  "proposal_pdf_final_uploaded",
+];
+const selectedProposalPdfExternalId = "selected_proposal_pdf";
 
 type SupportedWorkflowType = (typeof supportedWorkflowTypes)[number];
 
@@ -44,6 +51,10 @@ function normalizeWorkflowType(type: string) {
 
   if (normalizedType === "proposal_validation") {
     return "proposal_validation";
+  }
+
+  if (normalizedType === "email_draft_generation") {
+    return "email_draft_generation";
   }
 
   return normalizedType;
@@ -200,6 +211,85 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!validationDocument.url && !validationDocument.storage_path) {
       return jsonError("Le PDF de validation est incomplet.", 400);
     }
+
+    const { error: clearSelectedProposalPdfError } = await adminSupabase
+      .from("documents")
+      .update({ external_id: null })
+      .eq("organization_id", organizationId)
+      .eq("deal_id", dealId)
+      .in("type", proposalPdfDocumentTypes)
+      .eq("external_id", selectedProposalPdfExternalId);
+
+    if (clearSelectedProposalPdfError) {
+      return jsonError("Sélection du PDF impossible.", 500);
+    }
+
+    const { error: markSelectedProposalPdfError } = await adminSupabase
+      .from("documents")
+      .update({ external_id: selectedProposalPdfExternalId })
+      .eq("id", validationDocument.id)
+      .eq("organization_id", organizationId)
+      .eq("deal_id", dealId);
+
+    if (markSelectedProposalPdfError) {
+      return jsonError("Sélection du PDF impossible.", 500);
+    }
+  }
+
+  if (workflowType === "email_draft_generation") {
+    const { data: finalDocuments, error: finalDocumentError } =
+      await adminSupabase
+        .from("documents")
+        .select("id, storage_path")
+        .eq("organization_id", organizationId)
+        .eq("deal_id", dealId)
+        .eq("type", "final_document_pdf")
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+    if (finalDocumentError) {
+      return jsonError("Vérification du document final impossible.", 500);
+    }
+
+    const finalDocument = finalDocuments?.[0];
+
+    if (!finalDocument?.storage_path) {
+      return jsonError(
+        "Validez d’abord la proposition pour générer le document final.",
+        409,
+      );
+    }
+
+    const { data: gmailConnection, error: gmailConnectionError } =
+      await adminSupabase
+        .from("email_connections")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("user_id", user.id)
+        .eq("provider", "gmail")
+        .eq("status", "connected")
+        .maybeSingle();
+
+    if (gmailConnectionError) {
+      return jsonError("Vérification de la connexion Gmail impossible.", 500);
+    }
+
+    if (!gmailConnection) {
+      return jsonError("Connectez Gmail avant de créer un brouillon.", 409);
+    }
+  }
+
+  const { data: workflowConfig } = await adminSupabase
+    .from("workflow_configs")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("workflow_type", workflowType)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!workflowConfig) {
+    return jsonError("Configuration du workflow introuvable.", 404);
   }
 
   const startedAt = new Date().toISOString();
@@ -219,30 +309,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonError("Impossible de créer l’exécution du workflow.", 500);
   }
 
-  const { data: workflowConfig } = await adminSupabase
-    .from("workflow_configs")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .eq("workflow_type", workflowType)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (!workflowConfig) {
-    return jsonError("Configuration du workflow introuvable.", 404);
-  }
+  const webhookBody =
+    workflowType === "email_draft_generation"
+      ? {
+          organization_id: organizationId,
+          user_id: user.id,
+          deal_id: dealId,
+        }
+      : {
+          organizationId,
+          dealId,
+          workflowType,
+          workflowRunId: workflowRun.id,
+          validationSource,
+        };
 
   const webhookResponse = await fetch(workflowConfig.n8n_webhook_url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      organizationId,
-      dealId,
-      workflowType,
-      workflowRunId: workflowRun.id,
-      validationSource,
-    }),
+    body: JSON.stringify(webhookBody),
   }).catch(() => null);
 
   if (!webhookResponse?.ok) {
@@ -257,6 +344,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq("organization_id", organizationId);
 
     return jsonError("Le déclenchement du workflow a échoué.", 502);
+  }
+
+  if (workflowType === "email_draft_generation") {
+    await adminSupabase.from("audit_logs").insert({
+      organization_id: organizationId,
+      user_id: user.id,
+      action: "email_draft_workflow_started",
+      entity_type: "deal",
+      entity_id: dealId,
+    });
   }
 
   return NextResponse.json({
