@@ -19,6 +19,8 @@ import { requireInternalAdminContext } from "@/lib/internal-admin/server";
 const organizationIdSchema = z.string().uuid();
 const firstManagerInvitationSchema = z.object({
   email: z.string().trim().email(),
+  first_name: z.string().trim().max(80).optional(),
+  last_name: z.string().trim().max(80).optional(),
 });
 
 type RouteContext = {
@@ -75,6 +77,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const organizationId = parsedOrganizationId.data;
   const email = normalizeEmail(parsedBody.data.email);
+  const recipientName =
+    [parsedBody.data.first_name, parsedBody.data.last_name]
+      .map((value) => value?.trim())
+      .filter(Boolean)
+      .join(" ") || null;
 
   if (organizationId === internalAdmin.context.organization?.id) {
     return jsonError(
@@ -222,6 +229,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     organizationName: organization.name,
     roleLabel: getWorkspaceRoleLabel("manager"),
     acceptUrl,
+    recipientName,
   });
 
   if (!emailResult.success) {

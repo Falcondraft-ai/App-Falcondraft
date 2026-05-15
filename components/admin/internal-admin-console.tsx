@@ -92,6 +92,14 @@ type InvitationResponse =
     }
   | ApiErrorResponse;
 
+type DeleteInvitationResponse =
+  | {
+      success: true;
+      invitationId: string;
+      email: string;
+    }
+  | ApiErrorResponse;
+
 type MemberCreateResponse =
   | {
       success: true;
@@ -286,6 +294,18 @@ function buildWorkflowPayload(
     .filter((config) => config.n8n_webhook_url.length > 0);
 }
 
+function shouldSendFirstManagerInvitation(
+  organization: InternalAdminOrganization,
+  form: AccessForm,
+) {
+  return (
+    form.mode === "invite" &&
+    form.role === "manager" &&
+    !organization.isInternalWorkspace &&
+    organization.activeMemberCount === 0
+  );
+}
+
 export function InternalAdminConsole({
   initialOrganizations,
   metrics,
@@ -330,6 +350,9 @@ export function InternalAdminConsole({
   const [deletingMemberId, setDeletingMemberId] = React.useState<string | null>(
     null,
   );
+  const [deletingInvitationId, setDeletingInvitationId] = React.useState<
+    string | null
+  >(null);
   const [deletingOrganizationId, setDeletingOrganizationId] = React.useState<
     string | null
   >(null);
@@ -491,6 +514,10 @@ export function InternalAdminConsole({
   async function submitAccess(organization: InternalAdminOrganization) {
     const form = accessForms[organization.id] ?? emptyAccessForm();
     const isDirectCreate = form.mode === "create";
+    const isFirstManagerInvite = shouldSendFirstManagerInvitation(
+      organization,
+      form,
+    );
 
     if (!form.email.trim()) {
       toast.error("Email requis.");
@@ -506,10 +533,14 @@ export function InternalAdminConsole({
 
     setUpdatingAccessOrganizationId(organization.id);
 
+    const accessRoute = isDirectCreate
+      ? "members"
+      : isFirstManagerInvite
+        ? "first-manager-invitation"
+        : "invitations";
+
     const response = await fetch(
-      `/api/internal-admin/organizations/${organization.id}/${
-        isDirectCreate ? "members" : "invitations"
-      }`,
+      `/api/internal-admin/organizations/${organization.id}/${accessRoute}`,
       {
         method: "POST",
         headers: {
@@ -576,7 +607,9 @@ export function InternalAdminConsole({
       ],
     });
     toast.success("Invitation envoyée.", {
-      description: result.invitation.email,
+      description: isFirstManagerInvite
+        ? `${result.invitation.email} · email de bienvenue`
+        : result.invitation.email,
     });
   }
 
@@ -628,6 +661,62 @@ export function InternalAdminConsole({
     });
     toast.success("Compte supprimé de Supabase Auth.", {
       description: account.email,
+    });
+    router.refresh();
+  }
+
+  async function deleteInvitation(
+    organization: InternalAdminOrganization,
+    invitation: InternalAdminWorkspaceInvitation,
+  ) {
+    const confirmed = window.confirm(
+      `Supprimer l’invitation envoyée à ${invitation.email} ? Le lien d’invitation ne fonctionnera plus.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingInvitationId(invitation.id);
+
+    const response = await fetch(
+      `/api/internal-admin/organizations/${organization.id}/invitations/${invitation.id}`,
+      {
+        method: "DELETE",
+      },
+    ).catch(() => null);
+
+    const result = (await response?.json().catch(() => ({
+      success: false,
+      message: "Suppression de l’invitation impossible.",
+    }))) as DeleteInvitationResponse | undefined;
+
+    setDeletingInvitationId(null);
+
+    if (!response?.ok || !result?.success) {
+      const message = getApiMessage(
+        result,
+        "Suppression de l’invitation impossible.",
+      );
+      toast.error("Invitation non supprimée", {
+        description: message,
+      });
+      return;
+    }
+
+    updateOrganization({
+      ...organization,
+      pendingInvitationCount: Math.max(
+        0,
+        organization.pendingInvitationCount - 1,
+      ),
+      pendingInvitations: organization.pendingInvitations.filter(
+        (currentInvitation) =>
+          currentInvitation.id !== result.invitationId,
+      ),
+    });
+    toast.success("Invitation supprimée.", {
+      description: result.email,
     });
     router.refresh();
   }
@@ -1388,16 +1477,37 @@ export function InternalAdminConsole({
                                     (invitation) => (
                                       <div
                                         key={invitation.id}
-                                        className="bg-secondary/25 rounded-md px-3 py-2 text-sm"
+                                        className="bg-secondary/25 flex items-start justify-between gap-3 rounded-md px-3 py-2 text-sm"
                                       >
-                                        <p className="font-medium">
-                                          {invitation.email}
-                                        </p>
-                                        <p className="text-muted-foreground text-xs">
-                                          {roleLabels[
-                                            invitation.role as AccessForm["role"]
-                                          ] ?? invitation.role}
-                                        </p>
+                                        <div className="min-w-0">
+                                          <p className="truncate font-medium">
+                                            {invitation.email}
+                                          </p>
+                                          <p className="text-muted-foreground text-xs">
+                                            {roleLabels[
+                                              invitation.role as AccessForm["role"]
+                                            ] ?? invitation.role}
+                                          </p>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          size="icon"
+                                          variant="ghost"
+                                          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                          disabled={
+                                            deletingInvitationId ===
+                                            invitation.id
+                                          }
+                                          onClick={() =>
+                                            void deleteInvitation(
+                                              organization,
+                                              invitation,
+                                            )
+                                          }
+                                          aria-label={`Supprimer l’invitation envoyée à ${invitation.email}`}
+                                        >
+                                          <Trash2 className="size-4" />
+                                        </Button>
                                       </div>
                                     ),
                                   )}
@@ -1592,7 +1702,12 @@ export function InternalAdminConsole({
                                   {updatingAccessOrganizationId ===
                                   organization.id
                                     ? "Envoi..."
-                                    : "Envoyer l’invitation"}
+                                    : shouldSendFirstManagerInvitation(
+                                          organization,
+                                          accessForm,
+                                        )
+                                      ? "Envoyer le bienvenue manager"
+                                      : "Envoyer l’invitation"}
                                 </Button>
                               </div>
                             )}

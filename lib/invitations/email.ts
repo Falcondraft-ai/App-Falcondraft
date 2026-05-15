@@ -9,6 +9,7 @@ type InvitationEmailInput = {
   organizationName: string;
   roleLabel: string;
   acceptUrl: string;
+  recipientName?: string | null;
 };
 
 function escapeHtml(value: string) {
@@ -21,6 +22,12 @@ function escapeHtml(value: string) {
 
 function getFromEmail() {
   return process.env.FROM_EMAIL?.trim() || "no-reply@falcondraft.fr";
+}
+
+function getGreeting(input: InvitationEmailInput) {
+  const name = input.recipientName?.trim();
+
+  return name ? `Bonjour ${name},` : "Bonjour,";
 }
 
 function buildInvitationText(input: InvitationEmailInput) {
@@ -153,22 +160,32 @@ function buildInvitationHtml(input: InvitationEmailInput) {
 
 function buildFirstManagerWelcomeText(input: InvitationEmailInput) {
   return [
-    "Bonjour,",
+    getGreeting(input),
     "",
-    `Bienvenue sur FalconDraft. L’espace ${input.organizationName} vient d’être préparé pour votre équipe.`,
+    `Bienvenue sur FalconDraft. Votre espace ${input.organizationName} vient d’être préparé pour accueillir votre équipe commerciale dans un environnement sécurisé, structuré et prêt à l’emploi.`,
     "",
-    "Vous êtes invité comme premier gestionnaire de ce workspace. Vous pourrez rejoindre l’espace, finaliser votre accès, inviter les bons collaborateurs et piloter les premiers dossiers commerciaux.",
+    "Vous êtes invité comme premier gestionnaire de ce workspace. Cela vous donne la main pour finaliser l’accès de votre organisation, inviter les bons collaborateurs et lancer les premiers dossiers depuis un espace conçu pour professionnaliser la production commerciale.",
     "",
+    "Avec FalconDraft, votre équipe peut centraliser les informations clés d’un dossier, transformer les notes d’appel en comptes rendus exploitables, générer des propositions commerciales mieux structurées et suivre les documents jusqu’à leur validation.",
+    "",
+    "Votre accès vous permettra notamment de :",
+    "- rejoindre le workspace sécurisé de votre organisation ;",
+    "- inviter les collaborateurs qui doivent intervenir sur les dossiers ;",
+    "- créer et piloter les premières opportunités commerciales ;",
+    "- préparer plus rapidement les propositions, documents et brouillons email liés aux échanges client.",
+    "",
+    `Workspace : ${input.organizationName}`,
     `Rôle attribué : ${input.roleLabel}`,
+    "Expiration : ce lien est valable 7 jours.",
     "",
-    "Pour rejoindre votre espace FalconDraft, ouvrez le lien ci-dessous :",
+    "Pour activer votre accès et rejoindre votre espace FalconDraft, ouvrez le lien ci-dessous :",
     input.acceptUrl,
     "",
-    "Ce lien est valable 7 jours.",
+    "Si vous souhaitez être accompagné dans la mise en route du workspace, vous pourrez nous contacter depuis votre espace après activation de votre accès.",
     "",
     "Si vous n’êtes pas à l’origine de cette demande ou si vous ne connaissez pas cette organisation, vous pouvez ignorer cet email.",
     "",
-    "Bienvenue,",
+    "Bienvenue à bord,",
     "L’équipe FalconDraft",
   ].join("\n");
 }
@@ -178,6 +195,7 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
   const roleLabel = escapeHtml(input.roleLabel);
   const acceptUrl = escapeHtml(input.acceptUrl);
   const logoUrl = escapeHtml(LOGO_URL);
+  const greeting = escapeHtml(getGreeting(input));
 
   return `
     <!doctype html>
@@ -216,20 +234,24 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
                     </h1>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      Bonjour,
+                      ${greeting}
                     </p>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      L’espace <strong style="color:#0d223d;font-weight:700;">${organizationName}</strong> vient d’être préparé pour votre équipe.
+                      Votre espace <strong style="color:#0d223d;font-weight:700;">${organizationName}</strong> vient d’être préparé pour accueillir votre équipe commerciale dans un environnement sécurisé, structuré et prêt à l’emploi.
                     </p>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      Vous êtes invité comme premier gestionnaire. Depuis ce workspace, vous pourrez finaliser votre accès, inviter les bons collaborateurs et piloter les premiers dossiers commerciaux.
+                      Vous êtes invité comme premier gestionnaire. Ce rôle vous donne la main pour finaliser l’accès de votre organisation, inviter les bons collaborateurs et lancer les premiers dossiers depuis un espace conçu pour professionnaliser la production commerciale.
+                    </p>
+
+                    <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
+                      FalconDraft aide votre équipe à centraliser les informations clés d’un dossier, transformer les notes d’appel en comptes rendus exploitables, générer des propositions mieux structurées et suivre les documents jusqu’à leur validation.
                     </p>
 
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0;border-collapse:collapse;">
                       <tr>
-                        <td style="padding:16px 18px;background:#f7f8fa;border:1px solid #dfe4ea;border-radius:12px;color:#5d6878;font-size:14px;line-height:1.65;">
+                        <td style="padding:18px 20px;background:#f7f8fa;border:1px solid #dfe4ea;border-radius:12px;color:#5d6878;font-size:14px;line-height:1.7;">
                           <strong style="color:#0d223d;font-weight:800;">Votre accès</strong><br>
                           Workspace&nbsp;: <strong style="color:#0d223d;font-weight:700;">${organizationName}</strong><br>
                           Rôle&nbsp;: <strong style="color:#0d223d;font-weight:700;">${roleLabel}</strong><br>
@@ -238,8 +260,20 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
                       </tr>
                     </table>
 
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;border-collapse:collapse;">
+                      <tr>
+                        <td style="padding:18px 20px;background:#fffaf3;border:1px solid #efd8ba;border-radius:12px;color:#5f4a2f;font-size:14px;line-height:1.75;">
+                          <strong style="display:block;margin:0 0 8px;color:#0d223d;font-weight:800;">Ce que vous pouvez lancer dès maintenant</strong>
+                          <span style="display:block;margin:0 0 6px;">• inviter les collaborateurs qui doivent intervenir sur les dossiers commerciaux ;</span>
+                          <span style="display:block;margin:0 0 6px;">• créer vos premières opportunités et centraliser les informations client ;</span>
+                          <span style="display:block;margin:0 0 6px;">• préparer plus rapidement les propositions, documents et brouillons email ;</span>
+                          <span style="display:block;">• suivre l’avancement des dossiers dans un espace clair et partagé.</span>
+                        </td>
+                      </tr>
+                    </table>
+
                     <p style="margin:0 0 26px;color:#344156;font-size:15px;line-height:1.72;">
-                      Cliquez sur le bouton ci-dessous pour rejoindre votre espace FalconDraft.
+                      Cliquez sur le bouton ci-dessous pour activer votre accès et rejoindre votre espace FalconDraft.
                     </p>
 
                     <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 28px;border-collapse:collapse;">
@@ -261,12 +295,16 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
                       </p>
                     </div>
 
+                    <p style="margin:0 0 26px;color:#344156;font-size:15px;line-height:1.72;">
+                      Si vous souhaitez être accompagné dans la mise en route du workspace, vous pourrez nous contacter depuis votre espace après activation de votre accès.
+                    </p>
+
                     <p style="margin:0 0 26px;color:#5d6878;font-size:13px;line-height:1.7;">
                       Si vous n’êtes pas à l’origine de cette demande ou si vous ne connaissez pas cette organisation, vous pouvez ignorer cet email.
                     </p>
 
                     <p style="margin:0;color:#102033;font-size:15px;line-height:1.7;">
-                      Bienvenue,<br>
+                      Bienvenue à bord,<br>
                       <strong style="font-weight:800;color:#0d223d;">L’équipe FalconDraft</strong>
                     </p>
                   </td>
