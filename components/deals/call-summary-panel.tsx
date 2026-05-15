@@ -247,7 +247,7 @@ export function CallSummaryPanel({
         syncGenerationState,
       );
     };
-  }, [dealId, effectiveHasSummary]);
+  }, [dealId, effectiveHasSummary, t]);
 
   React.useEffect(() => {
     if (effectiveHasSummary) {

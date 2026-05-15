@@ -245,7 +245,7 @@ export function ProposalPanel({
       window.removeEventListener("storage", syncGenerationState);
       window.removeEventListener(PROPOSAL_GENERATION_EVENT, syncGenerationState);
     };
-  }, [dealId, effectiveHasProposal]);
+  }, [dealId, effectiveHasProposal, t]);
 
   React.useEffect(() => {
     if (effectiveHasProposal) {

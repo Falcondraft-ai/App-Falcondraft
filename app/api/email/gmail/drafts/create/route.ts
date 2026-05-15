@@ -28,6 +28,8 @@ const createDraftSchema = z
     organization_id: z.string().uuid(),
     user_id: z.string().uuid(),
     deal_id: z.string().uuid().nullable().optional(),
+    workflow_run_id: z.string().uuid().nullable().optional(),
+    workflowRunId: z.string().uuid().nullable().optional(),
     to: z.string().trim().email(),
     subject: z.string().trim().min(1),
     body: z.string().refine((value) => value.trim().length > 0),
@@ -191,6 +193,104 @@ function statusForDraftError(error: unknown) {
   return 502;
 }
 
+function getWorkflowRunId(input: ParsedCreateDraftBody) {
+  return input.workflow_run_id ?? input.workflowRunId ?? null;
+}
+
+async function getLatestPendingEmailDraftWorkflowRunId(
+  adminSupabase: SupabaseClient<Database>,
+  input: {
+    organizationId: string;
+    dealId: string;
+  },
+) {
+  const { data, error } = await adminSupabase
+    .from("workflow_runs")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .eq("deal_id", input.dealId)
+    .eq("type", "email_draft_generation")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Email draft workflow lookup failed.", {
+      organizationId: input.organizationId,
+      dealId: input.dealId,
+      reason: error.message,
+    });
+  }
+
+  return data?.id ?? null;
+}
+
+async function completeEmailDraftWorkflow(
+  adminSupabase: SupabaseClient<Database>,
+  input: {
+    organizationId: string;
+    dealId: string | null;
+    workflowRunId: string | null;
+  },
+) {
+  if (!input.dealId) {
+    return;
+  }
+
+  const completedAt = new Date().toISOString();
+
+  const { error: dealUpdateError } = await adminSupabase
+    .from("deals")
+    .update({
+      status: "email_draft_ready",
+      updated_at: completedAt,
+    })
+    .eq("id", input.dealId)
+    .eq("organization_id", input.organizationId)
+    .neq("status", "completed");
+
+  if (dealUpdateError) {
+    console.warn("Email draft deal status update failed.", {
+      organizationId: input.organizationId,
+      dealId: input.dealId,
+      reason: dealUpdateError.message,
+    });
+  }
+
+  const workflowRunId =
+    input.workflowRunId ??
+    (await getLatestPendingEmailDraftWorkflowRunId(adminSupabase, {
+      organizationId: input.organizationId,
+      dealId: input.dealId,
+    }));
+
+  if (!workflowRunId) {
+    return;
+  }
+
+  const { error: workflowUpdateError } = await adminSupabase
+    .from("workflow_runs")
+    .update({
+      status: "completed",
+      completed_at: completedAt,
+      error_message: null,
+    })
+    .eq("id", workflowRunId)
+    .eq("organization_id", input.organizationId)
+    .eq("deal_id", input.dealId)
+    .eq("type", "email_draft_generation");
+
+  if (workflowUpdateError) {
+    console.warn("Email draft workflow completion update failed.", {
+      organizationId: input.organizationId,
+      dealId: input.dealId,
+      workflowRunId,
+      reason: workflowUpdateError.message,
+    });
+  }
+}
+
 export async function POST(request: NextRequest) {
   const configuredSecret = getConfiguredSecret();
 
@@ -240,6 +340,7 @@ export async function POST(request: NextRequest) {
   }
 
   const dealId = parsedBody.data.deal_id ?? null;
+  const workflowRunId = getWorkflowRunId(parsedBody.data);
   const hasAttachment = Boolean(parsedBody.data.attachments?.length);
   const logContext = safeLogContext({
     organizationId: parsedBody.data.organization_id,
@@ -334,6 +435,11 @@ export async function POST(request: NextRequest) {
       userId: parsedBody.data.user_id,
       action: "email_draft_created",
       dealId,
+    });
+    await completeEmailDraftWorkflow(adminSupabase, {
+      organizationId: parsedBody.data.organization_id,
+      dealId,
+      workflowRunId,
     });
 
     console.info("Created Gmail draft from n8n workflow.", logContext);

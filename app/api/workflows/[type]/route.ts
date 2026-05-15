@@ -315,6 +315,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           organization_id: organizationId,
           user_id: user.id,
           deal_id: dealId,
+          workflow_run_id: workflowRun.id,
+          workflowRunId: workflowRun.id,
         }
       : {
           organizationId,
