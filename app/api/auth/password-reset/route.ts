@@ -38,6 +38,18 @@ function getPasswordResetRedirectUrl(request: NextRequest) {
   return redirectUrl.toString();
 }
 
+function getPasswordResetUrl(request: NextRequest, tokenHash?: string | null) {
+  if (!tokenHash) {
+    return null;
+  }
+
+  const resetUrl = new URL("/auth/confirm", getAppBaseUrl(request));
+  resetUrl.searchParams.set("token_hash", tokenHash);
+  resetUrl.searchParams.set("type", "recovery");
+  resetUrl.searchParams.set("next", "/update-password");
+  return resetUrl.toString();
+}
+
 export async function POST(request: NextRequest) {
   const body: unknown = await request.json().catch(() => ({}));
   const parsedBody = resetPasswordSchema.safeParse(body);
@@ -84,10 +96,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const resetUrl =
+    getPasswordResetUrl(request, linkData.properties.hashed_token) ??
+    linkData.properties.action_link;
+
   const emailResult = await sendPasswordResetEmail({
     to: email,
     name: firstName(profile?.full_name, email),
-    resetUrl: linkData.properties.action_link,
+    resetUrl,
   });
 
   if (!emailResult.success) {

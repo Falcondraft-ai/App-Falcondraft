@@ -39,12 +39,47 @@ function encodeHeader(value: string) {
   return value.replaceAll("\r", "").replaceAll("\n", " ");
 }
 
+function encodeMimeHeader(value: string) {
+  const sanitizedValue = encodeHeader(value);
+
+  if (/^[\x20-\x7E]*$/.test(sanitizedValue)) {
+    return sanitizedValue;
+  }
+
+  const encodedWords: string[] = [];
+  let chunk = "";
+
+  for (const character of sanitizedValue) {
+    const nextChunk = `${chunk}${character}`;
+
+    if (Buffer.from(nextChunk, "utf8").toString("base64").length > 60) {
+      encodedWords.push(
+        `=?UTF-8?B?${Buffer.from(chunk, "utf8").toString("base64")}?=`,
+      );
+      chunk = character;
+      continue;
+    }
+
+    chunk = nextChunk;
+  }
+
+  if (chunk) {
+    encodedWords.push(
+      `=?UTF-8?B?${Buffer.from(chunk, "utf8").toString("base64")}?=`,
+    );
+  }
+
+  return encodedWords.join("\r\n ");
+}
+
 function sanitizeFilename(value: string) {
   return encodeHeader(value).replaceAll('"', "'");
 }
 
 function base64UrlEncode(value: string | Buffer) {
-  return Buffer.from(value)
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value, "utf8");
+
+  return buffer
     .toString("base64")
     .replaceAll("+", "-")
     .replaceAll("/", "_")
@@ -60,7 +95,7 @@ function buildTextOnlyRawMessage(input: GmailDraftInput) {
     `To: ${encodeHeader(input.to)}`,
     input.cc?.length ? `Cc: ${input.cc.map(encodeHeader).join(", ")}` : null,
     input.bcc?.length ? `Bcc: ${input.bcc.map(encodeHeader).join(", ")}` : null,
-    `Subject: ${encodeHeader(input.subject)}`,
+    `Subject: ${encodeMimeHeader(input.subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
@@ -75,7 +110,7 @@ function buildMultipartRawMessage(input: GmailDraftInput) {
     `To: ${encodeHeader(input.to)}`,
     input.cc?.length ? `Cc: ${input.cc.map(encodeHeader).join(", ")}` : null,
     input.bcc?.length ? `Bcc: ${input.bcc.map(encodeHeader).join(", ")}` : null,
-    `Subject: ${encodeHeader(input.subject)}`,
+    `Subject: ${encodeMimeHeader(input.subject)}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
   ].filter(Boolean);

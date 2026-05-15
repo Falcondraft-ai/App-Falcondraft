@@ -838,8 +838,7 @@ export const translations: Record<Language, Dictionary> = {
     "dealDetail.callSummary": "Compte-rendu",
     "dealDetail.proposal": "Proposition",
     "dealDetail.finalDocument": "Document final",
-    "dealDetail.finalDocumentReady":
-      "Document final prêt à être téléchargé.",
+    "dealDetail.finalDocumentReady": "Document final prêt à être téléchargé.",
     "dealDetail.finalDocumentWaiting":
       "Document final prêt à être partagé lorsque la proposition est validée.",
     "dealDetail.signature": "Signature",
@@ -976,7 +975,7 @@ export const translations: Record<Language, Dictionary> = {
     "settings.preferences.title": "Préférences",
     "settings.preferences.description":
       "Réglages utiles pour adapter l’espace à votre usage quotidien.",
-    "settings.organizationName": "Nom de l’organisation",
+    "settings.organizationName": "Nom du workspace",
     "settings.defaultLanguage": "Langue de l’interface",
     "settings.defaultLanguagePlaceholder": "Sélectionner une langue",
     "settings.appearance": "Mode d’affichage",
@@ -1571,7 +1570,7 @@ export const translations: Record<Language, Dictionary> = {
     "settings.preferences.title": "Preferences",
     "settings.preferences.description":
       "Settings that adapt the workspace to your daily workflow.",
-    "settings.organizationName": "Organization name",
+    "settings.organizationName": "Workspace name",
     "settings.defaultLanguage": "Interface language",
     "settings.defaultLanguagePlaceholder": "Select a language",
     "settings.appearance": "Display mode",

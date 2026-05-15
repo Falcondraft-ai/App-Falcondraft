@@ -20,13 +20,11 @@ import {
 const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
 
 type SettingsPreferences = {
-  organizationName: string;
   askExpectedCloseDate: boolean;
 };
 
-function getDefaultPreferences(organizationName: string): SettingsPreferences {
+function getDefaultPreferences(): SettingsPreferences {
   return {
-    organizationName,
     askExpectedCloseDate: false,
   };
 }
@@ -78,10 +76,7 @@ export function GeneralSettingsForm({
   const { theme, setTheme } = useTheme();
   const { t } = useI18n();
   const [isMounted, setIsMounted] = React.useState(false);
-  const fallbackPreferences = React.useMemo(
-    () => getDefaultPreferences(organizationName),
-    [organizationName],
-  );
+  const fallbackPreferences = React.useMemo(() => getDefaultPreferences(), []);
   const [preferences, setPreferences] =
     React.useState<SettingsPreferences>(fallbackPreferences);
 
@@ -140,10 +135,10 @@ export function GeneralSettingsForm({
             </Label>
             <Input
               id="organization-name"
-              value={preferences.organizationName}
-              onChange={(event) =>
-                updatePreference("organizationName", event.target.value)
-              }
+              value={organizationName}
+              readOnly
+              aria-readonly="true"
+              className="bg-secondary/45 text-muted-foreground"
             />
           </div>
           <div className="grid gap-2">

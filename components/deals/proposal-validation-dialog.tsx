@@ -5,7 +5,12 @@ import { Check, FileUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
+import {
+  getProposalValidationStorageKey,
+  PROPOSAL_VALIDATION_EVENT,
+} from "@/lib/workflow-progress";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +50,7 @@ export function ProposalValidationDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const { language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const [mode, setMode] =
     React.useState<ProposalValidationSource>("initial_export");
@@ -52,6 +58,76 @@ export function ProposalValidationDialog({
   const [submissionPhase, setSubmissionPhase] =
     React.useState<SubmissionPhase>("idle");
   const isSubmitting = submissionPhase !== "idle";
+  const copy =
+    language === "en"
+      ? {
+          triggerFallback: "Validation could not be started.",
+          triggerTitle: "Validation failed",
+          uploadFallback: "The PDF could not be uploaded.",
+          uploadTitle: "Upload failed",
+          pdfRequiredTitle: "PDF required",
+          pdfRequiredDescription:
+            "Add the latest PDF version before approving.",
+          successTitle: "Proposal approved",
+          successDescription:
+            "Final document preparation has started. This page will update automatically.",
+          title: "Approve proposal",
+          description:
+            "Choose the version that should be sent for final validation.",
+          options: {
+            initial_export: {
+              title: "Approve the initially generated version",
+              description:
+                "Use the first PDF export generated for this proposal.",
+            },
+            uploaded_pdf: {
+              title: "Upload the latest PDF version",
+              description:
+                "Import the final PDF after your edits in the editing tool.",
+            },
+          },
+          cancel: "Cancel",
+          uploading: "Uploading...",
+          validating: "Validating...",
+          submit: "Approve this version",
+          pdfLabel: "Latest version PDF",
+          pdfHelp:
+            "The file can still be changed before approval. PDF format only.",
+        }
+      : {
+          triggerFallback: "La validation n’a pas pu être déclenchée.",
+          triggerTitle: "Validation impossible",
+          uploadFallback: "Le PDF n’a pas pu être importé.",
+          uploadTitle: "Upload impossible",
+          pdfRequiredTitle: "PDF requis",
+          pdfRequiredDescription:
+            "Ajoutez le PDF de la dernière version avant de valider.",
+          successTitle: "Proposition validée",
+          successDescription:
+            "La préparation du document final est lancée. La page se mettra à jour automatiquement.",
+          title: "Valider la proposition",
+          description:
+            "Choisissez la version qui doit être transmise pour validation finale.",
+          options: {
+            initial_export: {
+              title: "Valider avec la version initialement générée",
+              description:
+                "Utiliser le premier export PDF généré pour cette proposition.",
+            },
+            uploaded_pdf: {
+              title: "Uploader la dernière version PDF",
+              description:
+                "Importer le PDF final après vos ajustements dans l’outil d’édition.",
+            },
+          },
+          cancel: "Annuler",
+          uploading: "Upload en cours…",
+          validating: "Validation en cours…",
+          submit: "Valider cette version",
+          pdfLabel: "PDF de la dernière version",
+          pdfHelp:
+            "Le fichier reste modifiable avant validation. Format PDF uniquement.",
+        };
 
   React.useEffect(() => {
     if (!open) {
@@ -82,9 +158,9 @@ export function ProposalValidationDialog({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "La validation n’a pas pu être déclenchée.";
+          : copy.triggerFallback;
 
-      toast.error("Validation impossible", {
+      toast.error(copy.triggerTitle, {
         description: message,
       });
       return false;
@@ -115,9 +191,9 @@ export function ProposalValidationDialog({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "Le PDF n’a pas pu être importé.";
+          : copy.uploadFallback;
 
-      toast.error("Upload impossible", {
+      toast.error(copy.uploadTitle, {
         description: message,
       });
       return false;
@@ -128,8 +204,8 @@ export function ProposalValidationDialog({
 
   async function validateProposal() {
     if (mode === "uploaded_pdf" && !file) {
-      toast.error("PDF requis", {
-        description: "Ajoutez le PDF de la dernière version avant de valider.",
+      toast.error(copy.pdfRequiredTitle, {
+        description: copy.pdfRequiredDescription,
       });
       return;
     }
@@ -148,8 +224,13 @@ export function ProposalValidationDialog({
       return;
     }
 
-    toast.success("Proposition validée", {
-      description: "La préparation du document final est lancée.",
+    window.localStorage.setItem(
+      getProposalValidationStorageKey(dealId),
+      new Date().toISOString(),
+    );
+    window.dispatchEvent(new Event(PROPOSAL_VALIDATION_EVENT));
+    toast.success(copy.successTitle, {
+      description: copy.successDescription,
     });
     onOpenChange(false);
     router.refresh();
@@ -159,10 +240,8 @@ export function ProposalValidationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Valider la proposition</DialogTitle>
-          <DialogDescription>
-            Choisissez la version qui doit être transmise pour validation finale.
-          </DialogDescription>
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
 
         <motion.div
@@ -201,10 +280,10 @@ export function ProposalValidationDialog({
                   </span>
                   <span>
                     <span className="block text-sm font-semibold">
-                      {option.title}
+                      {copy.options[option.mode].title}
                     </span>
                     <span className="text-muted-foreground mt-1 block text-sm leading-5">
-                      {option.description}
+                      {copy.options[option.mode].description}
                     </span>
                   </span>
                 </span>
@@ -215,20 +294,20 @@ export function ProposalValidationDialog({
 
         {mode === "uploaded_pdf" ? (
           <motion.div
-            className="rounded-lg border bg-secondary/35 p-3"
+            className="bg-secondary/35 rounded-lg border p-3"
             initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
             animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
           >
             <label className="text-sm font-medium" htmlFor="proposal-final-pdf">
-              PDF de la dernière version
+              {copy.pdfLabel}
             </label>
             <input
               id="proposal-final-pdf"
               type="file"
               accept=".pdf,application/pdf"
               disabled={isSubmitting}
-              className="mt-2 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+              className="file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 mt-2 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-2 file:text-sm file:font-medium"
               onChange={(event) => {
                 const selectedFile = event.target.files?.[0] ?? null;
                 setFile(
@@ -238,9 +317,7 @@ export function ProposalValidationDialog({
                 );
               }}
             />
-            <p className="text-muted-foreground mt-2 text-xs">
-              Le fichier reste modifiable avant validation. Format PDF uniquement.
-            </p>
+            <p className="text-muted-foreground mt-2 text-xs">{copy.pdfHelp}</p>
           </motion.div>
         ) : null}
 
@@ -251,7 +328,7 @@ export function ProposalValidationDialog({
             disabled={isSubmitting}
             onClick={() => onOpenChange(false)}
           >
-            Annuler
+            {copy.cancel}
           </Button>
           <Button
             type="button"
@@ -259,10 +336,10 @@ export function ProposalValidationDialog({
             onClick={() => void validateProposal()}
           >
             {submissionPhase === "uploading"
-              ? "Upload en cours…"
+              ? copy.uploading
               : submissionPhase === "validating"
-                ? "Validation en cours…"
-                : "Valider cette version"}
+                ? copy.validating
+                : copy.submit}
           </Button>
         </div>
       </DialogContent>

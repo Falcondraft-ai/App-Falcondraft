@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { ActionCard } from "@/components/common/action-card";
+import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -329,6 +330,8 @@ export function InternalAdminConsole({
   const [accessForms, setAccessForms] = React.useState<
     Record<string, AccessForm>
   >({});
+  const [visiblePasswordOrganizationIds, setVisiblePasswordOrganizationIds] =
+    React.useState<Set<string>>(() => new Set());
   const [workspaceForm, setWorkspaceForm] = React.useState({
     name: "",
     slug: "",
@@ -711,8 +714,7 @@ export function InternalAdminConsole({
         organization.pendingInvitationCount - 1,
       ),
       pendingInvitations: organization.pendingInvitations.filter(
-        (currentInvitation) =>
-          currentInvitation.id !== result.invitationId,
+        (currentInvitation) => currentInvitation.id !== result.invitationId,
       ),
     });
     toast.success("Invitation supprimée.", {
@@ -751,10 +753,7 @@ export function InternalAdminConsole({
     setUpdatingAccessOrganizationId(null);
 
     if (!response?.ok || !result?.success) {
-      const message = getApiMessage(
-        result,
-        "Mise à jour du rôle impossible.",
-      );
+      const message = getApiMessage(result, "Mise à jour du rôle impossible.");
       toast.error("Rôle non modifié", {
         description: message,
       });
@@ -1302,7 +1301,9 @@ export function InternalAdminConsole({
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="active">Actif</SelectItem>
+                                    <SelectItem value="active">
+                                      Actif
+                                    </SelectItem>
                                     <SelectItem value="inactive">
                                       Inactif
                                     </SelectItem>
@@ -1493,7 +1494,7 @@ export function InternalAdminConsole({
                                           type="button"
                                           size="icon"
                                           variant="ghost"
-                                          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                          className="text-muted-foreground hover:text-destructive size-8 shrink-0"
                                           disabled={
                                             deletingInvitationId ===
                                             invitation.id
@@ -1654,20 +1655,49 @@ export function InternalAdminConsole({
                               <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                                 <div className="space-y-1.5">
                                   <Label>Mot de passe temporaire</Label>
-                                  <Input
-                                    type="password"
-                                    value={accessForm.password}
-                                    onChange={(event) =>
-                                      setAccessForms((current) => ({
-                                        ...current,
-                                        [organization.id]: {
-                                          ...accessForm,
-                                          password: event.target.value,
-                                        },
-                                      }))
-                                    }
-                                    placeholder="Minimum 8 caractères"
-                                  />
+                                  <div className="relative">
+                                    <Input
+                                      type={
+                                        visiblePasswordOrganizationIds.has(
+                                          organization.id,
+                                        )
+                                          ? "text"
+                                          : "password"
+                                      }
+                                      value={accessForm.password}
+                                      onChange={(event) =>
+                                        setAccessForms((current) => ({
+                                          ...current,
+                                          [organization.id]: {
+                                            ...accessForm,
+                                            password: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      placeholder="Minimum 8 caractères"
+                                      className="pr-10"
+                                    />
+                                    <PasswordVisibilityToggle
+                                      visible={visiblePasswordOrganizationIds.has(
+                                        organization.id,
+                                      )}
+                                      onToggle={() =>
+                                        setVisiblePasswordOrganizationIds(
+                                          (current) => {
+                                            const next = new Set(current);
+
+                                            if (next.has(organization.id)) {
+                                              next.delete(organization.id);
+                                            } else {
+                                              next.add(organization.id);
+                                            }
+
+                                            return next;
+                                          },
+                                        )
+                                      }
+                                    />
+                                  </div>
                                 </div>
                                 <Button
                                   type="button"

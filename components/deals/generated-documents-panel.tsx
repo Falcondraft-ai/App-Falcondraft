@@ -25,13 +25,18 @@ function getErrorMessage(result: unknown, fallback: string) {
 async function resolveDocumentUrl(
   document: GeneratedDealDocument,
   download: boolean,
+  copy: {
+    noFile: string;
+    signedUrlFailed: string;
+    invalidSignedUrl: string;
+  },
 ) {
   if (document.url) {
     return document.url;
   }
 
   if (!document.hasStoragePath) {
-    throw new Error("Aucun fichier disponible pour ce document.");
+    throw new Error(copy.noFile);
   }
 
   const response = await fetch(
@@ -40,9 +45,7 @@ async function resolveDocumentUrl(
 
   if (!response?.ok) {
     const result: unknown = await response?.json().catch(() => null);
-    throw new Error(
-      getErrorMessage(result, "Le lien sécurisé n’a pas pu être généré."),
-    );
+    throw new Error(getErrorMessage(result, copy.signedUrlFailed));
   }
 
   const result: unknown = await response.json().catch(() => null);
@@ -53,7 +56,7 @@ async function resolveDocumentUrl(
     !("url" in result) ||
     typeof result.url !== "string"
   ) {
-    throw new Error("Le lien sécurisé est invalide.");
+    throw new Error(copy.invalidSignedUrl);
   }
 
   return result.url;
@@ -74,15 +77,43 @@ export function GeneratedDocumentButtons({
   showDownload?: boolean;
   downloadLabel?: React.ReactNode;
 }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [loadingAction, setLoadingAction] = React.useState<
     "open" | "download" | null
   >(null);
+  const copy =
+    language === "en"
+      ? {
+          unavailableTitle: "Document unavailable",
+          unavailableDescription:
+            "The file is not available for this deal yet.",
+          downloadFailed: "Download failed",
+          openFailed: "Open failed",
+          genericOpenFailed: "The document could not be opened.",
+          noFile: "No file is available for this document.",
+          signedUrlFailed: "The secure link could not be generated.",
+          invalidSignedUrl: "The secure link is invalid.",
+          opening: "Opening...",
+          preparing: "Preparing...",
+        }
+      : {
+          unavailableTitle: "Document indisponible",
+          unavailableDescription:
+            "Le fichier n’est pas encore disponible pour ce dossier.",
+          downloadFailed: "Téléchargement impossible",
+          openFailed: "Ouverture impossible",
+          genericOpenFailed: "Le document n’a pas pu être ouvert.",
+          noFile: "Aucun fichier disponible pour ce document.",
+          signedUrlFailed: "Le lien sécurisé n’a pas pu être généré.",
+          invalidSignedUrl: "Le lien sécurisé est invalide.",
+          opening: "Ouverture...",
+          preparing: "Préparation...",
+        };
 
   async function openDocument(download: boolean) {
     if (!document) {
-      toast.error("Document indisponible", {
-        description: "Le fichier n’est pas encore disponible pour ce dossier.",
+      toast.error(copy.unavailableTitle, {
+        description: copy.unavailableDescription,
       });
       return;
     }
@@ -90,18 +121,13 @@ export function GeneratedDocumentButtons({
     setLoadingAction(download ? "download" : "open");
 
     try {
-      const url = await resolveDocumentUrl(document, download);
+      const url = await resolveDocumentUrl(document, download, copy);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error(
-        download ? "Téléchargement impossible" : "Ouverture impossible",
-        {
-          description:
-            error instanceof Error
-              ? error.message
-              : "Le document n’a pas pu être ouvert.",
-        },
-      );
+      toast.error(download ? copy.downloadFailed : copy.openFailed, {
+        description:
+          error instanceof Error ? error.message : copy.genericOpenFailed,
+      });
     } finally {
       setLoadingAction(null);
     }
@@ -122,7 +148,7 @@ export function GeneratedDocumentButtons({
           onClick={() => void openDocument(false)}
         >
           <ExternalLink aria-hidden="true" />
-          {loadingAction === "open" ? "Ouverture..." : t("common.actions.open")}
+          {loadingAction === "open" ? copy.opening : t("common.actions.open")}
         </Button>
       ) : null}
       {showDownload ? (
@@ -139,7 +165,7 @@ export function GeneratedDocumentButtons({
         >
           <Download aria-hidden="true" />
           {loadingAction === "download"
-            ? "Préparation..."
+            ? copy.preparing
             : (downloadLabel ?? t("common.actions.download"))}
         </Button>
       ) : null}

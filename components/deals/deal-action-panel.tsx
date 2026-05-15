@@ -10,9 +10,13 @@ import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import {
   CALL_SUMMARY_GENERATION_EVENT,
+  EMAIL_DRAFT_GENERATION_EVENT,
   getCallSummaryGenerationStorageKey,
+  getEmailDraftGenerationStorageKey,
   getProposalGenerationStorageKey,
+  getProposalValidationStorageKey,
   PROPOSAL_GENERATION_EVENT,
+  PROPOSAL_VALIDATION_EVENT,
 } from "@/lib/workflow-progress";
 import { cn } from "@/lib/utils";
 import type { DealStatus } from "@/types/deal";
@@ -65,6 +69,30 @@ function handleMockWorkflowAction(label: string, message: string) {
   toast.success(message, {
     description: `${label} · action enregistrée.`,
   });
+}
+
+function getLocalizedWorkflowError(message: string, language: "fr" | "en") {
+  if (language !== "en") {
+    return message;
+  }
+
+  const knownMessages: Record<string, string> = {
+    "Connectez Gmail avant de créer un brouillon.":
+      "Connect Gmail before creating a draft.",
+    "Vérification de la connexion Gmail impossible.":
+      "Gmail connection could not be checked.",
+    "Validez d’abord la proposition pour générer le document final.":
+      "Approve the proposal first to generate the final document.",
+    "Le déclenchement du workflow a échoué.":
+      "The workflow could not be started.",
+    "Configuration du workflow introuvable.":
+      "Workflow configuration was not found.",
+    "Dossier commercial introuvable.": "Deal not found.",
+    "Votre rôle ne permet pas de modifier ce dossier.":
+      "Your role does not allow you to modify this deal.",
+  };
+
+  return knownMessages[message] ?? message;
 }
 
 function getVisibleActionLimit(
@@ -138,6 +166,8 @@ export function DealActionPanel({
   const [isCallSummaryGenerating, setIsCallSummaryGenerating] =
     React.useState(false);
   const [isProposalGenerating, setIsProposalGenerating] = React.useState(false);
+  const [isProposalValidationGenerating, setIsProposalValidationGenerating] =
+    React.useState(false);
   const [isDeletingDeal, setIsDeletingDeal] = React.useState(false);
   const [isArchivingDeal, setIsArchivingDeal] = React.useState(false);
   const [isValidationDialogOpen, setIsValidationDialogOpen] =
@@ -169,6 +199,43 @@ export function DealActionPanel({
           launching: "Starting",
           processing: "Processing",
           signatureComing: "Signature — feature coming soon",
+          callSummaryStartFailed: "Could not start",
+          callSummaryStartFallback: "The call summary could not be started.",
+          callSummaryStarted: "Call summary started",
+          callSummaryStartedDescription:
+            "The page will update as soon as it is ready.",
+          proposalStartFailed: "Could not start",
+          proposalStartFallback: "Proposal generation could not be started.",
+          proposalStarted: "Proposal generation started",
+          proposalStartedDescription:
+            "The deal will update when the proposal is ready.",
+          emailDraftStartFailed: "Draft creation failed",
+          emailDraftStartFallback: "The Gmail draft could not be started.",
+          emailDraftStarted: "Gmail draft creation started",
+          emailDraftStartedDescription:
+            "The deal will update when the draft is ready.",
+          emailDraftReady: "Gmail draft ready",
+          emailDraftReadyDescription:
+            "The email draft is ready in your connected mailbox.",
+          finalDocumentReady: "Final document ready",
+          finalDocumentReadyDescription:
+            "The final document is now available in the deal.",
+          editUnavailable: "Editing link unavailable",
+          editUnavailableDescription:
+            "The link will be available once the proposal is synchronized.",
+          deleteConfirm:
+            "Permanently delete this deal? This action cannot be undone.",
+          deleteFallback: "The deal could not be deleted.",
+          deleteFailed: "Deletion failed",
+          deleteSuccess: "Deal deleted",
+          deleteSuccessDescription: "Back to the sales pipeline.",
+          archiveConfirm:
+            "Archive this deal? It will no longer be counted in the pipeline.",
+          archiveFallback: "The deal could not be archived.",
+          archiveFailed: "Archiving failed",
+          archiveSuccess: "Deal archived",
+          archiveSuccessDescription:
+            "It has been removed from the sales pipeline.",
           next: "Next",
           ready: "Ready",
           validateFirst:
@@ -186,6 +253,44 @@ export function DealActionPanel({
           launching: "Lancement",
           processing: "Traitement en cours",
           signatureComing: "Signature — fonctionnalité à venir",
+          callSummaryStartFailed: "Déclenchement impossible",
+          callSummaryStartFallback:
+            "Le compte-rendu n’a pas pu être déclenché.",
+          callSummaryStarted: "Compte-rendu lancé",
+          callSummaryStartedDescription:
+            "La page se mettra à jour dès qu’il sera prêt.",
+          proposalStartFailed: "Déclenchement impossible",
+          proposalStartFallback:
+            "La génération de proposition n’a pas pu être déclenchée.",
+          proposalStarted: "Génération de proposition lancée",
+          proposalStartedDescription:
+            "Le dossier se mettra à jour lorsque la proposition sera prête.",
+          emailDraftStartFailed: "Création du brouillon impossible",
+          emailDraftStartFallback: "Le brouillon Gmail n’a pas pu être lancé.",
+          emailDraftStarted: "Création du brouillon Gmail lancée",
+          emailDraftStartedDescription:
+            "Le dossier se mettra à jour lorsque le brouillon sera prêt.",
+          emailDraftReady: "Brouillon Gmail prêt",
+          emailDraftReadyDescription:
+            "Le brouillon est prêt dans votre messagerie connectée.",
+          finalDocumentReady: "Document final prêt",
+          finalDocumentReadyDescription:
+            "Le document final est disponible dans le dossier.",
+          editUnavailable: "Lien d’édition indisponible",
+          editUnavailableDescription:
+            "Le lien sera disponible dès que la proposition aura été synchronisée.",
+          deleteConfirm:
+            "Supprimer définitivement ce dossier commercial ? Cette action est irréversible.",
+          deleteFallback: "Le dossier commercial n’a pas pu être supprimé.",
+          deleteFailed: "Suppression impossible",
+          deleteSuccess: "Dossier commercial supprimé",
+          deleteSuccessDescription: "Retour au pipeline commercial.",
+          archiveConfirm:
+            "Archiver ce dossier commercial ? Il ne sera plus comptabilisé dans le pipeline.",
+          archiveFallback: "Le dossier commercial n’a pas pu être archivé.",
+          archiveFailed: "Archivage impossible",
+          archiveSuccess: "Dossier archivé",
+          archiveSuccessDescription: "Il a été retiré du pipeline commercial.",
           next: "Suivant",
           ready: "Prêt",
           validateFirst:
@@ -254,6 +359,124 @@ export function DealActionPanel({
     };
   }, [dealId, hasProposal, status]);
 
+  React.useEffect(() => {
+    const storageKey = getProposalValidationStorageKey(dealId);
+    const finalDocumentReady = Boolean(
+      finalDocument?.hasStoragePath && finalDocument.status === "ready",
+    );
+
+    function syncValidationState() {
+      setIsProposalValidationGenerating(
+        !finalDocumentReady && Boolean(window.localStorage.getItem(storageKey)),
+      );
+    }
+
+    if (finalDocumentReady) {
+      const hadValidationFlag = Boolean(
+        window.localStorage.getItem(storageKey),
+      );
+
+      window.localStorage.removeItem(storageKey);
+      setIsProposalValidationGenerating(false);
+
+      if (hadValidationFlag) {
+        toast.success(copy.finalDocumentReady, {
+          description: copy.finalDocumentReadyDescription,
+        });
+      }
+
+      return;
+    }
+
+    syncValidationState();
+    window.addEventListener("storage", syncValidationState);
+    window.addEventListener(PROPOSAL_VALIDATION_EVENT, syncValidationState);
+
+    return () => {
+      window.removeEventListener("storage", syncValidationState);
+      window.removeEventListener(
+        PROPOSAL_VALIDATION_EVENT,
+        syncValidationState,
+      );
+    };
+  }, [
+    copy.finalDocumentReady,
+    copy.finalDocumentReadyDescription,
+    dealId,
+    finalDocument,
+  ]);
+
+  React.useEffect(() => {
+    const storageKey = getEmailDraftGenerationStorageKey(dealId);
+    const emailDraftReady =
+      status === "email_draft_ready" || status === "completed";
+
+    function syncEmailDraftGenerationState() {
+      setIsTriggeringEmailDraft(
+        !emailDraftReady && Boolean(window.localStorage.getItem(storageKey)),
+      );
+    }
+
+    if (emailDraftReady) {
+      const hadEmailDraftFlag = Boolean(
+        window.localStorage.getItem(storageKey),
+      );
+
+      window.localStorage.removeItem(storageKey);
+      setIsTriggeringEmailDraft(false);
+
+      if (hadEmailDraftFlag) {
+        toast.success(copy.emailDraftReady, {
+          description: copy.emailDraftReadyDescription,
+        });
+      }
+
+      return;
+    }
+
+    syncEmailDraftGenerationState();
+    window.addEventListener("storage", syncEmailDraftGenerationState);
+    window.addEventListener(
+      EMAIL_DRAFT_GENERATION_EVENT,
+      syncEmailDraftGenerationState,
+    );
+
+    return () => {
+      window.removeEventListener("storage", syncEmailDraftGenerationState);
+      window.removeEventListener(
+        EMAIL_DRAFT_GENERATION_EVENT,
+        syncEmailDraftGenerationState,
+      );
+    };
+  }, [copy.emailDraftReady, copy.emailDraftReadyDescription, dealId, status]);
+
+  React.useEffect(() => {
+    const emailDraftReady =
+      status === "email_draft_ready" || status === "completed";
+
+    if (!isTriggeringEmailDraft || emailDraftReady) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      router.refresh();
+    }, 3500);
+
+    return () => window.clearInterval(interval);
+  }, [isTriggeringEmailDraft, router, status]);
+
+  React.useEffect(() => {
+    if (!isProposalValidationGenerating) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      router.refresh();
+    }, 3500);
+
+    return () => window.clearInterval(interval);
+  }, [isProposalValidationGenerating, router]);
+
   async function triggerCallSummary() {
     setIsTriggeringCallSummary(true);
 
@@ -275,16 +498,17 @@ export function DealActionPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "Le compte-rendu n’a pas pu être déclenché.";
+          : copy.callSummaryStartFallback;
+      const localizedMessage = getLocalizedWorkflowError(message, language);
 
-      toast.error("Déclenchement impossible", {
-        description: message,
+      toast.error(copy.callSummaryStartFailed, {
+        description: localizedMessage,
       });
       return;
     }
 
-    toast.success("Compte-rendu lancé", {
-      description: "La page se mettra à jour dès qu’il sera prêt.",
+    toast.success(copy.callSummaryStarted, {
+      description: copy.callSummaryStartedDescription,
     });
     window.localStorage.setItem(
       getCallSummaryGenerationStorageKey(dealId),
@@ -316,17 +540,17 @@ export function DealActionPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "La génération de proposition n’a pas pu être déclenchée.";
+          : copy.proposalStartFallback;
+      const localizedMessage = getLocalizedWorkflowError(message, language);
 
-      toast.error("Déclenchement impossible", {
-        description: message,
+      toast.error(copy.proposalStartFailed, {
+        description: localizedMessage,
       });
       return;
     }
 
-    toast.success("Génération de proposition lancée", {
-      description:
-        "Le dossier se mettra à jour lorsque la proposition sera prête.",
+    toast.success(copy.proposalStarted, {
+      description: copy.proposalStartedDescription,
     });
     window.localStorage.setItem(
       getProposalGenerationStorageKey(dealId),
@@ -358,15 +582,23 @@ export function DealActionPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "Le brouillon Gmail n’a pas pu être lancé.";
+          : copy.emailDraftStartFallback;
+      const localizedMessage = getLocalizedWorkflowError(message, language);
 
-      toast.error("Création du brouillon impossible", {
-        description: message,
+      toast.error(copy.emailDraftStartFailed, {
+        description: localizedMessage,
       });
       return;
     }
 
-    toast.success("Création du brouillon Gmail lancée.");
+    toast.success(copy.emailDraftStarted, {
+      description: copy.emailDraftStartedDescription,
+    });
+    window.localStorage.setItem(
+      getEmailDraftGenerationStorageKey(dealId),
+      new Date().toISOString(),
+    );
+    window.dispatchEvent(new Event(EMAIL_DRAFT_GENERATION_EVENT));
     router.refresh();
   }
 
@@ -381,9 +613,8 @@ export function DealActionPanel({
 
   function openProposalEditor() {
     if (!proposalEditUrl) {
-      toast.error("Lien d’édition indisponible", {
-        description:
-          "Le lien sera disponible dès que la proposition aura été synchronisée.",
+      toast.error(copy.editUnavailable, {
+        description: copy.editUnavailableDescription,
       });
       return;
     }
@@ -392,9 +623,7 @@ export function DealActionPanel({
   }
 
   async function deleteDeal() {
-    const confirmed = window.confirm(
-      "Supprimer définitivement ce dossier commercial ? Cette action est irréversible.",
-    );
+    const confirmed = window.confirm(copy.deleteConfirm);
 
     if (!confirmed) {
       return;
@@ -416,25 +645,23 @@ export function DealActionPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "Le dossier commercial n’a pas pu être supprimé.";
+          : copy.deleteFallback;
 
-      toast.error("Suppression impossible", {
+      toast.error(copy.deleteFailed, {
         description: message,
       });
       return;
     }
 
-    toast.success("Dossier commercial supprimé", {
-      description: "Retour au pipeline commercial.",
+    toast.success(copy.deleteSuccess, {
+      description: copy.deleteSuccessDescription,
     });
     router.replace("/dashboard/deals");
     router.refresh();
   }
 
   async function archiveDeal() {
-    const confirmed = window.confirm(
-      "Archiver ce dossier commercial ? Il ne sera plus comptabilisé dans le pipeline.",
-    );
+    const confirmed = window.confirm(copy.archiveConfirm);
 
     if (!confirmed) {
       return;
@@ -456,16 +683,16 @@ export function DealActionPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "Le dossier commercial n’a pas pu être archivé.";
+          : copy.archiveFallback;
 
-      toast.error("Archivage impossible", {
+      toast.error(copy.archiveFailed, {
         description: message,
       });
       return;
     }
 
-    toast.success("Dossier archivé", {
-      description: "Il a été retiré du pipeline commercial.",
+    toast.success(copy.archiveSuccess, {
+      description: copy.archiveSuccessDescription,
     });
     router.replace("/dashboard/deals");
     router.refresh();
