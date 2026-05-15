@@ -1,5 +1,5 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { requireCurrentUserContext } from "@/lib/auth/session";
+import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { canViewInternalAdmin } from "@/lib/internal-access";
 
@@ -8,7 +8,7 @@ export default async function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const context = await requireCurrentUserContext();
+  const context = await requireActiveWorkspaceContext();
   const displayName =
     context.profile?.full_name ?? context.user.email ?? "Utilisateur";
 

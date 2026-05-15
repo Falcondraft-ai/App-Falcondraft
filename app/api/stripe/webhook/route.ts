@@ -7,12 +7,24 @@ export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const body = await request.text();
 
-  if (!stripe || !signature || !webhookSecret) {
-    return NextResponse.json({
-      received: true,
-      mode: "mock",
-      message: "Webhook Stripe prêt à configurer.",
-    });
+  if (!stripe || !webhookSecret) {
+    return NextResponse.json(
+      {
+        received: false,
+        message: "Configuration Stripe webhook manquante.",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!signature) {
+    return NextResponse.json(
+      {
+        received: false,
+        message: "Signature Stripe manquante.",
+      },
+      { status: 400 },
+    );
   }
 
   let eventType: string;

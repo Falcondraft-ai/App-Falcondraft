@@ -5,6 +5,7 @@ import { ExternalLink, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { LoadingDots } from "@/components/common/loading-dots";
 import { Button } from "@/components/ui/button";
 import {
@@ -186,6 +187,7 @@ export function CallSummaryPanel({
   hasSummary: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const sections = React.useMemo(() => parseCallSummary(summary), [summary]);
   const [isPolling, setIsPolling] = React.useState(false);
@@ -222,8 +224,8 @@ export function CallSummaryPanel({
 
       if (becameAvailable) {
         setJustCompleted(true);
-        toast.success("Compte-rendu prêt", {
-          description: "Le compte-rendu est disponible dans le dossier.",
+        toast.success(t("dealDetail.summaryReady"), {
+          description: t("dealDetail.summaryReadyDescription"),
         });
 
         const timer = window.setTimeout(() => setJustCompleted(false), 3200);
@@ -261,9 +263,7 @@ export function CallSummaryPanel({
   }, [effectiveHasSummary, isPolling, router]);
 
   async function deleteCallSummary() {
-    const confirmed = window.confirm(
-      "Supprimer le compte-rendu ? Vous pourrez modifier le dossier puis le régénérer ensuite.",
-    );
+    const confirmed = window.confirm(t("dealDetail.summaryDeleteConfirm"));
 
     if (!confirmed) {
       return;
@@ -285,9 +285,9 @@ export function CallSummaryPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "Le compte-rendu n’a pas pu être supprimé.";
+          : t("dealDetail.summaryDeleteFallback");
 
-      toast.error("Suppression impossible", {
+      toast.error(t("dealDetail.deleteImpossible"), {
         description: message,
       });
       return;
@@ -296,8 +296,8 @@ export function CallSummaryPanel({
     window.localStorage.removeItem(getCallSummaryGenerationStorageKey(dealId));
     window.dispatchEvent(new Event(CALL_SUMMARY_GENERATION_EVENT));
     setIsLocallyDeleted(true);
-    toast.success("Compte-rendu supprimé", {
-      description: "Vous pouvez modifier le dossier puis relancer la génération.",
+    toast.success(t("dealDetail.summaryDeleted"), {
+      description: t("dealDetail.summaryDeletedDescription"),
     });
     router.refresh();
   }
@@ -308,17 +308,17 @@ export function CallSummaryPanel({
         <p className="text-sm font-medium">
           {isPolling ? (
             <>
-              Génération du compte-rendu en cours
+              {t("dealDetail.summaryGenerating")}
               <LoadingDots />
             </>
           ) : (
-            "Compte-rendu en attente"
+            t("dealDetail.summaryWaiting")
           )}
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-6">
           {isPolling
-            ? "La page se mettra à jour automatiquement dès que le compte-rendu sera disponible."
-            : "Lancez la génération depuis le panneau d’actions pour préparer cette section."}
+            ? t("dealDetail.summaryPolling")
+            : t("dealDetail.summaryStart")}
         </p>
       </div>
     );
@@ -341,9 +341,11 @@ export function CallSummaryPanel({
       ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium">Compte-rendu structuré</p>
+          <p className="text-sm font-medium">
+            {t("dealDetail.summaryStructured")}
+          </p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Lecture synthétique des points clés extraits du dossier.
+            {t("dealDetail.summaryStructuredDescription")}
           </p>
         </div>
         <Dialog>
@@ -351,7 +353,7 @@ export function CallSummaryPanel({
             <DialogTrigger asChild>
               <Button type="button" variant="outline" size="sm">
                 <ExternalLink aria-hidden="true" />
-                Ouvrir
+                {t("common.actions.open")}
               </Button>
             </DialogTrigger>
             <Button
@@ -363,14 +365,16 @@ export function CallSummaryPanel({
               onClick={() => void deleteCallSummary()}
             >
               <Trash2 aria-hidden="true" />
-              {isDeletingSummary ? "Suppression..." : "Supprimer"}
+              {isDeletingSummary
+                ? t("deals.deleting")
+                : t("deals.delete")}
             </Button>
           </div>
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Compte-rendu complet</DialogTitle>
+              <DialogTitle>{t("dealDetail.summaryFull")}</DialogTitle>
               <DialogDescription>
-                Version complète et structurée du compte-rendu commercial.
+                {t("dealDetail.summaryFullDescription")}
               </DialogDescription>
             </DialogHeader>
             <SummarySectionList sections={sections} />
@@ -384,8 +388,9 @@ export function CallSummaryPanel({
 
       {sections.length > previewSections.length ? (
         <p className="text-muted-foreground mt-3 text-xs">
-          {sections.length - previewSections.length} section(s) supplémentaire(s)
-          dans la vue complète.
+          {t("dealDetail.extraSections", {
+            count: sections.length - previewSections.length,
+          })}
         </p>
       ) : null}
     </motion.div>

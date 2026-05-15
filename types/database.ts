@@ -18,6 +18,8 @@ export type OrganizationRow = {
   name: string;
   slug: string;
   billing_status: string;
+  setup_amount: number | null;
+  monthly_subscription_amount: number | null;
   allow_member_company_visibility: boolean;
   created_at: string;
 };
@@ -168,6 +170,8 @@ export type Database = {
           name: string;
           slug: string;
           billing_status?: string;
+          setup_amount?: number | null;
+          monthly_subscription_amount?: number | null;
           allow_member_company_visibility?: boolean;
           created_at?: string;
         },
@@ -176,6 +180,8 @@ export type Database = {
           name?: string;
           slug?: string;
           billing_status?: string;
+          setup_amount?: number | null;
+          monthly_subscription_amount?: number | null;
           allow_member_company_visibility?: boolean;
           created_at?: string;
         }

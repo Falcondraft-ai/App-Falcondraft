@@ -39,6 +39,7 @@ import type {
   DocumentRow,
   IntegrationRow,
   OrganizationMemberRow,
+  OrganizationRow,
   ProfileRow,
   WorkflowRunRow,
   Database,
@@ -1114,20 +1115,46 @@ export async function getPendingInvitationsForOrganization(
   }));
 }
 
-function subscriptionStatusLabel(status: string | null | undefined) {
-  if (!status) {
-    return "À configurer";
+const defaultBusinessPlanName = "FalconDraft Business";
+
+function normalizeBillingStatus(status: string | null | undefined) {
+  return status?.trim().toLowerCase() ?? null;
+}
+
+function subscriptionStatusLabel(status: string | null | undefined): string {
+  const normalizedStatus = normalizeBillingStatus(status);
+
+  if (!normalizedStatus) {
+    return "Inactif";
   }
 
-  if (status === "active" || status === "trialing") {
+  if (normalizedStatus === "active") {
     return "Actif";
   }
 
-  if (status === "past_due") {
+  if (normalizedStatus === "trial" || normalizedStatus === "trialing") {
+    return "Essai";
+  }
+
+  if (normalizedStatus === "past_due") {
     return "Paiement à vérifier";
   }
 
-  return status;
+  return "Inactif";
+}
+
+function subscriptionDisplayName(status: string | null | undefined) {
+  const normalizedStatus = normalizeBillingStatus(status);
+
+  if (normalizedStatus === "active") {
+    return defaultBusinessPlanName;
+  }
+
+  if (normalizedStatus === "trial" || normalizedStatus === "trialing") {
+    return "Essai";
+  }
+
+  return "Inactif";
 }
 
 function formatMonthYear(date: string) {
@@ -1137,44 +1164,67 @@ function formatMonthYear(date: string) {
   }).format(new Date(date));
 }
 
+function formatCurrencyAmount(amount: number | null | undefined) {
+  if (amount === null || amount === undefined) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 function mapSubscriptionSummary(
   subscription: BillingSubscriptionRow | null,
+  organization: Pick<
+    OrganizationRow,
+    "billing_status" | "monthly_subscription_amount"
+  > | null,
 ): BillingSubscriptionSummary {
+  const status = organization?.billing_status ?? subscription?.status ?? null;
+
   if (!subscription) {
     return {
-      planName: "FalconDraft Professionnel",
-      monthlyPrice: "À définir",
-      status: "À configurer",
-      nextInvoiceLabel: "Échéance à définir",
+      planName: subscriptionDisplayName(status),
+      monthlyPrice: formatCurrencyAmount(
+        organization?.monthly_subscription_amount,
+      ),
+      status: subscriptionStatusLabel(status),
+      nextInvoiceLabel: null,
     };
   }
 
   return {
-    planName: subscription.plan ?? "FalconDraft Professionnel",
-    monthlyPrice: "Montant à définir",
-    status: subscriptionStatusLabel(subscription.status),
+    planName: subscriptionDisplayName(status),
+    monthlyPrice: formatCurrencyAmount(organization?.monthly_subscription_amount),
+    status: subscriptionStatusLabel(status),
     nextInvoiceLabel: subscription.current_period_end
       ? new Intl.DateTimeFormat("fr-FR", {
           day: "numeric",
           month: "long",
           year: "numeric",
         }).format(new Date(subscription.current_period_end))
-      : "Échéance à définir",
+      : null,
   };
 }
 
 function mapInvoices(
   subscription: BillingSubscriptionRow | null,
+  organization: Pick<OrganizationRow, "monthly_subscription_amount"> | null,
 ): BillingInvoice[] {
   if (!subscription?.current_period_end) {
     return [];
   }
 
+  const amount = formatCurrencyAmount(organization?.monthly_subscription_amount);
+
   return [
     {
       id: `${subscription.id}-next`,
       period: formatMonthYear(subscription.current_period_end),
-      amount: "Montant à définir",
+      amount,
       status: "À venir",
     },
   ];
@@ -1187,28 +1237,38 @@ export async function getBillingForOrganization(
   invoices: BillingInvoice[];
 }> {
   if (!organizationId) {
-    return { summary: mapSubscriptionSummary(null), invoices: [] };
+    return { summary: mapSubscriptionSummary(null, null), invoices: [] };
   }
 
   const supabase = await getSupabaseDataClient();
 
   if (!supabase) {
-    return { summary: mapSubscriptionSummary(null), invoices: [] };
+    return { summary: mapSubscriptionSummary(null, null), invoices: [] };
   }
 
-  const { data, error } = await supabase
-    .from("billing_subscriptions")
-    .select("*")
-    .eq("organization_id", organizationId)
-    .maybeSingle();
+  const [
+    { data: organization, error: organizationError },
+    { data: subscription, error: subscriptionError },
+  ] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("billing_status, monthly_subscription_amount")
+      .eq("id", organizationId)
+      .maybeSingle(),
+    supabase
+      .from("billing_subscriptions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+  ]);
 
-  if (error) {
-    return { summary: mapSubscriptionSummary(null), invoices: [] };
+  if (organizationError || subscriptionError) {
+    return { summary: mapSubscriptionSummary(null, null), invoices: [] };
   }
 
   return {
-    summary: mapSubscriptionSummary(data),
-    invoices: mapInvoices(data),
+    summary: mapSubscriptionSummary(subscription, organization),
+    invoices: mapInvoices(subscription, organization),
   };
 }
 

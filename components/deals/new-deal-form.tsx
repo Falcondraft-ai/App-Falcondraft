@@ -14,6 +14,7 @@ import * as React from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -135,6 +136,7 @@ function getPreviewValue(value: string | undefined, fallback: string) {
 
 export function NewDealForm() {
   const router = useRouter();
+  const { language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isImportingCompanyInfo, setIsImportingCompanyInfo] =
@@ -149,6 +151,107 @@ export function NewDealForm() {
     defaultValues,
     mode: "onTouched",
   });
+  const copy =
+    language === "en"
+      ? {
+          guided: "Guided creation",
+          newDeal: "New deal",
+          unnamedDeal: "Deal to name",
+          clientMissing: "Client to specify",
+          stepOf: `Step ${stepIndex + 1} of ${onboardingSteps.length}`,
+          dealTitle: "Deal title",
+          dealPlaceholder: "RFP response — regional office",
+          dealHelp: "A concrete name the whole team can understand.",
+          clientCompany: "Client company",
+          clientPlaceholder: "Firm, developer, department...",
+          budget: "Budget envelope",
+          budgetHelp: "Optional, only if the client shared a budget.",
+          closeDate: "Target close date",
+          closeDateHelp:
+            "Optional, useful if the deal must be ready before a specific date.",
+          contactName: "Main contact",
+          workEmail: "Work email",
+          phone: "Phone",
+          phoneHelp: "Optional, kept in the deal context.",
+          transcript: "Transcript or call notes",
+          transcriptPlaceholder:
+            "Paste discovery notes, objectives, constraints, objections, deadlines, decision criteria, and next steps...",
+          transcriptHelp:
+            "The more precise the notes, the more useful the call summary and proposal will be.",
+          context: "Additional context",
+          contextPlaceholder:
+            "Preferred references, sensitive points, political constraints, sales angle...",
+          emailInstructions: "Email instructions",
+          emailPlaceholder:
+            "Message tone, points to mention, proposed next step...",
+          companyInfo: "Company information for the quote",
+          importing: "Importing…",
+          importPappers: "Import from Pappers",
+          searchPappers: "Search on Pappers",
+          companyInfoPlaceholder:
+            "Legal name, address, company ID, VAT number, billing email...",
+          companyInfoHelp:
+            "Paste useful quote information here: legal name, address, company ID, VAT number, billing email, etc.",
+          deal: "Deal",
+          client: "Client",
+          contact: "Contact",
+          missing: "To fill in",
+          previous: "Previous",
+          completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% complete`,
+          creating: "Creating...",
+          create: "Create deal",
+          next: "Next",
+        }
+      : {
+          guided: "Création guidée",
+          newDeal: "Nouveau dossier",
+          unnamedDeal: "Dossier à nommer",
+          clientMissing: "Client à préciser",
+          stepOf: `Étape ${stepIndex + 1} sur ${onboardingSteps.length}`,
+          dealTitle: "Intitulé du dossier",
+          dealPlaceholder: "Réponse appel d’offres — siège régional",
+          dealHelp: "Un nom concret, compréhensible par toute l’équipe.",
+          clientCompany: "Entreprise cliente",
+          clientPlaceholder: "Cabinet, promoteur, direction...",
+          budget: "Enveloppe budgétaire",
+          budgetHelp:
+            "Optionnel, seulement si le client a partagé une enveloppe.",
+          closeDate: "Échéance cible",
+          closeDateHelp:
+            "Optionnel, utile si le dossier doit être prêt avant une date précise.",
+          contactName: "Contact principal",
+          workEmail: "Email professionnel",
+          phone: "Téléphone",
+          phoneHelp: "Optionnel, conservé dans le contexte du dossier.",
+          transcript: "Transcript ou notes d’appel",
+          transcriptPlaceholder:
+            "Collez ici les notes de découverte, objectifs, contraintes, objections, délais, critères de décision et prochaines étapes...",
+          transcriptHelp:
+            "Plus les notes sont précises, plus le compte-rendu et la proposition seront exploitables.",
+          context: "Contexte complémentaire",
+          contextPlaceholder:
+            "Références à privilégier, points sensibles, contraintes politiques, angle commercial...",
+          emailInstructions: "Instructions email",
+          emailPlaceholder:
+            "Ton du message, points à mentionner, proposition de prochaine étape...",
+          companyInfo: "Informations société pour le devis",
+          importing: "Import en cours…",
+          importPappers: "Importer depuis Pappers",
+          searchPappers: "Rechercher sur Pappers",
+          companyInfoPlaceholder:
+            "Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation...",
+          companyInfoHelp:
+            "Collez ici les informations utiles pour le devis : raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation, etc.",
+          deal: "Dossier",
+          client: "Client",
+          contact: "Contact",
+          missing: "À renseigner",
+          previous: "Précédent",
+          completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% complété`,
+          creating: "Création...",
+          create: "Créer le dossier",
+          next: "Suivant",
+        };
 
   React.useEffect(() => {
     try {
@@ -183,6 +286,34 @@ export function NewDealForm() {
     [askExpectedCloseDate],
   );
   const currentStep = effectiveOnboardingSteps[stepIndex];
+  const localizedSteps =
+    language === "en"
+      ? [
+          {
+            title: "Deal frame",
+            description:
+              "Set the deal name, client company, and budget envelope if there is one.",
+          },
+          {
+            title: "Client contact",
+            description:
+              "Identify the person who will receive exchanges and documents.",
+          },
+          {
+            title: "Call notes",
+            description:
+              "Add the raw material: transcript, brief, constraints, and client expectations.",
+          },
+          {
+            title: "Output instructions",
+            description:
+              "Specify important angles, email instructions, and quote information.",
+          },
+        ]
+      : onboardingSteps.map((step) => ({
+          title: step.title,
+          description: step.description,
+        }));
   const isLastStep = stepIndex === effectiveOnboardingSteps.length - 1;
   const progress = ((stepIndex + 1) / effectiveOnboardingSteps.length) * 100;
   const values = useWatch({ control: form.control });
@@ -353,10 +484,10 @@ export function NewDealForm() {
                 </div>
                 <div>
                   <p className="text-xs font-medium tracking-[0.16em] uppercase opacity-65">
-                    Création guidée
+                    {copy.guided}
                   </p>
                   <h2 className="mt-1 text-base font-semibold tracking-tight">
-                    Nouveau dossier
+                    {copy.newDeal}
                   </h2>
                 </div>
               </div>
@@ -397,7 +528,7 @@ export function NewDealForm() {
                               {step.eyebrow}
                             </span>
                             <span className="mt-1 block text-sm font-medium">
-                              {step.title}
+                              {localizedSteps[index]?.title ?? step.title}
                             </span>
                           </span>
                           {isDone ? (
@@ -414,10 +545,10 @@ export function NewDealForm() {
 
               <div className="mt-8 border-t border-white/10 pt-5 text-sm text-white/68">
                 <p className="font-medium text-white/85">
-                  {getPreviewValue(values.name, "Dossier à nommer")}
+                  {getPreviewValue(values.name, copy.unnamedDeal)}
                 </p>
                 <p className="mt-1">
-                  {getPreviewValue(values.clientCompanyName, "Client à préciser")}
+                  {getPreviewValue(values.clientCompanyName, copy.clientMissing)}
                 </p>
               </div>
             </aside>
@@ -425,13 +556,14 @@ export function NewDealForm() {
             <div className="flex min-h-[32rem] flex-col bg-card/92">
               <div className="border-b px-5 py-5 sm:px-6">
                 <p className="text-muted-foreground text-xs font-medium tracking-[0.12em] uppercase">
-                  Étape {stepIndex + 1} sur {effectiveOnboardingSteps.length}
+                  {copy.stepOf}
                 </p>
                 <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
-                  {currentStep.title}
+                  {localizedSteps[stepIndex]?.title ?? currentStep.title}
                 </h3>
                 <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-6">
-                  {currentStep.description}
+                  {localizedSteps[stepIndex]?.description ??
+                    currentStep.description}
                 </p>
               </div>
 
@@ -460,15 +592,15 @@ export function NewDealForm() {
                           name="name"
                           render={({ field }) => (
                             <FormItem className="md:col-span-2">
-                              <FormLabel>Intitulé du dossier</FormLabel>
+                              <FormLabel>{copy.dealTitle}</FormLabel>
                               <FormControl>
                                 <Input
-                                  placeholder="Réponse appel d’offres — siège régional"
+                                  placeholder={copy.dealPlaceholder}
                                   {...field}
                                 />
                               </FormControl>
                               <FormDescription>
-                                Un nom concret, compréhensible par toute l’équipe.
+                                {copy.dealHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -479,10 +611,10 @@ export function NewDealForm() {
                           name="clientCompanyName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Entreprise cliente</FormLabel>
+                              <FormLabel>{copy.clientCompany}</FormLabel>
                               <FormControl>
                                 <Input
-                                  placeholder="Cabinet, promoteur, direction..."
+                                  placeholder={copy.clientPlaceholder}
                                   {...field}
                                 />
                               </FormControl>
@@ -495,7 +627,7 @@ export function NewDealForm() {
                           name="amountEstimate"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Enveloppe budgétaire</FormLabel>
+                              <FormLabel>{copy.budget}</FormLabel>
                               <FormControl>
                                 <Input
                                   inputMode="decimal"
@@ -504,8 +636,7 @@ export function NewDealForm() {
                                 />
                               </FormControl>
                               <FormDescription>
-                                Optionnel, seulement si le client a partagé une
-                                enveloppe.
+                                {copy.budgetHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -517,13 +648,12 @@ export function NewDealForm() {
                             name="expectedCloseDate"
                             render={({ field }) => (
                               <FormItem className="md:col-span-2">
-                                <FormLabel>Échéance cible</FormLabel>
+                                <FormLabel>{copy.closeDate}</FormLabel>
                                 <FormControl>
                                   <Input type="date" {...field} />
                                 </FormControl>
                                 <FormDescription>
-                                  Optionnel, utile si le dossier doit être prêt
-                                  avant une date précise.
+                                  {copy.closeDateHelp}
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
@@ -540,7 +670,7 @@ export function NewDealForm() {
                           name="clientContactName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Contact principal</FormLabel>
+                              <FormLabel>{copy.contactName}</FormLabel>
                               <FormControl>
                                 <Input placeholder="Prénom Nom" {...field} />
                               </FormControl>
@@ -553,7 +683,7 @@ export function NewDealForm() {
                           name="clientEmail"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email professionnel</FormLabel>
+                              <FormLabel>{copy.workEmail}</FormLabel>
                               <FormControl>
                                 <Input
                                   type="email"
@@ -570,12 +700,12 @@ export function NewDealForm() {
                           name="phone"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Téléphone</FormLabel>
+                              <FormLabel>{copy.phone}</FormLabel>
                               <FormControl>
                                 <Input placeholder="+33 ..." {...field} />
                               </FormControl>
                               <FormDescription>
-                                Optionnel, conservé dans le contexte du dossier.
+                                {copy.phoneHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -590,17 +720,16 @@ export function NewDealForm() {
                         name="transcript"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Transcript ou notes d’appel</FormLabel>
+                            <FormLabel>{copy.transcript}</FormLabel>
                             <FormControl>
                               <Textarea
                                 rows={12}
-                                placeholder="Collez ici les notes de découverte, objectifs, contraintes, objections, délais, critères de décision et prochaines étapes..."
+                                placeholder={copy.transcriptPlaceholder}
                                 {...field}
                               />
                             </FormControl>
                             <FormDescription>
-                              Plus les notes sont précises, plus le compte-rendu
-                              et la proposition seront exploitables.
+                              {copy.transcriptHelp}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -615,11 +744,11 @@ export function NewDealForm() {
                           name="additionalContext"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Contexte complémentaire</FormLabel>
+                              <FormLabel>{copy.context}</FormLabel>
                               <FormControl>
                                 <Textarea
                                   rows={5}
-                                  placeholder="Références à privilégier, points sensibles, contraintes politiques, angle commercial..."
+                                  placeholder={copy.contextPlaceholder}
                                   {...field}
                                 />
                               </FormControl>
@@ -632,11 +761,11 @@ export function NewDealForm() {
                           name="emailInstructions"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Instructions email</FormLabel>
+                              <FormLabel>{copy.emailInstructions}</FormLabel>
                               <FormControl>
                                 <Textarea
                                   rows={4}
-                                  placeholder="Ton du message, points à mentionner, proposition de prochaine étape..."
+                                  placeholder={copy.emailPlaceholder}
                                   {...field}
                                 />
                               </FormControl>
@@ -651,7 +780,7 @@ export function NewDealForm() {
                             <FormItem>
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <FormLabel>
-                                  Informations société pour le devis
+                                  {copy.companyInfo}
                                 </FormLabel>
                                 <Button
                                   type="button"
@@ -666,8 +795,8 @@ export function NewDealForm() {
                                   }
                                 >
                                   {isImportingCompanyInfo
-                                    ? "Import en cours…"
-                                    : "Importer depuis Pappers"}
+                                    ? copy.importing
+                                    : copy.importPappers}
                                 </Button>
                                 <Button
                                   asChild
@@ -679,7 +808,7 @@ export function NewDealForm() {
                                     target="_blank"
                                     rel="noreferrer"
                                   >
-                                    Rechercher sur Pappers
+                                    {copy.searchPappers}
                                     <ExternalLink aria-hidden="true" />
                                   </a>
                                 </Button>
@@ -687,14 +816,12 @@ export function NewDealForm() {
                               <FormControl>
                                 <Textarea
                                   rows={4}
-                                  placeholder="Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation..."
+                                  placeholder={copy.companyInfoPlaceholder}
                                   {...field}
                                 />
                               </FormControl>
                               <FormDescription>
-                                Collez ici les informations utiles pour le devis
-                                : raison sociale, adresse, SIRET/SIREN, TVA
-                                intracommunautaire, email de facturation, etc.
+                                {copy.companyInfoHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -703,31 +830,31 @@ export function NewDealForm() {
                         <div className="grid gap-3 border-t pt-4 text-sm md:grid-cols-3">
                           <div>
                             <p className="text-muted-foreground text-xs">
-                              Dossier
+                              {copy.deal}
                             </p>
                             <p className="mt-1 font-medium">
-                              {getPreviewValue(values.name, "À renseigner")}
+                              {getPreviewValue(values.name, copy.missing)}
                             </p>
                           </div>
                           <div>
                             <p className="text-muted-foreground text-xs">
-                              Client
+                              {copy.client}
                             </p>
                             <p className="mt-1 font-medium">
                               {getPreviewValue(
                                 values.clientCompanyName,
-                                "À renseigner",
+                                copy.missing,
                               )}
                             </p>
                           </div>
                           <div>
                             <p className="text-muted-foreground text-xs">
-                              Contact
+                              {copy.contact}
                             </p>
                             <p className="mt-1 font-medium">
                               {getPreviewValue(
                                 values.clientContactName,
-                                "À renseigner",
+                                copy.missing,
                               )}
                             </p>
                           </div>
@@ -746,18 +873,18 @@ export function NewDealForm() {
                   onClick={goToPreviousStep}
                 >
                   <ArrowLeft aria-hidden="true" />
-                  Précédent
+                  {copy.previous}
                 </Button>
                 <div className="flex items-center justify-end gap-2">
                   <span className="text-muted-foreground hidden text-sm sm:inline">
-                    {Math.round(progress)}% complété
+                    {copy.completed}
                   </span>
                   {isLastStep ? (
                     <Button
                       type="submit"
                       disabled={isSubmitting || !isLastStepReady}
                     >
-                      {isSubmitting ? "Création..." : "Créer le dossier"}
+                      {isSubmitting ? copy.creating : copy.create}
                     </Button>
                   ) : (
                     <Button
@@ -765,7 +892,7 @@ export function NewDealForm() {
                       disabled={isSubmitting}
                       onClick={() => void goToNextStep()}
                     >
-                      Suivant
+                      {copy.next}
                       <ArrowRight aria-hidden="true" />
                     </Button>
                   )}

@@ -4,6 +4,7 @@ import { ActivityLog } from "@/components/common/activity-log";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { PageTransition } from "@/components/common/page-transition";
 import { WorkflowTimeline } from "@/components/common/workflow-timeline";
+import { T } from "@/components/i18n/translated-text";
 import { CallSummaryPanel } from "@/components/deals/call-summary-panel";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
 import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
@@ -55,7 +56,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
         <header className="bg-card/45 grid gap-4 rounded-lg border p-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
-              Dossier commercial
+              <T tx="dealDetail.eyebrow" />
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -76,15 +77,21 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Créée</p>
+              <p className="text-muted-foreground text-xs">
+                <T tx="dealDetail.created" />
+              </p>
               <p>{formatDate(deal.createdAt)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Mise à jour</p>
+              <p className="text-muted-foreground text-xs">
+                <T tx="dealDetail.updated" />
+              </p>
               <p>{formatDate(deal.updatedAt)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Responsable</p>
+              <p className="text-muted-foreground text-xs">
+                <T tx="dealDetail.owner" />
+              </p>
               <p>{deal.ownerName}</p>
             </div>
           </div>
@@ -93,25 +100,31 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-6">
             <section className="grid gap-4 md:grid-cols-2">
-              <ActionCard title="Entreprise cliente">
+              <ActionCard title={<T tx="dealDetail.clientCompany" />}>
                 <dl className="space-y-3 text-sm">
                   <div>
-                    <dt className="text-muted-foreground">Organisation</dt>
+                    <dt className="text-muted-foreground">
+                      <T tx="dealDetail.organization" />
+                    </dt>
                     <dd className="mt-1 font-medium">
                       {deal.clientCompanyName}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Source</dt>
+                    <dt className="text-muted-foreground">
+                      <T tx="dealDetail.source" />
+                    </dt>
                     <dd className="mt-1">{deal.source}</dd>
                   </div>
                 </dl>
               </ActionCard>
 
-              <ActionCard title="Contact">
+              <ActionCard title={<T tx="dealDetail.contact" />}>
                 <dl className="space-y-3 text-sm">
                   <div>
-                    <dt className="text-muted-foreground">Nom</dt>
+                    <dt className="text-muted-foreground">
+                      <T tx="dealDetail.name" />
+                    </dt>
                     <dd className="mt-1 font-medium">
                       {deal.clientContactName}
                     </dd>
@@ -122,7 +135,9 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   </div>
                   {deal.clientPhone ? (
                     <div>
-                      <dt className="text-muted-foreground">Téléphone</dt>
+                      <dt className="text-muted-foreground">
+                        <T tx="dealDetail.phone" />
+                      </dt>
                       <dd className="mt-1">{deal.clientPhone}</dd>
                     </div>
                   ) : null}
@@ -131,8 +146,8 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
             </section>
 
             <ActionCard
-              title="Transcript et notes d’appel"
-              description="Base de travail conservée pour garder la trace du contexte commercial."
+              title={<T tx="dealDetail.transcriptTitle" />}
+              description={<T tx="dealDetail.transcriptDescription" />}
             >
               <TranscriptPanel
                 transcript={deal.transcript}
@@ -143,16 +158,17 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
             <section className="bg-card/80 overflow-hidden rounded-lg border">
               <div className="border-b px-4 py-3.5">
                 <h2 className="text-[0.82rem] font-semibold tracking-[-0.01em]">
-                  Production documentaire
+                  <T tx="dealDetail.productionTitle" />
                 </h2>
                 <p className="text-muted-foreground mt-1 text-sm leading-5">
-                  Les éléments qui structurent la proposition, le document final
-                  et la signature.
+                  <T tx="dealDetail.productionDescription" />
                 </p>
               </div>
               <div className="divide-y">
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">Compte-rendu</h3>
+                  <h3 className="text-sm font-medium">
+                    <T tx="dealDetail.callSummary" />
+                  </h3>
                   <CallSummaryPanel
                     dealId={deal.id}
                     summary={deal.callSummary}
@@ -160,7 +176,9 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   />
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">Proposition</h3>
+                  <h3 className="text-sm font-medium">
+                    <T tx="dealDetail.proposal" />
+                  </h3>
                   <ProposalPanel
                     dealId={deal.id}
                     content={deal.proposalExcerpt}
@@ -169,31 +187,35 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   />
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">Document final</h3>
+                  <h3 className="text-sm font-medium">
+                    <T tx="dealDetail.finalDocument" />
+                  </h3>
                   <div>
                     <p className="font-mono text-sm">
                       {finalDocument?.title ?? deal.finalDocumentName}
                     </p>
                     <p className="text-muted-foreground mt-2 text-sm leading-6">
                       {finalDocument
-                        ? "Document final prêt à être téléchargé."
-                        : "Document final prêt à être partagé lorsque la proposition est validée."}
+                        ? <T tx="dealDetail.finalDocumentReady" />
+                        : <T tx="dealDetail.finalDocumentWaiting" />}
                     </p>
                     <div className="mt-3">
                       <GeneratedDocumentButtons
                         document={finalDocument}
                         compact
                         showOpen={false}
-                        downloadLabel="Télécharger le document final"
+                        downloadLabel={<T tx="common.actions.downloadFinalDocument" />}
                       />
                     </div>
                   </div>
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">Signature</h3>
+                  <h3 className="text-sm font-medium">
+                    <T tx="dealDetail.signature" />
+                  </h3>
                   <div>
                     <p className="text-sm font-medium">
-                      Lien de signature préparé
+                      <T tx="dealDetail.signaturePrepared" />
                     </p>
                     <p className="text-muted-foreground mt-2 text-sm leading-6 break-all">
                       {deal.signatureUrl}
@@ -204,13 +226,13 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
             </section>
 
             <ActionCard
-              title="Documents générés"
-              description="Fichiers et liens produits pour ce dossier commercial."
+              title={<T tx="dealDetail.generatedDocuments" />}
+              description={<T tx="dealDetail.generatedDocumentsDescription" />}
             >
               <GeneratedDocumentsPanel documents={documents} />
             </ActionCard>
 
-            <ActionCard title="Brouillon email">
+            <ActionCard title={<T tx="dealDetail.emailDraft" />}>
               <div className="bg-secondary/40 rounded-md border p-3">
                 <p className="text-sm font-medium">{deal.emailDraft.subject}</p>
                 <p className="text-muted-foreground mt-3 text-sm leading-6 whitespace-pre-line">
@@ -219,25 +241,28 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               </div>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-muted-foreground text-xs">
-                  Consigne : {deal.emailInstructions}
+                  <T
+                    tx="dealDetail.instructions"
+                    params={{ instructions: deal.emailInstructions }}
+                  />
                 </p>
                 <DealEditDialog
                   deal={deal}
-                  triggerLabel="Éditer les consignes"
+                  triggerLabel={<T tx="common.actions.editInstructions" />}
                   triggerSize="sm"
                 />
               </div>
             </ActionCard>
 
-            <ActionCard title="Journal d’activité">
+            <ActionCard title={<T tx="dealDetail.activity" />}>
               <ActivityLog items={activity} />
             </ActionCard>
           </div>
 
           <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
             <ActionCard
-              title="Actions"
-              description="Commandes principales du cycle de proposition."
+              title={<T tx="dealDetail.actions" />}
+              description={<T tx="dealDetail.actionsDescription" />}
             >
               <DealActionPanel
                 dealId={deal.id}
@@ -249,10 +274,10 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 finalDocument={finalDocument}
               />
             </ActionCard>
-            <ActionCard title="Progression">
+            <ActionCard title={<T tx="dealDetail.progress" />}>
               <WorkflowTimeline status={deal.status} compact />
             </ActionCard>
-            <ActionCard title="Dernière mise à jour">
+            <ActionCard title={<T tx="dealDetail.lastUpdated" />}>
               <p className="text-sm font-medium">{deal.lastAction}</p>
               <p className="text-muted-foreground mt-2 text-sm">
                 {formatDateTime(deal.updatedAt)}

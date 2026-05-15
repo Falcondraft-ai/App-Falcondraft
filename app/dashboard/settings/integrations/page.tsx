@@ -1,4 +1,5 @@
 import { PageTransition } from "@/components/common/page-transition";
+import { T } from "@/components/i18n/translated-text";
 import { GmailConnectionCard } from "@/components/settings/gmail-connection-card";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getGmailConnectionForUser } from "@/lib/email/connections";
@@ -16,8 +17,7 @@ export default async function IntegrationsSettingsPage() {
       <div className="space-y-6">
         <div className="max-w-3xl">
           <p className="text-muted-foreground text-sm leading-6">
-            Connectez votre compte email pour préparer les brouillons d’envoi
-            depuis votre propre messagerie.
+            <T tx="integrations.description" />
           </p>
         </div>
         <GmailConnectionCard initialConnection={gmailConnection} />

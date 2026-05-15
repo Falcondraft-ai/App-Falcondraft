@@ -115,7 +115,7 @@ export function DealEditDialog({
   triggerSize = "sm",
 }: {
   deal: Deal;
-  triggerLabel?: string;
+  triggerLabel?: React.ReactNode;
   triggerSize?: "sm" | "default";
 }) {
   const router = useRouter();

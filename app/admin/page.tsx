@@ -1,55 +1,9 @@
-import type { ReactNode } from "react";
-import { T } from "@/components/i18n/translated-text";
+import { InternalAdminConsole } from "@/components/admin/internal-admin-console";
 import { PageTransition } from "@/components/common/page-transition";
+import { T } from "@/components/i18n/translated-text";
 import { requireCurrentUserContext } from "@/lib/auth/session";
-import { getAdminData } from "@/lib/data/supabase-app-data";
-import { formatDateTime } from "@/lib/format";
+import { getInternalAdminWorkspaceData } from "@/lib/internal-admin/data";
 import { canViewInternalAdmin } from "@/lib/internal-access";
-
-type AdminRow = {
-  id: string;
-  name: string;
-  detail: string;
-  status: string;
-  updatedAt: string;
-};
-
-function AdminRows({ title, rows }: { title: ReactNode; rows: AdminRow[] }) {
-  return (
-    <section className="bg-card rounded-lg border">
-      <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">{title}</h2>
-      </div>
-      <div className="divide-y">
-        {rows.length > 0 ? (
-          rows.map((row) => (
-            <article
-              key={row.id}
-              className="grid gap-2 px-4 py-3 text-sm md:grid-cols-[1fr_auto_auto] md:items-center"
-            >
-              <div>
-                <p className="font-medium">{row.name}</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  {row.detail}
-                </p>
-              </div>
-              <span className="bg-secondary w-fit rounded-md border px-2 py-1 text-xs">
-                {row.status}
-              </span>
-              <time className="text-muted-foreground text-xs">
-                {formatDateTime(row.updatedAt)}
-              </time>
-            </article>
-          ))
-        ) : (
-          <div className="text-muted-foreground px-4 py-4 text-sm">
-            <T tx="admin.empty" />
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
 
 export default async function AdminPage() {
   const context = await requireCurrentUserContext();
@@ -73,7 +27,9 @@ export default async function AdminPage() {
     );
   }
 
-  const adminData = await getAdminData(context.organization?.id ?? null);
+  const adminData = await getInternalAdminWorkspaceData({
+    internalOrganizationId: context.organization?.id ?? null,
+  });
 
   return (
     <PageTransition>
@@ -88,36 +44,19 @@ export default async function AdminPage() {
             </span>
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-            <T tx="admin.title" />
+            Onboarding client
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/72">
-            <T tx="admin.description" />
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/72">
+            Créez les workspaces client, invitez le premier gestionnaire et
+            maintenez les webhooks n8n par organisation depuis la console
+            interne FalconDraft.
           </p>
         </div>
 
-        <section className="grid gap-3 md:grid-cols-4">
-          {adminData.metrics.map((metric) => (
-            <div key={metric.label} className="bg-card rounded-lg border p-4">
-              <p className="text-muted-foreground text-xs font-medium">
-                {metric.label}
-              </p>
-              <p className="mt-2 font-mono text-2xl font-semibold">
-                {metric.value}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {metric.detail}
-              </p>
-            </div>
-          ))}
-        </section>
-
-        <div className="grid gap-6 xl:grid-cols-2">
-          <AdminRows title={<T tx="admin.deals" />} rows={adminData.rows} />
-          <AdminRows
-            title={<T tx="admin.failedRuns" />}
-            rows={adminData.failedRuns}
-          />
-        </div>
+        <InternalAdminConsole
+          initialOrganizations={adminData.organizations}
+          metrics={adminData.metrics}
+        />
       </div>
     </PageTransition>
   );

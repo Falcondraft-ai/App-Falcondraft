@@ -22,6 +22,12 @@ export const metadata: Metadata = {
   },
   description:
     "FalconDraft prépare une base SaaS premium pour transformer un deal en proposition professionnelle, prête à valider et envoyer.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "FalconDraft",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({

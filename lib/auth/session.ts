@@ -69,3 +69,13 @@ export async function requireCurrentUserContext() {
 
   return context;
 }
+
+export async function requireActiveWorkspaceContext() {
+  const context = await requireCurrentUserContext();
+
+  if (!context.membership || !context.organization) {
+    redirect("/no-access");
+  }
+
+  return context;
+}

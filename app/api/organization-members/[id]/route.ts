@@ -8,6 +8,7 @@ import {
   type WorkspaceMemberRole,
 } from "@/lib/auth/workspace-permissions";
 import { getWorkspaceRoleLabel } from "@/lib/invitations/shared";
+import { isProtectedAccountEmail } from "@/lib/protected-users";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -238,6 +239,29 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   if ("error" in mutationContext) {
     return mutationContext.error;
+  }
+
+  const { data: targetProfile, error: targetProfileError } =
+    await mutationContext.adminSupabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", mutationContext.targetMember.user_id)
+      .maybeSingle();
+
+  if (targetProfileError) {
+    return jsonError(
+      "Vérification du membre impossible.",
+      500,
+      targetProfileError.message,
+    );
+  }
+
+  if (isProtectedAccountEmail(targetProfile?.email)) {
+    return jsonError(
+      "Ce compte est protégé et ne peut pas être supprimé.",
+      403,
+      "protected_account",
+    );
   }
 
   if (mutationContext.targetRole === "manager") {

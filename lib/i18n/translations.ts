@@ -257,6 +257,102 @@ export type TranslationKey =
   | "deals.delete"
   | "deals.deleting"
   | "deals.emptyFiltered"
+  | "dealDetail.eyebrow"
+  | "dealDetail.created"
+  | "dealDetail.updated"
+  | "dealDetail.owner"
+  | "dealDetail.clientCompany"
+  | "dealDetail.organization"
+  | "dealDetail.source"
+  | "dealDetail.contact"
+  | "dealDetail.name"
+  | "dealDetail.phone"
+  | "dealDetail.transcriptTitle"
+  | "dealDetail.transcriptDescription"
+  | "dealDetail.productionTitle"
+  | "dealDetail.productionDescription"
+  | "dealDetail.callSummary"
+  | "dealDetail.proposal"
+  | "dealDetail.finalDocument"
+  | "dealDetail.finalDocumentReady"
+  | "dealDetail.finalDocumentWaiting"
+  | "dealDetail.signature"
+  | "dealDetail.signaturePrepared"
+  | "dealDetail.generatedDocuments"
+  | "dealDetail.generatedDocumentsDescription"
+  | "dealDetail.emailDraft"
+  | "dealDetail.instructions"
+  | "dealDetail.activity"
+  | "dealDetail.actions"
+  | "dealDetail.actionsDescription"
+  | "dealDetail.progress"
+  | "dealDetail.lastUpdated"
+  | "dealDetail.extraSections"
+  | "dealDetail.summaryReady"
+  | "dealDetail.summaryReadyDescription"
+  | "dealDetail.summaryDeleteConfirm"
+  | "dealDetail.summaryDeleteFallback"
+  | "dealDetail.summaryDeleted"
+  | "dealDetail.summaryDeletedDescription"
+  | "dealDetail.summaryGenerating"
+  | "dealDetail.summaryWaiting"
+  | "dealDetail.summaryPolling"
+  | "dealDetail.summaryStart"
+  | "dealDetail.summaryStructured"
+  | "dealDetail.summaryStructuredDescription"
+  | "dealDetail.summaryFull"
+  | "dealDetail.summaryFullDescription"
+  | "dealDetail.proposalReady"
+  | "dealDetail.proposalReadyDescription"
+  | "dealDetail.proposalDeleteConfirm"
+  | "dealDetail.proposalDeleteFallback"
+  | "dealDetail.proposalDeleted"
+  | "dealDetail.proposalDeletedDescription"
+  | "dealDetail.proposalGenerating"
+  | "dealDetail.proposalWaiting"
+  | "dealDetail.proposalPolling"
+  | "dealDetail.proposalStart"
+  | "dealDetail.editLink"
+  | "dealDetail.editLinkDescription"
+  | "dealDetail.edit"
+  | "dealDetail.editUnavailable"
+  | "dealDetail.proposalContent"
+  | "dealDetail.openContent"
+  | "dealDetail.proposalFullDescription"
+  | "dealDetail.deleteImpossible"
+  | "dealDetail.newEyebrow"
+  | "dealDetail.newTitle"
+  | "dealDetail.newDescription"
+  | "integrations.description"
+  | "integrations.gmail.personal"
+  | "integrations.gmail.connected"
+  | "integrations.gmail.disconnected"
+  | "integrations.gmail.connectedToast"
+  | "integrations.gmail.denied"
+  | "integrations.gmail.refused"
+  | "integrations.gmail.unavailable"
+  | "integrations.gmail.error"
+  | "integrations.gmail.disconnectError"
+  | "integrations.gmail.disconnectedToast"
+  | "integrations.gmail.body1"
+  | "integrations.gmail.body2"
+  | "integrations.gmail.connectedAccount"
+  | "integrations.gmail.disconnecting"
+  | "integrations.gmail.disconnect"
+  | "integrations.gmail.connect"
+  | "integrations.microsoft.subtitle"
+  | "integrations.microsoft.comingSoon"
+  | "integrations.microsoft.body1"
+  | "integrations.microsoft.body2"
+  | "integrations.microsoft.cta"
+  | "billing.current"
+  | "billing.details"
+  | "billing.statusDetail"
+  | "billing.nextInvoiceDetail"
+  | "billing.manage"
+  | "billing.emptyInvoices"
+  | "billing.notesTitle"
+  | "billing.notesDescription"
   | "documents.eyebrow"
   | "documents.title"
   | "documents.description"
@@ -391,6 +487,10 @@ export type TranslationKey =
   | "activity.audit.email_provider_connected"
   | "activity.audit.email_provider_disconnected"
   | "activity.audit.email_draft_workflow_started"
+  | "activity.audit.organization_created"
+  | "activity.audit.workflow_config_created"
+  | "activity.audit.workflow_config_updated"
+  | "activity.audit.first_manager_invited"
   | "activity.audit.deal_updated"
   | "activity.audit.proposal_deleted"
   | "activity.audit.summary_deleted"
@@ -719,6 +819,134 @@ export const translations: Record<Language, Dictionary> = {
     "deals.deleting": "Suppression...",
     "deals.emptyFiltered":
       "Aucun dossier commercial ne correspond à ces critères.",
+    "dealDetail.eyebrow": "Dossier commercial",
+    "dealDetail.created": "Créée",
+    "dealDetail.updated": "Mise à jour",
+    "dealDetail.owner": "Responsable",
+    "dealDetail.clientCompany": "Entreprise cliente",
+    "dealDetail.organization": "Organisation",
+    "dealDetail.source": "Source",
+    "dealDetail.contact": "Contact",
+    "dealDetail.name": "Nom",
+    "dealDetail.phone": "Téléphone",
+    "dealDetail.transcriptTitle": "Transcript et notes d’appel",
+    "dealDetail.transcriptDescription":
+      "Base de travail conservée pour garder la trace du contexte commercial.",
+    "dealDetail.productionTitle": "Production documentaire",
+    "dealDetail.productionDescription":
+      "Les éléments qui structurent la proposition, le document final et la signature.",
+    "dealDetail.callSummary": "Compte-rendu",
+    "dealDetail.proposal": "Proposition",
+    "dealDetail.finalDocument": "Document final",
+    "dealDetail.finalDocumentReady":
+      "Document final prêt à être téléchargé.",
+    "dealDetail.finalDocumentWaiting":
+      "Document final prêt à être partagé lorsque la proposition est validée.",
+    "dealDetail.signature": "Signature",
+    "dealDetail.signaturePrepared": "Lien de signature préparé",
+    "dealDetail.generatedDocuments": "Documents générés",
+    "dealDetail.generatedDocumentsDescription":
+      "Fichiers et liens produits pour ce dossier commercial.",
+    "dealDetail.emailDraft": "Brouillon email",
+    "dealDetail.instructions": "Consigne : {instructions}",
+    "dealDetail.activity": "Journal d’activité",
+    "dealDetail.actions": "Actions",
+    "dealDetail.actionsDescription":
+      "Commandes principales du cycle de proposition.",
+    "dealDetail.progress": "Progression",
+    "dealDetail.lastUpdated": "Dernière mise à jour",
+    "dealDetail.extraSections":
+      "{count} section(s) supplémentaire(s) dans la vue complète.",
+    "dealDetail.summaryReady": "Compte-rendu prêt",
+    "dealDetail.summaryReadyDescription":
+      "Le compte-rendu est disponible dans le dossier.",
+    "dealDetail.summaryDeleteConfirm":
+      "Supprimer le compte-rendu ? Vous pourrez modifier le dossier puis le régénérer ensuite.",
+    "dealDetail.summaryDeleteFallback":
+      "Le compte-rendu n’a pas pu être supprimé.",
+    "dealDetail.summaryDeleted": "Compte-rendu supprimé",
+    "dealDetail.summaryDeletedDescription":
+      "Vous pouvez modifier le dossier puis relancer la génération.",
+    "dealDetail.summaryGenerating": "Génération du compte-rendu en cours",
+    "dealDetail.summaryWaiting": "Compte-rendu en attente",
+    "dealDetail.summaryPolling":
+      "La page se mettra à jour automatiquement dès que le compte-rendu sera disponible.",
+    "dealDetail.summaryStart":
+      "Lancez la génération depuis le panneau d’actions pour préparer cette section.",
+    "dealDetail.summaryStructured": "Compte-rendu structuré",
+    "dealDetail.summaryStructuredDescription":
+      "Lecture synthétique des points clés extraits du dossier.",
+    "dealDetail.summaryFull": "Compte-rendu complet",
+    "dealDetail.summaryFullDescription":
+      "Version complète et structurée du compte-rendu commercial.",
+    "dealDetail.proposalReady": "Proposition prête",
+    "dealDetail.proposalReadyDescription":
+      "La proposition est disponible dans le dossier.",
+    "dealDetail.proposalDeleteConfirm":
+      "Supprimer la proposition ? Vous pourrez modifier le dossier puis la régénérer ensuite.",
+    "dealDetail.proposalDeleteFallback":
+      "La proposition n’a pas pu être supprimée.",
+    "dealDetail.proposalDeleted": "Proposition supprimée",
+    "dealDetail.proposalDeletedDescription":
+      "Vous pouvez modifier le dossier puis relancer la génération.",
+    "dealDetail.proposalGenerating": "Génération de la proposition en cours",
+    "dealDetail.proposalWaiting": "Proposition en attente",
+    "dealDetail.proposalPolling":
+      "La page se mettra à jour automatiquement dès que la proposition sera disponible.",
+    "dealDetail.proposalStart":
+      "Lancez la génération depuis le panneau d’actions pour préparer cette section.",
+    "dealDetail.editLink": "Lien d’édition",
+    "dealDetail.editLinkDescription":
+      "Accès à l’espace de travail externe pour ajuster la proposition.",
+    "dealDetail.edit": "Éditer",
+    "dealDetail.editUnavailable": "Édition indisponible",
+    "dealDetail.proposalContent": "Contenu de la proposition",
+    "dealDetail.openContent": "Ouvrir le contenu",
+    "dealDetail.proposalFullDescription":
+      "Version complète et structurée de la proposition commerciale.",
+    "dealDetail.deleteImpossible": "Suppression impossible",
+    "dealDetail.newEyebrow": "Nouveau dossier commercial",
+    "dealDetail.newTitle": "Créer un dossier commercial",
+    "dealDetail.newDescription":
+      "Avancez étape par étape : cadrage, contact, notes d’échange puis consignes de sortie.",
+    "integrations.description":
+      "Connectez votre compte email pour préparer les brouillons d’envoi depuis votre propre messagerie.",
+    "integrations.gmail.personal": "Compte Google personnel ou professionnel",
+    "integrations.gmail.connected": "Connecté",
+    "integrations.gmail.disconnected": "Non connecté",
+    "integrations.gmail.connectedToast": "Gmail est connecté à FalconDraft.",
+    "integrations.gmail.denied": "Connexion Gmail annulée.",
+    "integrations.gmail.refused": "Connexion Gmail refusée pour ce workspace.",
+    "integrations.gmail.unavailable": "Configuration Gmail indisponible.",
+    "integrations.gmail.error":
+      "Connexion Gmail impossible. Réessayez depuis les paramètres.",
+    "integrations.gmail.disconnectError": "Déconnexion impossible.",
+    "integrations.gmail.disconnectedToast": "Gmail est déconnecté.",
+    "integrations.gmail.body1":
+      "FalconDraft crée uniquement des brouillons dans votre Gmail. Aucun email n’est envoyé automatiquement.",
+    "integrations.gmail.body2":
+      "Vous gardez toujours le contrôle : relisez, modifiez puis envoyez depuis Gmail quand vous êtes prêt.",
+    "integrations.gmail.connectedAccount": "Compte connecté",
+    "integrations.gmail.disconnecting": "Déconnexion…",
+    "integrations.gmail.disconnect": "Déconnecter",
+    "integrations.gmail.connect": "Connecter Gmail",
+    "integrations.microsoft.subtitle": "Connexion Microsoft à venir",
+    "integrations.microsoft.comingSoon": "Bientôt",
+    "integrations.microsoft.body1":
+      "Cette option suivra la même logique que Gmail : préparation de brouillons uniquement.",
+    "integrations.microsoft.body2":
+      "Elle sera activée lorsque la connexion Microsoft 365 sera ajoutée à FalconDraft.",
+    "integrations.microsoft.cta": "Connexion à venir",
+    "billing.current": "Abonnement actuel",
+    "billing.details":
+      "{price} · Statut {status} · Prochaine échéance : {nextInvoice}",
+    "billing.statusDetail": "Statut {status}",
+    "billing.nextInvoiceDetail": "Prochaine échéance : {nextInvoice}",
+    "billing.manage": "Gérer l’abonnement",
+    "billing.emptyInvoices": "Aucun historique de facture disponible.",
+    "billing.notesTitle": "Notes de facturation",
+    "billing.notesDescription":
+      "Les informations d’abonnement, les échéances et les factures sont regroupées pour faciliter le suivi administratif.",
     "documents.eyebrow": "Documents",
     "documents.title": "Documents générés",
     "documents.description":
@@ -873,6 +1101,11 @@ export const translations: Record<Language, Dictionary> = {
     "activity.audit.email_provider_disconnected": "Messagerie déconnectée",
     "activity.audit.email_draft_workflow_started":
       "Création du brouillon Gmail lancée",
+    "activity.audit.organization_created": "Workspace client créé",
+    "activity.audit.workflow_config_created": "Configuration workflow créée",
+    "activity.audit.workflow_config_updated":
+      "Configuration workflow mise à jour",
+    "activity.audit.first_manager_invited": "Premier gestionnaire invité",
     "activity.audit.deal_updated": "Dossier commercial mis à jour",
     "activity.audit.proposal_deleted": "Proposition supprimée",
     "activity.audit.summary_deleted": "Compte-rendu supprimé",
@@ -1184,6 +1417,132 @@ export const translations: Record<Language, Dictionary> = {
     "deals.delete": "Delete",
     "deals.deleting": "Deleting...",
     "deals.emptyFiltered": "No deal matches these filters.",
+    "dealDetail.eyebrow": "Deal",
+    "dealDetail.created": "Created",
+    "dealDetail.updated": "Updated",
+    "dealDetail.owner": "Owner",
+    "dealDetail.clientCompany": "Client company",
+    "dealDetail.organization": "Organization",
+    "dealDetail.source": "Source",
+    "dealDetail.contact": "Contact",
+    "dealDetail.name": "Name",
+    "dealDetail.phone": "Phone",
+    "dealDetail.transcriptTitle": "Transcript and call notes",
+    "dealDetail.transcriptDescription":
+      "Working material kept to preserve the sales context.",
+    "dealDetail.productionTitle": "Document production",
+    "dealDetail.productionDescription":
+      "The items that structure the proposal, final document, and signature.",
+    "dealDetail.callSummary": "Call summary",
+    "dealDetail.proposal": "Proposal",
+    "dealDetail.finalDocument": "Final document",
+    "dealDetail.finalDocumentReady": "Final document ready to download.",
+    "dealDetail.finalDocumentWaiting":
+      "Final document ready to share once the proposal is approved.",
+    "dealDetail.signature": "Signature",
+    "dealDetail.signaturePrepared": "Signature link prepared",
+    "dealDetail.generatedDocuments": "Generated documents",
+    "dealDetail.generatedDocumentsDescription":
+      "Files and links produced for this deal.",
+    "dealDetail.emailDraft": "Email draft",
+    "dealDetail.instructions": "Instruction: {instructions}",
+    "dealDetail.activity": "Activity log",
+    "dealDetail.actions": "Actions",
+    "dealDetail.actionsDescription": "Main commands for the proposal cycle.",
+    "dealDetail.progress": "Progress",
+    "dealDetail.lastUpdated": "Last updated",
+    "dealDetail.extraSections":
+      "{count} additional section(s) in the full view.",
+    "dealDetail.summaryReady": "Call summary ready",
+    "dealDetail.summaryReadyDescription":
+      "The call summary is available in the deal.",
+    "dealDetail.summaryDeleteConfirm":
+      "Delete the call summary? You can edit the deal and generate it again afterwards.",
+    "dealDetail.summaryDeleteFallback":
+      "The call summary could not be deleted.",
+    "dealDetail.summaryDeleted": "Call summary deleted",
+    "dealDetail.summaryDeletedDescription":
+      "You can edit the deal and run generation again.",
+    "dealDetail.summaryGenerating": "Call summary generation in progress",
+    "dealDetail.summaryWaiting": "Call summary pending",
+    "dealDetail.summaryPolling":
+      "The page will update automatically as soon as the call summary is available.",
+    "dealDetail.summaryStart":
+      "Start generation from the actions panel to prepare this section.",
+    "dealDetail.summaryStructured": "Structured call summary",
+    "dealDetail.summaryStructuredDescription":
+      "A synthetic read of the key points extracted from the deal.",
+    "dealDetail.summaryFull": "Full call summary",
+    "dealDetail.summaryFullDescription":
+      "Complete structured version of the sales call summary.",
+    "dealDetail.proposalReady": "Proposal ready",
+    "dealDetail.proposalReadyDescription":
+      "The proposal is available in the deal.",
+    "dealDetail.proposalDeleteConfirm":
+      "Delete the proposal? You can edit the deal and generate it again afterwards.",
+    "dealDetail.proposalDeleteFallback": "The proposal could not be deleted.",
+    "dealDetail.proposalDeleted": "Proposal deleted",
+    "dealDetail.proposalDeletedDescription":
+      "You can edit the deal and run generation again.",
+    "dealDetail.proposalGenerating": "Proposal generation in progress",
+    "dealDetail.proposalWaiting": "Proposal pending",
+    "dealDetail.proposalPolling":
+      "The page will update automatically as soon as the proposal is available.",
+    "dealDetail.proposalStart":
+      "Start generation from the actions panel to prepare this section.",
+    "dealDetail.editLink": "Editing link",
+    "dealDetail.editLinkDescription":
+      "Access to the external workspace to adjust the proposal.",
+    "dealDetail.edit": "Edit",
+    "dealDetail.editUnavailable": "Editing unavailable",
+    "dealDetail.proposalContent": "Proposal content",
+    "dealDetail.openContent": "Open content",
+    "dealDetail.proposalFullDescription":
+      "Complete structured version of the sales proposal.",
+    "dealDetail.deleteImpossible": "Deletion failed",
+    "dealDetail.newEyebrow": "New deal",
+    "dealDetail.newTitle": "Create a deal",
+    "dealDetail.newDescription":
+      "Move step by step through framing, contact, call notes, and output instructions.",
+    "integrations.description":
+      "Connect your email account to prepare sending drafts from your own mailbox.",
+    "integrations.gmail.personal": "Personal or work Google account",
+    "integrations.gmail.connected": "Connected",
+    "integrations.gmail.disconnected": "Not connected",
+    "integrations.gmail.connectedToast": "Gmail is connected to FalconDraft.",
+    "integrations.gmail.denied": "Gmail connection cancelled.",
+    "integrations.gmail.refused":
+      "Gmail connection refused for this workspace.",
+    "integrations.gmail.unavailable": "Gmail configuration unavailable.",
+    "integrations.gmail.error":
+      "Gmail connection failed. Try again from settings.",
+    "integrations.gmail.disconnectError": "Could not disconnect.",
+    "integrations.gmail.disconnectedToast": "Gmail is disconnected.",
+    "integrations.gmail.body1":
+      "FalconDraft only creates drafts in your Gmail. No email is sent automatically.",
+    "integrations.gmail.body2":
+      "You stay in control: review, edit, then send from Gmail when ready.",
+    "integrations.gmail.connectedAccount": "Connected account",
+    "integrations.gmail.disconnecting": "Disconnecting…",
+    "integrations.gmail.disconnect": "Disconnect",
+    "integrations.gmail.connect": "Connect Gmail",
+    "integrations.microsoft.subtitle": "Microsoft connection coming soon",
+    "integrations.microsoft.comingSoon": "Soon",
+    "integrations.microsoft.body1":
+      "This option will follow the same logic as Gmail: draft preparation only.",
+    "integrations.microsoft.body2":
+      "It will be enabled when Microsoft 365 connection is added to FalconDraft.",
+    "integrations.microsoft.cta": "Connection coming soon",
+    "billing.current": "Current subscription",
+    "billing.details":
+      "{price} · Status {status} · Next due date: {nextInvoice}",
+    "billing.statusDetail": "Status {status}",
+    "billing.nextInvoiceDetail": "Next due date: {nextInvoice}",
+    "billing.manage": "Manage subscription",
+    "billing.emptyInvoices": "No invoice history available.",
+    "billing.notesTitle": "Billing notes",
+    "billing.notesDescription":
+      "Subscription information, due dates, and invoices are grouped here to make admin follow-up easier.",
     "documents.eyebrow": "Documents",
     "documents.title": "Generated documents",
     "documents.description":
@@ -1337,6 +1696,10 @@ export const translations: Record<Language, Dictionary> = {
     "activity.audit.email_provider_disconnected": "Email provider disconnected",
     "activity.audit.email_draft_workflow_started":
       "Gmail draft creation started",
+    "activity.audit.organization_created": "Client workspace created",
+    "activity.audit.workflow_config_created": "Workflow configuration created",
+    "activity.audit.workflow_config_updated": "Workflow configuration updated",
+    "activity.audit.first_manager_invited": "First manager invited",
     "activity.audit.deal_updated": "Deal updated",
     "activity.audit.proposal_deleted": "Proposal deleted",
     "activity.audit.summary_deleted": "Call summary deleted",

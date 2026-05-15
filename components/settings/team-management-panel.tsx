@@ -33,6 +33,7 @@ import {
   type WorkspaceMemberRole,
 } from "@/lib/auth/workspace-permissions";
 import { formatDateTime } from "@/lib/format";
+import { isProtectedAccountEmail } from "@/lib/protected-users";
 import type { PendingInvitation, TeamMember } from "@/types/user";
 import type { TranslationKey } from "@/lib/i18n/translations";
 
@@ -161,6 +162,10 @@ export function TeamManagementPanel({
 
   function canRemoveMember(member: TeamMember) {
     if (!canEditMember(member)) {
+      return false;
+    }
+
+    if (isProtectedAccountEmail(member.email)) {
       return false;
     }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { toast } from "sonner";
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import type {
   BillingInvoice,
@@ -14,26 +15,37 @@ export function BillingSummaryCard({
   invoices: BillingInvoice[];
   summary: BillingSubscriptionSummary;
 }) {
+  const { t } = useI18n();
+  const detailParts = [
+    summary.monthlyPrice,
+    t("billing.statusDetail", {
+      status: summary.status.toLowerCase(),
+    }),
+    summary.nextInvoiceLabel
+      ? t("billing.nextInvoiceDetail", {
+          nextInvoice: summary.nextInvoiceLabel,
+        })
+      : null,
+  ].filter(Boolean);
+
   return (
     <section className="rounded-lg border bg-card">
       <div className="grid gap-4 border-b p-4 md:grid-cols-[1fr_auto] md:items-center">
         <div>
-          <p className="text-muted-foreground text-sm">Abonnement actuel</p>
+          <p className="text-muted-foreground text-sm">
+            {t("billing.current")}
+          </p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight">
             {summary.planName}
           </h2>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {summary.monthlyPrice} · Statut {summary.status.toLowerCase()} ·
-            Prochaine échéance : {summary.nextInvoiceLabel}
-          </p>
+          {detailParts.length > 0 ? (
+            <p className="text-muted-foreground mt-2 text-sm">
+              {detailParts.join(" · ")}
+            </p>
+          ) : null}
         </div>
-        <Button
-          type="button"
-          onClick={() => {
-            toast.success("Ouverture de la gestion d’abonnement.");
-          }}
-        >
-          Gérer l’abonnement
+        <Button asChild type="button">
+          <Link href="/dashboard/support">{t("billing.manage")}</Link>
         </Button>
       </div>
       <div className="divide-y">
@@ -50,7 +62,7 @@ export function BillingSummaryCard({
           ))
         ) : (
           <div className="px-4 py-4 text-sm text-muted-foreground">
-            Aucun historique de facture disponible.
+            {t("billing.emptyInvoices")}
           </div>
         )}
       </div>

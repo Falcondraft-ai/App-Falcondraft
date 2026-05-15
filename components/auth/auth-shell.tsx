@@ -1,9 +1,9 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/common/brand-mark";
 import { LanguageSelector } from "@/components/i18n/language-selector";
 import { T } from "@/components/i18n/translated-text";
 
@@ -32,7 +32,7 @@ export function AuthShell({
       };
 
   return (
-    <main className="min-h-dvh bg-[#f8f4ec]">
+    <main className="bg-background text-foreground min-h-dvh">
       <section className="bg-card grid min-h-dvh overflow-hidden lg:grid-cols-[minmax(18rem,32vw)_1fr]">
         <aside className="hidden bg-[#142033] p-9 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
@@ -70,22 +70,9 @@ export function AuthShell({
           </div>
         </aside>
 
-        <div className="flex min-h-dvh flex-col bg-[#f8f4ec]">
+        <div className="bg-background flex min-h-dvh flex-col">
           <header className="flex h-20 items-center justify-between border-b px-5 sm:px-8 lg:h-24">
-            <Link
-              href="/"
-              className="flex items-center transition-opacity hover:opacity-80"
-              aria-label="FalconDraft"
-            >
-              <Image
-                src="/falcondraft-logo.png"
-                alt="FalconDraft"
-                width={363}
-                height={384}
-                className="h-12 w-auto object-contain lg:h-14"
-                priority
-              />
-            </Link>
+            <BrandMark href="/" size="md" showDescriptor={false} />
             <div className="flex items-center gap-3">
               <LanguageSelector triggerClassName="h-9 w-[8.5rem]" />
               <Link

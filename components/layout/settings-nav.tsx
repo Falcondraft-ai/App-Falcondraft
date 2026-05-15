@@ -24,16 +24,19 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SettingsNav() {
+export function SettingsNav({ showBilling }: { showBilling: boolean }) {
   const pathname = usePathname();
   const { t } = useI18n();
+  const visibleItems = settingsItems.filter(
+    (item) => showBilling || item.href !== "/dashboard/settings/billing",
+  );
 
   return (
     <nav
       aria-label={t("settings.title")}
       className="bg-background flex gap-1 overflow-x-auto border-b"
     >
-      {settingsItems.map((item) => (
+      {visibleItems.map((item) => (
         <Link
           key={item.href}
           href={item.href}

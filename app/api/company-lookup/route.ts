@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const companyLookupSchema = z.object({
   companyName: z.string().trim().min(2, "Nom d’entreprise requis."),
@@ -221,6 +224,39 @@ function jsonError(message: string, status: number, reason: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = await getSupabaseServerClient();
+
+  if (!supabase) {
+    return jsonError("Recherche indisponible.", 500, "supabase_unconfigured");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return jsonError("Session requise.", 401, "session_missing");
+  }
+
+  const adminSupabase = getSupabaseAdminClient();
+
+  if (!adminSupabase) {
+    return jsonError("Recherche indisponible.", 500, "service_role_unconfigured");
+  }
+
+  const context = await loadUserOrganizationContextWithAdmin(
+    user,
+    adminSupabase,
+  );
+
+  if (!context.membership || !context.organization) {
+    return jsonError(
+      "Workspace actif requis.",
+      403,
+      "active_membership_required",
+    );
+  }
+
   const apiKey = process.env.PAPPERS_API_KEY;
 
   if (!apiKey) {

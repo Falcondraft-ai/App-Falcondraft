@@ -182,7 +182,7 @@ function NavList({
       </div>
 
       {showInternalAdmin ? (
-        <div className="border-t pt-4">
+        <div className="border-t border-[#c69a61]/55 pt-4">
           <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-white/[0.45] uppercase">
             {t("nav.internal")}
           </p>
@@ -226,7 +226,9 @@ function NavList({
             })}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="border-t border-[#c69a61]/55" aria-hidden="true" />
+      )}
     </nav>
   );
 }
@@ -280,8 +282,8 @@ export function DashboardShell({
   }
 
   return (
-    <div className="dark:bg-background min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(198,154,97,0.18),transparent_30rem),#e7dece]">
-      <aside className="fixed inset-y-0 left-0 hidden w-[17.5rem] border-r border-[#cfc2ad] bg-[#142033] text-[#f7f1e8] lg:flex lg:flex-col">
+    <div className="bg-background text-foreground min-h-dvh">
+      <aside className="fixed inset-y-0 left-0 hidden w-[17.5rem] border-r border-[#cfc2ad] bg-[#142033] text-[#f7f1e8] dark:border-border lg:flex lg:flex-col">
         <SidebarBrandHeader />
         <WorkspaceContext organization={organization} />
         <div className="flex-1 px-3 py-4">
@@ -295,7 +297,7 @@ export function DashboardShell({
       </aside>
 
       <div className="lg:pl-[17.5rem]">
-        <header className="dark:bg-background/95 sticky top-0 z-40 border-b bg-[#e7dece]/95 backdrop-blur">
+        <header className="bg-background/95 sticky top-0 z-40 border-b backdrop-blur">
           <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -392,7 +394,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[92rem] px-4 py-5 sm:px-6 lg:px-7">
+        <main className="mx-auto w-full max-w-[92rem] px-3 py-4 sm:px-6 sm:py-5 lg:px-7">
           {children}
         </main>
       </div>

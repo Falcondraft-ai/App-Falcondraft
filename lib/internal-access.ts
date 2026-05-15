@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isWorkspaceManager } from "@/lib/auth/workspace-permissions";
 import type { CurrentUserContext } from "@/lib/auth/session";
 import { normalizeEmail } from "@/lib/invitations/shared";
 
@@ -69,10 +70,14 @@ export function canViewInternalAdmin(context: CurrentUserContext) {
     return false;
   }
 
+  if (!isWorkspaceManager(context.membership.role)) {
+    return false;
+  }
+
   const allowedEmails = getInternalAdminEmails();
 
   if (allowedEmails.length === 0) {
-    return true;
+    return process.env.NODE_ENV !== "production";
   }
 
   const userEmail = normalizeEmail(context.user.email ?? "");

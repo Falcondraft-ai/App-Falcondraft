@@ -29,13 +29,20 @@ const sizeStyles = {
 
 function BrandSymbol({ className }: { className?: string }) {
   return (
-    <span className={cn("relative flex shrink-0 items-center", className)}>
+    <span
+      className={cn(
+        "relative flex shrink-0 items-center justify-center rounded-md",
+        "dark:bg-[#f7f1e8] dark:p-1 dark:ring-1 dark:ring-white/10 dark:shadow-[0_0_22px_rgba(198,154,97,0.18)]",
+        className,
+      )}
+    >
       <Image
         src="/falcondraft-logo.png"
         alt="FalconDraft"
         width={363}
         height={384}
         className="h-full w-auto object-contain"
+        data-slot="brand-symbol-light"
         priority
       />
     </span>

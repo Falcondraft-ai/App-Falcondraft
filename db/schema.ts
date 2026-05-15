@@ -15,6 +15,10 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   slug: text("slug").notNull(),
   billingStatus: text("billing_status").notNull(),
+  setupAmount: numeric("setup_amount", { mode: "number" }),
+  monthlySubscriptionAmount: numeric("monthly_subscription_amount", {
+    mode: "number",
+  }),
   allowMemberCompanyVisibility: boolean("allow_member_company_visibility")
     .default(true)
     .notNull(),

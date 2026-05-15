@@ -5,6 +5,7 @@ import { ExternalLink, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { LoadingDots } from "@/components/common/loading-dots";
 import { Button } from "@/components/ui/button";
 import {
@@ -187,6 +188,7 @@ export function ProposalPanel({
   editUrl?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const sections = React.useMemo(() => parseProposalContent(content), [content]);
   const [isPolling, setIsPolling] = React.useState(false);
@@ -223,8 +225,8 @@ export function ProposalPanel({
 
       if (becameAvailable) {
         setJustCompleted(true);
-        toast.success("Proposition prête", {
-          description: "La proposition est disponible dans le dossier.",
+        toast.success(t("dealDetail.proposalReady"), {
+          description: t("dealDetail.proposalReadyDescription"),
         });
 
         const timer = window.setTimeout(() => setJustCompleted(false), 3200);
@@ -259,9 +261,7 @@ export function ProposalPanel({
   }, [effectiveHasProposal, isPolling, router]);
 
   async function deleteProposal() {
-    const confirmed = window.confirm(
-      "Supprimer la proposition ? Vous pourrez modifier le dossier puis la régénérer ensuite.",
-    );
+    const confirmed = window.confirm(t("dealDetail.proposalDeleteConfirm"));
 
     if (!confirmed) {
       return;
@@ -283,9 +283,9 @@ export function ProposalPanel({
         "message" in result &&
         typeof result.message === "string"
           ? result.message
-          : "La proposition n’a pas pu être supprimée.";
+          : t("dealDetail.proposalDeleteFallback");
 
-      toast.error("Suppression impossible", {
+      toast.error(t("dealDetail.deleteImpossible"), {
         description: message,
       });
       return;
@@ -294,8 +294,8 @@ export function ProposalPanel({
     window.localStorage.removeItem(getProposalGenerationStorageKey(dealId));
     window.dispatchEvent(new Event(PROPOSAL_GENERATION_EVENT));
     setIsLocallyDeleted(true);
-    toast.success("Proposition supprimée", {
-      description: "Vous pouvez modifier le dossier puis relancer la génération.",
+    toast.success(t("dealDetail.proposalDeleted"), {
+      description: t("dealDetail.proposalDeletedDescription"),
     });
     router.refresh();
   }
@@ -306,17 +306,17 @@ export function ProposalPanel({
         <p className="text-sm font-medium">
           {isPolling ? (
             <>
-              Génération de la proposition en cours
+              {t("dealDetail.proposalGenerating")}
               <LoadingDots />
             </>
           ) : (
-            "Proposition en attente"
+            t("dealDetail.proposalWaiting")
           )}
         </p>
         <p className="text-muted-foreground mt-2 text-sm leading-6">
           {isPolling
-            ? "La page se mettra à jour automatiquement dès que la proposition sera disponible."
-            : "Lancez la génération depuis le panneau d’actions pour préparer cette section."}
+            ? t("dealDetail.proposalPolling")
+            : t("dealDetail.proposalStart")}
         </p>
       </div>
     );
@@ -340,9 +340,9 @@ export function ProposalPanel({
       <Dialog>
         <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-medium">Lien d’édition</p>
+            <p className="text-sm font-medium">{t("dealDetail.editLink")}</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              Accès à l’espace de travail externe pour ajuster la proposition.
+              {t("dealDetail.editLinkDescription")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -350,12 +350,12 @@ export function ProposalPanel({
               <Button asChild type="button" size="sm" className="shadow-none">
                 <a href={editUrl} target="_blank" rel="noreferrer">
                   <ExternalLink aria-hidden="true" />
-                  Éditer
+                  {t("dealDetail.edit")}
                 </a>
               </Button>
             ) : (
               <Button type="button" size="sm" disabled>
-                Édition indisponible
+                {t("dealDetail.editUnavailable")}
               </Button>
             )}
             <Button
@@ -367,27 +367,29 @@ export function ProposalPanel({
               onClick={() => void deleteProposal()}
             >
               <Trash2 aria-hidden="true" />
-              {isDeletingProposal ? "Suppression..." : "Supprimer"}
+              {isDeletingProposal ? t("deals.deleting") : t("deals.delete")}
             </Button>
           </div>
         </div>
 
         <div className="mt-4">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-medium">Contenu de la proposition</p>
+            <p className="text-sm font-medium">
+              {t("dealDetail.proposalContent")}
+            </p>
             <DialogTrigger asChild>
               <Button type="button" variant="outline" size="sm">
                 <ExternalLink aria-hidden="true" />
-                Ouvrir le contenu
+                {t("dealDetail.openContent")}
               </Button>
             </DialogTrigger>
           </div>
           <ProposalSectionList sections={previewSections} compact />
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Contenu de la proposition</DialogTitle>
+              <DialogTitle>{t("dealDetail.proposalContent")}</DialogTitle>
               <DialogDescription>
-                Version complète et structurée de la proposition commerciale.
+                {t("dealDetail.proposalFullDescription")}
               </DialogDescription>
             </DialogHeader>
             <ProposalSectionList sections={sections} />
@@ -397,8 +399,9 @@ export function ProposalPanel({
 
       {sections.length > previewSections.length ? (
         <p className="text-muted-foreground mt-3 text-xs">
-          {sections.length - previewSections.length} section(s) supplémentaire(s)
-          dans la vue complète.
+          {t("dealDetail.extraSections", {
+            count: sections.length - previewSections.length,
+          })}
         </p>
       ) : null}
     </motion.div>

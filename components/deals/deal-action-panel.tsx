@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { LoadingDots } from "@/components/common/loading-dots";
 import { GeneratedDocumentButtons } from "@/components/deals/generated-documents-panel";
 import { ProposalValidationDialog } from "@/components/deals/proposal-validation-dialog";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import {
   CALL_SUMMARY_GENERATION_EVENT,
@@ -128,6 +129,7 @@ export function DealActionPanel({
   finalDocument?: GeneratedDealDocument;
 }) {
   const router = useRouter();
+  const { language, t } = useI18n();
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
     React.useState(false);
   const [isTriggeringProposal, setIsTriggeringProposal] = React.useState(false);
@@ -148,6 +150,51 @@ export function DealActionPanel({
     hasCallSummary,
     hasProposal,
   );
+  const copy =
+    language === "en"
+      ? {
+          labels: [
+            "Generate call summary",
+            "Generate proposal",
+            "Edit proposal",
+            "Approve proposal",
+            "Download quote",
+            "Download final PDF",
+            "Open signature link",
+            "Prepare email draft",
+          ],
+          triggering: "Starting...",
+          triggeringShort: "Starting",
+          generating: "Generation in progress",
+          launching: "Starting",
+          processing: "Processing",
+          signatureComing: "Signature — feature coming soon",
+          next: "Next",
+          ready: "Ready",
+          validateFirst:
+            "Approve the proposal first to generate the final document.",
+          archiveLoading: "Archiving...",
+          archive: "Archive deal",
+          deleteLoading: "Deleting...",
+          delete: "Delete deal",
+        }
+      : {
+          labels: dealActions.map((action) => action.label),
+          triggering: "Déclenchement...",
+          triggeringShort: "Déclenchement",
+          generating: "Génération en cours",
+          launching: "Lancement",
+          processing: "Traitement en cours",
+          signatureComing: "Signature — fonctionnalité à venir",
+          next: "Suivant",
+          ready: "Prêt",
+          validateFirst:
+            "Validez d’abord la proposition pour générer le document final.",
+          archiveLoading: "Archivage...",
+          archive: "Archiver le dossier",
+          deleteLoading: "Suppression...",
+          delete: "Supprimer le dossier",
+        };
 
   React.useEffect(() => {
     const storageKey = getCallSummaryGenerationStorageKey(dealId);
@@ -450,7 +497,7 @@ export function DealActionPanel({
               compact
               fullWidth
               showOpen={false}
-              downloadLabel="Télécharger le devis"
+              downloadLabel={t("common.actions.downloadQuote")}
             />
           );
         }
@@ -463,7 +510,7 @@ export function DealActionPanel({
               compact
               fullWidth
               showOpen={false}
-              downloadLabel="Télécharger le PDF final"
+              downloadLabel={t("common.actions.downloadFinalDocument")}
             />
           );
         }
@@ -523,36 +570,36 @@ export function DealActionPanel({
           >
             <span className="truncate text-left">
               {index === 0 && isTriggeringCallSummary ? (
-                "Déclenchement..."
+                copy.triggering
               ) : index === 0 && isCallSummaryGenerating ? (
                 <>
-                  Génération en cours
+                  {copy.generating}
                   <LoadingDots />
                 </>
               ) : index === 1 && isTriggeringProposal ? (
                 <>
-                  Déclenchement
+                  {copy.triggeringShort}
                   <LoadingDots />
                 </>
               ) : index === 1 && isProposalGenerating ? (
                 <>
-                  Génération en cours
+                  {copy.generating}
                   <LoadingDots />
                 </>
               ) : isEmailDraftAction && isTriggeringEmailDraft ? (
                 <>
-                  Lancement
+                  {copy.launching}
                   <LoadingDots />
                 </>
               ) : localActionIndex === index ? (
                 <>
-                  Traitement en cours
+                  {copy.processing}
                   <LoadingDots />
                 </>
               ) : isSignatureAction ? (
-                "Signature — fonctionnalité à venir"
+                copy.signatureComing
               ) : (
-                action.label
+                copy.labels[index]
               )}
             </span>
             {isAvailable &&
@@ -562,7 +609,7 @@ export function DealActionPanel({
             !isTriggeringEmailDraft &&
             localActionIndex === null ? (
               <span className="text-[10px] font-medium tracking-[0.12em] uppercase opacity-70">
-                {isNextAction ? "Suivant" : "Prêt"}
+                {isNextAction ? copy.next : copy.ready}
               </span>
             ) : null}
           </Button>
@@ -576,7 +623,7 @@ export function DealActionPanel({
           <div key={action.label} className="space-y-1.5">
             {button}
             <p className="text-muted-foreground px-1 text-xs leading-5">
-              Validez d’abord la proposition pour générer le document final.
+              {copy.validateFirst}
             </p>
           </div>
         );
@@ -598,7 +645,7 @@ export function DealActionPanel({
           }
           onClick={() => void archiveDeal()}
         >
-          {isArchivingDeal ? "Archivage..." : "Archiver le dossier"}
+          {isArchivingDeal ? copy.archiveLoading : copy.archive}
         </Button>
         <Button
           type="button"
@@ -616,7 +663,7 @@ export function DealActionPanel({
           }
           onClick={() => void deleteDeal()}
         >
-          {isDeletingDeal ? "Suppression..." : "Supprimer le dossier"}
+          {isDeletingDeal ? copy.deleteLoading : copy.delete}
         </Button>
       </div>
       <ProposalValidationDialog

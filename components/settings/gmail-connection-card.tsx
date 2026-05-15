@@ -5,6 +5,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { EmailConnectionStatus } from "@/lib/email/connections";
@@ -13,31 +14,33 @@ type GmailConnectionCardProps = {
   initialConnection: EmailConnectionStatus | null;
 };
 
-function getToastMessage(status: string | null) {
+function getToastKey(status: string | null) {
   if (status === "connected") {
-    return "Gmail est connecté à FalconDraft.";
+    return "integrations.gmail.connectedToast" as const;
   }
 
   if (status === "denied") {
-    return "Connexion Gmail annulée.";
+    return "integrations.gmail.denied" as const;
   }
 
   if (status === "invalid" || status === "forbidden") {
-    return "Connexion Gmail refusée pour ce workspace.";
+    return "integrations.gmail.refused" as const;
   }
 
   if (status === "unavailable") {
-    return "Configuration Gmail indisponible.";
+    return "integrations.gmail.unavailable" as const;
   }
 
   if (status === "error") {
-    return "Connexion Gmail impossible. Réessayez depuis les paramètres.";
+    return "integrations.gmail.error" as const;
   }
 
   return null;
 }
 
 function ConnectionStatus({ connected }: { connected: boolean }) {
+  const { t } = useI18n();
+
   return (
     <span
       className={cn(
@@ -54,7 +57,9 @@ function ConnectionStatus({ connected }: { connected: boolean }) {
         )}
         aria-hidden="true"
       />
-      {connected ? "Connecté" : "Non connecté"}
+      {connected
+        ? t("integrations.gmail.connected")
+        : t("integrations.gmail.disconnected")}
     </span>
   );
 }
@@ -63,24 +68,25 @@ export function GmailConnectionCard({
   initialConnection,
 }: GmailConnectionCardProps) {
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   const [connection, setConnection] = React.useState(initialConnection);
   const [isDisconnecting, setIsDisconnecting] = React.useState(false);
   const shouldReduceMotion = useReducedMotion();
   const connected = connection?.status === "connected";
 
   React.useEffect(() => {
-    const message = getToastMessage(searchParams.get("gmail"));
+    const messageKey = getToastKey(searchParams.get("gmail"));
 
-    if (!message) {
+    if (!messageKey) {
       return;
     }
 
     if (searchParams.get("gmail") === "connected") {
-      toast.success(message);
+      toast.success(t(messageKey));
     } else {
-      toast.error(message);
+      toast.error(t(messageKey));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   async function disconnectGmail() {
     setIsDisconnecting(true);
@@ -95,14 +101,16 @@ export function GmailConnectionCard({
       };
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message ?? "Déconnexion impossible.");
+        throw new Error(payload.message ?? t("integrations.gmail.disconnectError"));
       }
 
       setConnection(null);
-      toast.success("Gmail est déconnecté.");
+      toast.success(t("integrations.gmail.disconnectedToast"));
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Déconnexion impossible.",
+        error instanceof Error
+          ? error.message
+          : t("integrations.gmail.disconnectError"),
       );
     } finally {
       setIsDisconnecting(false);
@@ -140,7 +148,7 @@ export function GmailConnectionCard({
                     Gmail
                   </h2>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Compte Google personnel ou professionnel
+                    {t("integrations.gmail.personal")}
                   </p>
                 </div>
               </div>
@@ -149,19 +157,17 @@ export function GmailConnectionCard({
 
             <div className="text-muted-foreground mt-5 space-y-3 text-sm leading-6">
               <p>
-                FalconDraft crée uniquement des brouillons dans votre Gmail.
-                Aucun email n’est envoyé automatiquement.
+                {t("integrations.gmail.body1")}
               </p>
               <p>
-                Vous gardez toujours le contrôle : relisez, modifiez puis
-                envoyez depuis Gmail quand vous êtes prêt.
+                {t("integrations.gmail.body2")}
               </p>
             </div>
 
             {connected ? (
               <div className="bg-background/70 mt-5 rounded-xl border p-3">
                 <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
-                  Compte connecté
+                  {t("integrations.gmail.connectedAccount")}
                 </p>
                 <p className="mt-1 truncate text-sm font-medium">
                   {connection.email}
@@ -179,7 +185,9 @@ export function GmailConnectionCard({
                   onClick={disconnectGmail}
                   className="min-w-36"
                 >
-                  {isDisconnecting ? "Déconnexion…" : "Déconnecter"}
+                  {isDisconnecting
+                    ? t("integrations.gmail.disconnecting")
+                    : t("integrations.gmail.disconnect")}
                 </Button>
               ) : (
                 <Button
@@ -187,7 +195,9 @@ export function GmailConnectionCard({
                   size="default"
                   className="min-w-44 shadow-sm transition-transform hover:-translate-y-0.5"
                 >
-                  <a href="/api/email/oauth/google/start">Connecter Gmail</a>
+                  <a href="/api/email/oauth/google/start">
+                    {t("integrations.gmail.connect")}
+                  </a>
                 </Button>
               )}
             </div>
@@ -217,23 +227,21 @@ export function GmailConnectionCard({
                     Outlook / Microsoft 365
                   </h2>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Connexion Microsoft à venir
+                    {t("integrations.microsoft.subtitle")}
                   </p>
                 </div>
               </div>
               <span className="bg-secondary/60 text-muted-foreground rounded-full border px-2.5 py-1 text-xs font-medium">
-                Bientôt
+                {t("integrations.microsoft.comingSoon")}
               </span>
             </div>
 
             <div className="text-muted-foreground mt-5 space-y-3 text-sm leading-6">
               <p>
-                Cette option suivra la même logique que Gmail : préparation de
-                brouillons uniquement.
+                {t("integrations.microsoft.body1")}
               </p>
               <p>
-                Elle sera activée lorsque la connexion Microsoft 365 sera
-                ajoutée à FalconDraft.
+                {t("integrations.microsoft.body2")}
               </p>
             </div>
 
@@ -245,7 +253,7 @@ export function GmailConnectionCard({
                 disabled
                 className="min-w-44"
               >
-                Connexion à venir
+                {t("integrations.microsoft.cta")}
               </Button>
             </div>
           </div>

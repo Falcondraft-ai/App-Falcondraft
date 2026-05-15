@@ -46,5 +46,5 @@ export type BillingSubscriptionSummary = {
   planName: string;
   monthlyPrice: string;
   status: string;
-  nextInvoiceLabel: string;
+  nextInvoiceLabel: string | null;
 };

@@ -7,7 +7,6 @@ import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function ForgotPasswordForm() {
   const { t } = useI18n();
@@ -21,22 +20,19 @@ export function ForgotPasswordForm() {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
         const email = String(formData.get("email") ?? "").trim();
-        const supabase = getSupabaseBrowserClient();
-
-        if (!supabase) {
-          toast.error(t("auth.forgot.unavailable"), {
-            description: t("auth.login.unavailableDescription"),
-          });
-          return;
-        }
-
         setIsSubmitting(true);
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/confirm?next=/update-password`,
-        });
+        const response = await fetch("/api/auth/password-reset", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+          }),
+        }).catch(() => null);
         setIsSubmitting(false);
 
-        if (error) {
+        if (!response?.ok) {
           toast.error(t("auth.forgot.error"), {
             description: t("auth.forgot.errorDescription"),
           });

@@ -1,11 +1,16 @@
 import { SettingsNav } from "@/components/layout/settings-nav";
 import { T } from "@/components/i18n/translated-text";
+import { requireCurrentUserContext } from "@/lib/auth/session";
+import { canManageWorkspace } from "@/lib/auth/workspace-permissions";
 
-export default function SettingsLayout({
+export default async function SettingsLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const context = await requireCurrentUserContext();
+  const showBilling = canManageWorkspace(context.membership?.role);
+
   return (
     <div className="space-y-6">
       <div>
@@ -19,7 +24,7 @@ export default function SettingsLayout({
           <T tx="settings.description" />
         </p>
       </div>
-      <SettingsNav />
+      <SettingsNav showBilling={showBilling} />
       {children}
     </div>
   );
