@@ -2,7 +2,6 @@ import "server-only";
 
 import { isWorkspaceManager } from "@/lib/auth/workspace-permissions";
 import type { CurrentUserContext } from "@/lib/auth/session";
-import { normalizeEmail } from "@/lib/invitations/shared";
 
 function getConfiguredFalconDraftWorkspaceId() {
   return process.env.FALCONDRAFT_INTERNAL_WORKSPACE_ID?.trim() || null;
@@ -22,19 +21,6 @@ function getConfiguredFalconDraftWorkspaceSlugs() {
   return rawValue
     .split(",")
     .map((slug) => normalizeWorkspaceIdentifier(slug))
-    .filter(Boolean);
-}
-
-function getInternalAdminEmails() {
-  const rawValue = process.env.FALCONDRAFT_INTERNAL_ADMIN_EMAILS?.trim();
-
-  if (!rawValue) {
-    return [];
-  }
-
-  return rawValue
-    .split(",")
-    .map((email) => normalizeEmail(email))
     .filter(Boolean);
 }
 
@@ -70,17 +56,5 @@ export function canViewInternalAdmin(context: CurrentUserContext) {
     return false;
   }
 
-  if (!isWorkspaceManager(context.membership.role)) {
-    return false;
-  }
-
-  const allowedEmails = getInternalAdminEmails();
-
-  if (allowedEmails.length === 0) {
-    return process.env.NODE_ENV !== "production";
-  }
-
-  const userEmail = normalizeEmail(context.user.email ?? "");
-
-  return allowedEmails.includes(userEmail);
+  return isWorkspaceManager(context.membership.role);
 }

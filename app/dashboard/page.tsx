@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     role: context.membership?.role,
     allowMemberCompanyVisibility:
       context.organization?.allow_member_company_visibility ?? true,
-    scope: "organization",
+    scope: "mine",
   });
 
   return (

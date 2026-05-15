@@ -890,7 +890,7 @@ export function InternalAdminConsole({
                   <section className="space-y-3">
                     <div>
                       <p className="text-muted-foreground text-xs font-semibold uppercase">
-                        1. Entreprise
+                        1. Organisation
                       </p>
                       <h3 className="mt-1 text-sm font-semibold">
                         Identité client
@@ -899,7 +899,7 @@ export function InternalAdminConsole({
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1.5 md:col-span-2">
                         <Label htmlFor="workspace-name">
-                          Nom officiel de l’entreprise
+                          Nom du client ou de l’organisation
                         </Label>
                         <Input
                           id="workspace-name"
@@ -912,7 +912,7 @@ export function InternalAdminConsole({
                               slug: slugTouched ? current.slug : slugify(name),
                             }));
                           }}
-                          placeholder="Ex. Cabinet Martin"
+                          placeholder="Ex. Cabinet Martin, Association Horizon"
                           required
                         />
                       </div>

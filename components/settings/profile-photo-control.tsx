@@ -3,8 +3,10 @@
 import * as React from "react";
 import { toast } from "sonner";
 import {
-  PROFILE_PHOTO_STORAGE_KEY,
+  fetchProfilePhotoUrl,
+  LEGACY_PROFILE_PHOTO_STORAGE_KEY,
   PROFILE_PHOTO_UPDATED_EVENT,
+  type ProfilePhotoResponse,
 } from "@/lib/profile-photo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -43,13 +45,19 @@ export function ProfilePhotoControl({
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [photoUrl, setPhotoUrl] = React.useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [isUpdating, setIsUpdating] = React.useState(false);
 
   React.useEffect(() => {
-    setPhotoUrl(window.localStorage.getItem(PROFILE_PHOTO_STORAGE_KEY));
+    window.localStorage.removeItem(LEGACY_PROFILE_PHOTO_STORAGE_KEY);
+
+    void fetchProfilePhotoUrl().then((url) => {
+      setPhotoUrl(url);
+    });
   }, []);
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
 
     if (!file) {
       return;
@@ -59,7 +67,6 @@ export function ProfilePhotoControl({
       toast.error("Format non pris en charge", {
         description: "Choisissez une image au format PNG, JPG ou WebP.",
       });
-      event.currentTarget.value = "";
       return;
     }
 
@@ -67,35 +74,57 @@ export function ProfilePhotoControl({
       toast.error("Image trop lourde", {
         description: "La photo doit rester sous 2 Mo.",
       });
-      event.currentTarget.value = "";
       return;
     }
 
-    const reader = new FileReader();
+    const formData = new FormData();
+    formData.set("photo", file);
+    setIsUpdating(true);
 
-    reader.onload = () => {
-      const result = reader.result;
+    const response = await fetch("/api/profile-photo", {
+      method: "POST",
+      body: formData,
+    }).catch(() => null);
 
-      if (typeof result !== "string") {
-        toast.error("Lecture impossible", {
-          description: "La photo n’a pas pu être préparée.",
-        });
-        return;
-      }
+    const result = (await response?.json().catch(() => ({
+      success: false,
+      message: "La photo n’a pas pu être enregistrée.",
+    }))) as ProfilePhotoResponse | undefined;
 
-      window.localStorage.setItem(PROFILE_PHOTO_STORAGE_KEY, result);
-      setPhotoUrl(result);
-      setIsDialogOpen(false);
-      notifyProfilePhotoUpdated();
-      toast.success("Photo de profil mise à jour.");
-    };
+    setIsUpdating(false);
 
-    reader.readAsDataURL(file);
-    event.currentTarget.value = "";
+    if (!response?.ok || !result?.success) {
+      toast.error("Photo non enregistrée", {
+        description:
+          result && "message" in result
+            ? result.message
+            : "La photo n’a pas pu être enregistrée.",
+      });
+      return;
+    }
+
+    setPhotoUrl(result.url);
+    setIsDialogOpen(false);
+    notifyProfilePhotoUpdated();
+    toast.success("Photo de profil mise à jour.");
   }
 
-  function removePhoto() {
-    window.localStorage.removeItem(PROFILE_PHOTO_STORAGE_KEY);
+  async function removePhoto() {
+    setIsUpdating(true);
+
+    const response = await fetch("/api/profile-photo", {
+      method: "DELETE",
+    }).catch(() => null);
+
+    setIsUpdating(false);
+
+    if (!response?.ok) {
+      toast.error("Photo non retirée", {
+        description: "La photo n’a pas pu être supprimée.",
+      });
+      return;
+    }
+
     setPhotoUrl(null);
     notifyProfilePhotoUpdated();
     toast.success("Photo de profil retirée.");
@@ -152,14 +181,19 @@ export function ProfilePhotoControl({
             </div>
             <div className="flex justify-end">
               <Button type="button" onClick={() => inputRef.current?.click()}>
-                Sélectionner une image
+                {isUpdating ? "Enregistrement..." : "Sélectionner une image"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
         {photoUrl ? (
-          <Button type="button" variant="ghost" onClick={removePhoto}>
-            Retirer
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isUpdating}
+            onClick={() => void removePhoto()}
+          >
+            {isUpdating ? "Mise à jour..." : "Retirer"}
           </Button>
         ) : null}
       </div>

@@ -34,7 +34,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-  PROFILE_PHOTO_STORAGE_KEY,
+  fetchProfilePhotoUrl,
+  LEGACY_PROFILE_PHOTO_STORAGE_KEY,
   PROFILE_PHOTO_UPDATED_EVENT,
 } from "@/lib/profile-photo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -254,17 +255,16 @@ export function DashboardShell({
 
   React.useEffect(() => {
     function readProfilePhoto() {
-      setProfilePhotoUrl(
-        window.localStorage.getItem(PROFILE_PHOTO_STORAGE_KEY),
-      );
+      window.localStorage.removeItem(LEGACY_PROFILE_PHOTO_STORAGE_KEY);
+      void fetchProfilePhotoUrl().then((url) => {
+        setProfilePhotoUrl(url);
+      });
     }
 
     readProfilePhoto();
-    window.addEventListener("storage", readProfilePhoto);
     window.addEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
 
     return () => {
-      window.removeEventListener("storage", readProfilePhoto);
       window.removeEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
     };
   }, []);

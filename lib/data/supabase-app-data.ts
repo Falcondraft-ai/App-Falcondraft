@@ -791,6 +791,24 @@ function makeChartData(
   return [...monthMap.values()].slice(-6);
 }
 
+function getVisibleDocumentRows(documents: DocumentRow[]) {
+  const latestDocumentsByTypeAndDeal = new Map<string, DocumentRow>();
+
+  for (const document of documents) {
+    if (!["quote_pdf", "final_document_pdf"].includes(document.type)) {
+      continue;
+    }
+
+    const key = `${document.deal_id}:${document.type}`;
+
+    if (!latestDocumentsByTypeAndDeal.has(key)) {
+      latestDocumentsByTypeAndDeal.set(key, document);
+    }
+  }
+
+  return [...latestDocumentsByTypeAndDeal.values()];
+}
+
 export async function getDashboardData(
   organizationId: string | null,
   access?: WorkspaceDataAccess,
@@ -816,6 +834,7 @@ export async function getDashboardData(
     getAuditLogsForOrganization(organizationId, undefined, access),
   ]);
   const activeDeals = deals.filter((deal) => deal.status !== "completed");
+  const visibleDocuments = getVisibleDocumentRows(documents);
   const readyDeals = deals.filter((deal) =>
     ["proposal_ready", "final_document_ready", "signature_ready"].includes(
       deal.status,
@@ -825,7 +844,6 @@ export async function getDashboardData(
     [
       "proposal_ready",
       "validation_pending",
-      "final_document_ready",
       "signature_ready",
       "failed",
     ].includes(deal.status),
@@ -835,7 +853,7 @@ export async function getDashboardData(
     deals,
     activeDeals,
     readyDeals,
-    readyDocumentCount: documents.filter((document) =>
+    readyDocumentCount: visibleDocuments.filter((document) =>
       ["ready", "sent"].includes(normalizeDocumentStatus(document)),
     ).length,
     attentionCount,
@@ -927,21 +945,8 @@ export async function getDocumentsForOrganization(
     getDealsForOrganization(organizationId, { archive: "all", access }),
   ]);
   const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
-  const latestDocumentsByTypeAndDeal = new Map<string, DocumentRow>();
 
-  for (const document of documents) {
-    if (!["quote_pdf", "final_document_pdf"].includes(document.type)) {
-      continue;
-    }
-
-    const key = `${document.deal_id}:${document.type}`;
-
-    if (!latestDocumentsByTypeAndDeal.has(key)) {
-      latestDocumentsByTypeAndDeal.set(key, document);
-    }
-  }
-
-  return [...latestDocumentsByTypeAndDeal.values()].map((document) => {
+  return getVisibleDocumentRows(documents).map((document) => {
     const deal = dealsById.get(document.deal_id);
 
     return {
