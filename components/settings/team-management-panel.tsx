@@ -4,6 +4,16 @@ import * as React from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/empty-state";
 import { useI18n } from "@/components/i18n/language-provider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,7 +134,8 @@ export function TeamManagementPanel({
     initialPendingInvitations,
   );
   const [error, setError] = React.useState<string | null>(null);
-  const { t } = useI18n();
+  const [memberToRemove, setMemberToRemove] = React.useState<TeamMember | null>(null);
+  const { t, language } = useI18n();
   const currentRole = normalizeWorkspaceRole(currentUserRole);
   const activeManagerCount = members.filter(
     (member) => member.roleKey === "manager",
@@ -320,14 +331,7 @@ export function TeamManagementPanel({
       return;
     }
 
-    const confirmed = window.confirm(
-      t("team.confirmRemove", { name: member.name }),
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setMemberToRemove(null);
     setError(null);
     setRemovingMemberId(member.id);
 
@@ -445,7 +449,7 @@ export function TeamManagementPanel({
                           variant="outline"
                           size="sm"
                           disabled={!canRemoveMember(member) || isRemoving}
-                          onClick={() => void handleRemoveMember(member)}
+                          onClick={() => setMemberToRemove(member)}
                         >
                           {isRemoving ? t("team.removing") : t("team.remove")}
                         </Button>
@@ -469,6 +473,23 @@ export function TeamManagementPanel({
       {error ? (
         <p className="text-destructive text-sm leading-6">{error}</p>
       ) : null}
+
+      <AlertDialog open={memberToRemove !== null} onOpenChange={(open) => { if (!open) setMemberToRemove(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === "en" ? "Remove member" : "Retirer le membre"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {memberToRemove ? t("team.confirmRemove", { name: memberToRemove.name }) : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "en" ? "Cancel" : "Annuler"}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (memberToRemove) void handleRemoveMember(memberToRemove); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {language === "en" ? "Remove" : "Retirer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {canManageInvitations ? (
         <section className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">

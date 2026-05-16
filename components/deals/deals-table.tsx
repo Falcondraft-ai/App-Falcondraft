@@ -6,6 +6,16 @@ import * as React from "react";
 import { Archive, Ellipsis, RotateCcw, Search, Trash2 } from "lucide-react";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { useI18n } from "@/components/i18n/language-provider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -57,8 +67,12 @@ export function DealsTable({
   mode?: "active" | "archived";
 }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [query, setQuery] = React.useState("");
+  const [confirmAction, setConfirmAction] = React.useState<{
+    type: "delete" | "archive";
+    deal: Deal;
+  } | null>(null);
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [deletedDealIds, setDeletedDealIds] = React.useState<Set<string>>(
     () => new Set(),
@@ -71,14 +85,7 @@ export function DealsTable({
   );
 
   async function deleteDeal(deal: Deal) {
-    const confirmed = window.confirm(
-      `Supprimer définitivement le dossier “${deal.name}” ? Cette action est irréversible.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setConfirmAction(null);
     setDeletingDealId(deal.id);
 
     const response = await fetch(`/api/deals/${deal.id}`, {
@@ -113,16 +120,7 @@ export function DealsTable({
 
   async function updateArchiveState(deal: Deal) {
     const isArchivedMode = mode === "archived";
-    const confirmed = window.confirm(
-      isArchivedMode
-        ? `Restaurer le dossier “${deal.name}” dans le pipeline commercial ?`
-        : `Archiver le dossier “${deal.name}” ? Il sortira du pipeline commercial.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setConfirmAction(null);
     setArchivingDealId(deal.id);
 
     const response = await fetch(`/api/deals/${deal.id}/archive`, {
@@ -278,7 +276,7 @@ export function DealsTable({
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem
                         disabled={archivingDealId === deal.id}
-                        onSelect={() => void updateArchiveState(deal)}
+                        onSelect={() => setConfirmAction({ type: "archive", deal })}
                       >
                         {mode === "archived" ? (
                           <RotateCcw aria-hidden="true" />
@@ -294,7 +292,7 @@ export function DealsTable({
                       <DropdownMenuItem
                         variant="destructive"
                         disabled={deletingDealId === deal.id}
-                        onSelect={() => void deleteDeal(deal)}
+                        onSelect={() => setConfirmAction({ type: "delete", deal })}
                       >
                         <Trash2 aria-hidden="true" />
                         {deletingDealId === deal.id
@@ -314,6 +312,72 @@ export function DealsTable({
           {t("deals.emptyFiltered")}
         </div>
       ) : null}
+      <AlertDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === "delete"
+                ? language === "en"
+                  ? "Delete deal"
+                  : "Supprimer le dossier"
+                : mode === "archived"
+                  ? language === "en"
+                    ? "Restore deal"
+                    : "Restaurer le dossier"
+                  : language === "en"
+                    ? "Archive deal"
+                    : "Archiver le dossier"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === "delete"
+                ? language === "en"
+                  ? `Permanently delete "${confirmAction.deal.name}"? This action is irreversible.`
+                  : `Supprimer définitivement le dossier "${confirmAction.deal.name}" ? Cette action est irréversible.`
+                : mode === "archived"
+                  ? language === "en"
+                    ? `Restore "${confirmAction?.deal.name}" to the sales pipeline?`
+                    : `Restaurer le dossier "${confirmAction?.deal.name}" dans le pipeline commercial ?`
+                  : language === "en"
+                    ? `Archive "${confirmAction?.deal.name}"? It will be removed from the sales pipeline.`
+                    : `Archiver le dossier "${confirmAction?.deal.name}" ? Il sortira du pipeline commercial.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === "en" ? "Cancel" : "Annuler"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAction?.type === "delete")
+                  void deleteDeal(confirmAction.deal);
+                else if (confirmAction) void updateArchiveState(confirmAction.deal);
+              }}
+              className={
+                confirmAction?.type === "delete"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : ""
+              }
+            >
+              {confirmAction?.type === "delete"
+                ? language === "en"
+                  ? "Delete"
+                  : "Supprimer"
+                : mode === "archived"
+                  ? language === "en"
+                    ? "Restore"
+                    : "Restaurer"
+                  : language === "en"
+                    ? "Archive"
+                    : "Archiver"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

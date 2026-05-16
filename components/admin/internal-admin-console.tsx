@@ -15,6 +15,16 @@ import * as React from "react";
 import { toast } from "sonner";
 import { ActionCard } from "@/components/common/action-card";
 import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -359,6 +369,12 @@ export function InternalAdminConsole({
   const [deletingOrganizationId, setDeletingOrganizationId] = React.useState<
     string | null
   >(null);
+  const [confirmAction, setConfirmAction] = React.useState<{
+    type: string;
+    label: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   function toggleWorkspace(organizationId: string) {
     setExpandedIds((current) => {
@@ -620,14 +636,7 @@ export function InternalAdminConsole({
     organization: InternalAdminOrganization,
     account: InternalAdminWorkspaceAccount,
   ) {
-    const confirmed = window.confirm(
-      `Supprimer le compte ${account.email} de ce workspace ?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setConfirmAction(null);
     setDeletingMemberId(account.id);
 
     const response = await fetch(
@@ -672,14 +681,7 @@ export function InternalAdminConsole({
     organization: InternalAdminOrganization,
     invitation: InternalAdminWorkspaceInvitation,
   ) {
-    const confirmed = window.confirm(
-      `Supprimer l’invitation envoyée à ${invitation.email} ? Le lien d’invitation ne fonctionnera plus.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setConfirmAction(null);
     setDeletingInvitationId(invitation.id);
 
     const response = await fetch(
@@ -781,14 +783,7 @@ export function InternalAdminConsole({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Supprimer définitivement le workspace ${organization.name} ? Cette action supprimera ses données liées.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setConfirmAction(null);
     setDeletingOrganizationId(organization.id);
 
     const response = await fetch(
@@ -1167,7 +1162,14 @@ export function InternalAdminConsole({
                           organization.isInternalWorkspace ||
                           deletingOrganizationId === organization.id
                         }
-                        onClick={() => void deleteWorkspace(organization)}
+                        onClick={() =>
+                          setConfirmAction({
+                            type: "delete-workspace",
+                            label: "Supprimer le workspace",
+                            description: `Supprimer définitivement le workspace ${organization.name} ? Cette action supprimera ses données liées.`,
+                            onConfirm: () => void deleteWorkspace(organization),
+                          })
+                        }
                       >
                         <Trash2 />
                         {deletingOrganizationId === organization.id
@@ -1440,10 +1442,12 @@ export function InternalAdminConsole({
                                               )
                                             }
                                             onClick={() =>
-                                              void deleteAccount(
-                                                organization,
-                                                account,
-                                              )
+                                              setConfirmAction({
+                                                type: "delete-account",
+                                                label: "Supprimer le compte",
+                                                description: `Supprimer le compte ${account.email} de ce workspace ?`,
+                                                onConfirm: () => void deleteAccount(organization, account),
+                                              })
                                             }
                                           >
                                             <Trash2 />
@@ -1500,10 +1504,12 @@ export function InternalAdminConsole({
                                             invitation.id
                                           }
                                           onClick={() =>
-                                            void deleteInvitation(
-                                              organization,
-                                              invitation,
-                                            )
+                                            setConfirmAction({
+                                              type: "delete-invitation",
+                                              label: "Supprimer l’invitation",
+                                              description: `Supprimer l’invitation envoyée à ${invitation.email} ? Le lien d’invitation ne fonctionnera plus.`,
+                                              onConfirm: () => void deleteInvitation(organization, invitation),
+                                            })
                                           }
                                           aria-label={`Supprimer l’invitation envoyée à ${invitation.email}`}
                                         >
@@ -1767,6 +1773,23 @@ export function InternalAdminConsole({
           </AnimatePresence>
         )}
       </div>
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmAction?.label ?? "Confirmer"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.description ?? ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmAction?.onConfirm()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

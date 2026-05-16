@@ -8,6 +8,7 @@ import {
   FileText,
   LayoutDashboard,
   Menu,
+  MessageSquareText,
   Settings,
   ShieldCheck,
 } from "lucide-react";
@@ -64,6 +65,11 @@ const primaryNavItems: NavItem[] = [
     href: "/dashboard/documents",
     label: "nav.documents",
     icon: FileText,
+  },
+  {
+    href: "/dashboard/transcripts",
+    label: "nav.transcripts",
+    icon: MessageSquareText,
   },
   {
     href: "/dashboard/archive",

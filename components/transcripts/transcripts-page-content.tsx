@@ -1,0 +1,393 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import {
+  FileText,
+  Mic,
+  Radio,
+  Plus,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  MoreHorizontal,
+  Trash2,
+  Archive,
+  Eye,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/language-provider";
+import { EmptyState } from "@/components/common/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { Transcript } from "@/types/transcript";
+
+type DealOption = { id: string; name: string; clientCompanyName: string };
+
+function TranscriptStatusBadge({ status }: { status: Transcript["status"] }) {
+  const { t } = useI18n();
+  if (status === "ready") {
+    return (
+      <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+        <CheckCircle2 className="size-3" />
+        {t("transcripts.status.ready")}
+      </Badge>
+    );
+  }
+  if (status === "processing") {
+    return (
+      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <Clock className="size-3" />
+        {t("transcripts.status.processing")}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="gap-1 border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+      <AlertCircle className="size-3" />
+      {t("transcripts.status.error")}
+    </Badge>
+  );
+}
+
+function TranscriptSourceLabel({ source }: { source: Transcript["source"] }) {
+  const { t } = useI18n();
+  if (source === "manual_paste") return <span className="text-muted-foreground text-xs">{t("transcripts.source.paste")}</span>;
+  if (source === "audio_upload") return <span className="text-muted-foreground text-xs">{t("transcripts.source.audio")}</span>;
+  return <span className="text-muted-foreground text-xs">{t("transcripts.source.recording")}</span>;
+}
+
+function formatRelativeDate(dateString: string, language: string) {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function TranscriptRowActions({
+  transcript,
+  canDelete,
+  onRefresh,
+}: {
+  transcript: Transcript;
+  canDelete: boolean;
+  onRefresh: () => void;
+}) {
+  const { t } = useI18n();
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const router = useRouter();
+
+  const isDealBased = transcript.id.startsWith("deal-");
+  const href = `/dashboard/transcripts/${transcript.id}`;
+
+  async function handleArchive() {
+    if (isDealBased) {
+      const dealId = transcript.id.replace("deal-", "");
+      const res = await fetch(`/api/transcripts/deal-transcript`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId, action: "archive" }),
+      });
+      if (!res.ok) {
+        toast.error(t("transcripts.archive.error"));
+        return;
+      }
+    } else {
+      const res = await fetch(`/api/transcripts/${transcript.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      if (!res.ok) {
+        toast.error(t("transcripts.archive.error"));
+        return;
+      }
+    }
+    toast.success(t("transcripts.archive.success"));
+    onRefresh();
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      if (isDealBased) {
+        const dealId = transcript.id.replace("deal-", "");
+        const res = await fetch(`/api/transcripts/deal-transcript`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dealId }),
+        });
+        if (!res.ok) {
+          toast.error(t("transcripts.delete.error"));
+          return;
+        }
+      } else {
+        const res = await fetch(`/api/transcripts/${transcript.id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          toast.error(t("transcripts.delete.error"));
+          return;
+        }
+      }
+      toast.success(t("transcripts.delete.success"));
+      onRefresh();
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="text-muted-foreground hover:text-foreground rounded p-1 transition-colors"
+            aria-label="Actions"
+          >
+            <MoreHorizontal className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={() => router.push(href)}>
+            <Eye className="mr-2 size-3.5" />
+            {t("transcripts.view")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void handleArchive()}>
+            <Archive className="mr-2 size-3.5" />
+            {t("transcripts.archive")}
+          </DropdownMenuItem>
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-2 size-3.5" />
+                {t("transcripts.delete")}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("transcripts.delete.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("transcripts.delete.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("transcripts.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? t("transcripts.delete.deleting") : t("transcripts.delete.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function TranscriptRow({
+  transcript,
+  canDelete,
+  onRefresh,
+}: {
+  transcript: Transcript;
+  canDelete: boolean;
+  onRefresh: () => void;
+}) {
+  const { t, language } = useI18n();
+
+  const href = `/dashboard/transcripts/${transcript.id}`;
+
+  return (
+    <div className="group flex items-start justify-between gap-4 border-b px-1 py-3.5 last:border-b-0">
+      <Link href={href} className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium group-hover:underline">{transcript.title}</p>
+          <TranscriptStatusBadge status={transcript.status} />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <TranscriptSourceLabel source={transcript.source} />
+          {transcript.dealName && (
+            <span className="text-muted-foreground text-xs">
+              {t("transcripts.deal")} : {transcript.dealName}
+            </span>
+          )}
+          {transcript.createdByName && (
+            <span className="text-muted-foreground text-xs">
+              {t("transcripts.by")} {transcript.createdByName}
+            </span>
+          )}
+        </div>
+      </Link>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-muted-foreground text-xs">
+          {formatRelativeDate(transcript.createdAt, language)}
+        </span>
+        <TranscriptRowActions
+          transcript={transcript}
+          canDelete={canDelete}
+          onRefresh={onRefresh}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SourceCards() {
+  const { t } = useI18n();
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <SourceCard
+        icon={<FileText className="size-5 text-emerald-600" />}
+        title={t("transcripts.source.paste")}
+        description={t("transcripts.source.paste.description")}
+        available
+      />
+      <SourceCard
+        icon={<Mic className="size-5 text-amber-600" />}
+        title={t("transcripts.source.audio")}
+        description={t("transcripts.source.audio.description")}
+        available={false}
+        badge={t("transcripts.soon")}
+      />
+      <SourceCard
+        icon={<Radio className="size-5 text-blue-600" />}
+        title={t("transcripts.source.recording")}
+        description={t("transcripts.source.recording.description")}
+        available={false}
+        badge={t("transcripts.soon")}
+      />
+    </div>
+  );
+}
+
+export function TranscriptsPageContent({
+  transcripts,
+  userRole,
+}: {
+  transcripts: Transcript[];
+  deals?: DealOption[];
+  userRole: string;
+}) {
+  const router = useRouter();
+  const { t } = useI18n();
+  const canCreate = userRole !== "viewer";
+  const canDelete = userRole === "manager";
+
+  if (transcripts.length === 0) {
+    return (
+      <div className="space-y-4">
+        <EmptyState
+          title={t("transcripts.empty.title")}
+          description={t("transcripts.empty.description")}
+          action={
+            canCreate ? (
+              <Button asChild>
+                <Link href="/dashboard/transcripts/new">
+                  <Plus className="mr-2 size-4" />
+                  {t("transcripts.new")}
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+        <SourceCards />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-sm">
+          {transcripts.length} {t("transcripts.count")}{transcripts.length > 1 ? "s" : ""}
+        </p>
+        {canCreate && (
+          <Button asChild>
+            <Link href="/dashboard/transcripts/new">
+              <Plus className="mr-2 size-4" />
+              {t("transcripts.new")}
+            </Link>
+          </Button>
+        )}
+      </div>
+      <div className="bg-card rounded-lg border">
+        <div className="divide-y px-4">
+          {transcripts.map((item) => (
+            <TranscriptRow
+              key={item.id}
+              transcript={item}
+              canDelete={canDelete}
+              onRefresh={() => router.refresh()}
+            />
+          ))}
+        </div>
+      </div>
+      <SourceCards />
+    </div>
+  );
+}
+
+function SourceCard({
+  icon,
+  title,
+  description,
+  available,
+  badge,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  available: boolean;
+  badge?: string;
+}) {
+  return (
+    <div className="bg-card relative rounded-lg border p-4">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0 pt-0.5">{icon}</div>
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-muted-foreground text-xs leading-relaxed">{description}</p>
+        </div>
+      </div>
+      {!available && badge && (
+        <Badge variant="secondary" className="absolute right-3 top-3 text-[10px]">
+          {badge}
+        </Badge>
+      )}
+    </div>
+  );
+}

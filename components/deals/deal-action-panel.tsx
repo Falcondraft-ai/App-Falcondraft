@@ -7,6 +7,16 @@ import { LoadingDots } from "@/components/common/loading-dots";
 import { GeneratedDocumentButtons } from "@/components/deals/generated-documents-panel";
 import { ProposalValidationDialog } from "@/components/deals/proposal-validation-dialog";
 import { useI18n } from "@/components/i18n/language-provider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   CALL_SUMMARY_GENERATION_EVENT,
@@ -172,6 +182,8 @@ export function DealActionPanel({
   const [isArchivingDeal, setIsArchivingDeal] = React.useState(false);
   const [isValidationDialogOpen, setIsValidationDialogOpen] =
     React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = React.useState(false);
   const [localActionIndex, setLocalActionIndex] = React.useState<number | null>(
     null,
   );
@@ -244,6 +256,7 @@ export function DealActionPanel({
           archive: "Archive deal",
           deleteLoading: "Deleting...",
           delete: "Delete deal",
+          cancel: "Cancel",
         }
       : {
           labels: dealActions.map((action) => action.label),
@@ -299,6 +312,7 @@ export function DealActionPanel({
           archive: "Archiver le dossier",
           deleteLoading: "Suppression...",
           delete: "Supprimer le dossier",
+          cancel: "Annuler",
         };
 
   React.useEffect(() => {
@@ -623,12 +637,6 @@ export function DealActionPanel({
   }
 
   async function deleteDeal() {
-    const confirmed = window.confirm(copy.deleteConfirm);
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsDeletingDeal(true);
 
     const response = await fetch(`/api/deals/${dealId}`, {
@@ -661,12 +669,6 @@ export function DealActionPanel({
   }
 
   async function archiveDeal() {
-    const confirmed = window.confirm(copy.archiveConfirm);
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsArchivingDeal(true);
 
     const response = await fetch(`/api/deals/${dealId}/archive`, {
@@ -856,42 +858,52 @@ export function DealActionPanel({
         );
       })}
       <div className="space-y-2 pt-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full justify-start"
-          disabled={
-            isArchivingDeal ||
-            isDeletingDeal ||
-            isTriggeringCallSummary ||
-            isCallSummaryGenerating ||
-            isTriggeringProposal ||
-            isProposalGenerating ||
-            isTriggeringEmailDraft ||
-            localActionIndex !== null
-          }
-          onClick={() => void archiveDeal()}
-        >
-          {isArchivingDeal ? copy.archiveLoading : copy.archive}
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          className="w-full justify-start"
-          disabled={
-            isDeletingDeal ||
-            isArchivingDeal ||
-            isTriggeringCallSummary ||
-            isCallSummaryGenerating ||
-            isTriggeringProposal ||
-            isProposalGenerating ||
-            isTriggeringEmailDraft ||
-            localActionIndex !== null
-          }
-          onClick={() => void deleteDeal()}
-        >
-          {isDeletingDeal ? copy.deleteLoading : copy.delete}
-        </Button>
+        <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start"
+            disabled={isArchivingDeal || isDeletingDeal || isTriggeringCallSummary || isCallSummaryGenerating || isTriggeringProposal || isProposalGenerating || isTriggeringEmailDraft || localActionIndex !== null}
+            onClick={() => setArchiveDialogOpen(true)}
+          >
+            {isArchivingDeal ? copy.archiveLoading : copy.archive}
+          </Button>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{copy.archive}</AlertDialogTitle>
+              <AlertDialogDescription>{copy.archiveConfirm}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void archiveDeal()}>
+                {isArchivingDeal ? copy.archiveLoading : copy.archive}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <Button
+            type="button"
+            variant="destructive"
+            className="w-full justify-start"
+            disabled={isDeletingDeal || isArchivingDeal || isTriggeringCallSummary || isCallSummaryGenerating || isTriggeringProposal || isProposalGenerating || isTriggeringEmailDraft || localActionIndex !== null}
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            {isDeletingDeal ? copy.deleteLoading : copy.delete}
+          </Button>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{copy.delete}</AlertDialogTitle>
+              <AlertDialogDescription>{copy.deleteConfirm}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void deleteDeal()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {isDeletingDeal ? copy.deleteLoading : copy.delete}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       <ProposalValidationDialog
         dealId={dealId}

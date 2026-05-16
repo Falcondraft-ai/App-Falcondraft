@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { Deal } from "@/types/deal";
 
 const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
@@ -90,6 +91,47 @@ function toAmountPayload(value: string) {
   return trimmedValue.length > 0 ? Number(trimmedValue) : null;
 }
 
+function CollapsibleSection({
+  label,
+  preview,
+  expanded,
+  onToggle,
+  children,
+}: {
+  label: string;
+  preview: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+        onClick={onToggle}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">{label}</p>
+          {!expanded && preview && (
+            <p className="text-muted-foreground mt-0.5 truncate text-xs">
+              {preview}
+            </p>
+          )}
+        </div>
+        {expanded ? (
+          <ChevronUp className="text-muted-foreground size-4 shrink-0" />
+        ) : (
+          <ChevronDown className="text-muted-foreground size-4 shrink-0" />
+        )}
+      </button>
+      <div className={cn("border-t px-3 pb-3 pt-2", !expanded && "hidden")}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function buildDefaultValues(deal: Deal): DealEditFormValues {
   return {
     name: deal.name,
@@ -121,6 +163,9 @@ export function DealEditDialog({
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [expandedSections, setExpandedSections] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const [showExpectedCloseDate, setShowExpectedCloseDate] = React.useState(
     Boolean(deal.expectedCloseDate),
   );
@@ -314,117 +359,182 @@ export function DealEditDialog({
               ) : null}
             </div>
 
-            <div className="space-y-4 border-t px-5 py-5">
-              <FormField
-                control={form.control}
-                name="transcript"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Transcript et notes d’appel</FormLabel>
-                    <FormControl>
-                      <Textarea rows={8} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="additionalContext"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contexte complémentaire</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={4}
-                        placeholder="Références, contraintes, priorités ou points sensibles."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="emailInstructions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instructions email</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={3}
-                        placeholder="Ton du message, points à mentionner, prochaine étape."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="clientCompanyInfo"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <FormLabel>Informations société pour le devis</FormLabel>
-                      <Button asChild variant="outline" size="sm">
-                        <a
-                          href="https://www.pappers.fr/"
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Rechercher sur Pappers
-                          <ExternalLink aria-hidden="true" />
-                        </a>
-                      </Button>
-                    </div>
-                    <FormControl>
-                      <Textarea
-                        rows={4}
-                        placeholder="Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="callSummary"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Compte-rendu</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={5}
-                        placeholder="Compte-rendu à compléter après génération ou validation."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="proposalContent"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contenu de proposition</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={5}
-                        placeholder="Contenu de proposition à ajuster si nécessaire."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="space-y-3 border-t px-5 py-5">
+              <CollapsibleSection
+                label="Transcript et notes d’appel"
+                preview={form.getValues("transcript")?.slice(0, 80) ?? ""}
+                expanded={expandedSections.has("transcript")}
+                onToggle={() => setExpandedSections((s) => {
+                  const next = new Set(s);
+                  next.has("transcript") ? next.delete("transcript") : next.add("transcript");
+                  return next;
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="transcript"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea rows={10} className="font-mono text-xs" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                label="Contexte complémentaire"
+                preview={form.getValues("additionalContext")?.slice(0, 80) ?? ""}
+                expanded={expandedSections.has("additionalContext")}
+                onToggle={() => setExpandedSections((s) => {
+                  const next = new Set(s);
+                  next.has("additionalContext") ? next.delete("additionalContext") : next.add("additionalContext");
+                  return next;
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="additionalContext"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          rows={5}
+                          placeholder="Références, contraintes, priorités ou points sensibles."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                label="Instructions email"
+                preview={form.getValues("emailInstructions")?.slice(0, 80) ?? ""}
+                expanded={expandedSections.has("emailInstructions")}
+                onToggle={() => setExpandedSections((s) => {
+                  const next = new Set(s);
+                  next.has("emailInstructions") ? next.delete("emailInstructions") : next.add("emailInstructions");
+                  return next;
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="emailInstructions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          rows={4}
+                          placeholder="Ton du message, points à mentionner, prochaine étape."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                label="Informations société pour le devis"
+                preview={form.getValues("clientCompanyInfo")?.slice(0, 80) ?? ""}
+                expanded={expandedSections.has("clientCompanyInfo")}
+                onToggle={() => setExpandedSections((s) => {
+                  const next = new Set(s);
+                  next.has("clientCompanyInfo") ? next.delete("clientCompanyInfo") : next.add("clientCompanyInfo");
+                  return next;
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="clientCompanyInfo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="mb-2 flex justify-end">
+                        <Button asChild variant="outline" size="sm">
+                          <a
+                            href="https://www.pappers.fr/"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Rechercher sur Pappers
+                            <ExternalLink aria-hidden="true" />
+                          </a>
+                        </Button>
+                      </div>
+                      <FormControl>
+                        <Textarea
+                          rows={4}
+                          placeholder="Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                label="Compte-rendu"
+                preview={form.getValues("callSummary")?.slice(0, 80) ?? ""}
+                expanded={expandedSections.has("callSummary")}
+                onToggle={() => setExpandedSections((s) => {
+                  const next = new Set(s);
+                  next.has("callSummary") ? next.delete("callSummary") : next.add("callSummary");
+                  return next;
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="callSummary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          rows={6}
+                          placeholder="Compte-rendu à compléter après génération ou validation."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                label="Contenu de proposition"
+                preview={form.getValues("proposalContent")?.slice(0, 80) ?? ""}
+                expanded={expandedSections.has("proposalContent")}
+                onToggle={() => setExpandedSections((s) => {
+                  const next = new Set(s);
+                  next.has("proposalContent") ? next.delete("proposalContent") : next.add("proposalContent");
+                  return next;
+                })}
+              >
+                <FormField
+                  control={form.control}
+                  name="proposalContent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          rows={6}
+                          placeholder="Contenu de proposition à ajuster si nécessaire."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CollapsibleSection>
             </div>
 
             <div className="flex justify-end gap-2 border-t bg-muted/35 px-5 py-4">

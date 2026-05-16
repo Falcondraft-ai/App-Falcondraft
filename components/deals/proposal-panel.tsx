@@ -7,6 +7,16 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n/language-provider";
 import { LoadingDots } from "@/components/common/loading-dots";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -188,12 +198,13 @@ export function ProposalPanel({
   editUrl?: string;
 }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const sections = React.useMemo(() => parseProposalContent(content), [content]);
   const [isPolling, setIsPolling] = React.useState(false);
   const [justCompleted, setJustCompleted] = React.useState(false);
   const [isDeletingProposal, setIsDeletingProposal] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [isLocallyDeleted, setIsLocallyDeleted] = React.useState(false);
   const previousHasProposalRef = React.useRef(hasProposal);
   const effectiveHasProposal = hasProposal && !isLocallyDeleted;
@@ -261,12 +272,6 @@ export function ProposalPanel({
   }, [effectiveHasProposal, isPolling, router]);
 
   async function deleteProposal() {
-    const confirmed = window.confirm(t("dealDetail.proposalDeleteConfirm"));
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsDeletingProposal(true);
 
     const response = await fetch(`/api/deals/${dealId}/proposal`, {
@@ -358,17 +363,31 @@ export function ProposalPanel({
                 {t("dealDetail.editUnavailable")}
               </Button>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="px-2 text-destructive/75 hover:bg-destructive/10 hover:text-destructive"
-              disabled={isDeletingProposal}
-              onClick={() => void deleteProposal()}
-            >
-              <Trash2 aria-hidden="true" />
-              {isDeletingProposal ? t("deals.deleting") : t("deals.delete")}
-            </Button>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="px-2 text-destructive/75 hover:bg-destructive/10 hover:text-destructive"
+                disabled={isDeletingProposal}
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 aria-hidden="true" />
+                {isDeletingProposal ? t("deals.deleting") : t("deals.delete")}
+              </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("deals.delete")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("dealDetail.proposalDeleteConfirm")}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{language === "en" ? "Cancel" : "Annuler"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void deleteProposal()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {isDeletingProposal ? t("deals.deleting") : t("deals.delete")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import { T } from "@/components/i18n/translated-text";
 import { CallSummaryPanel } from "@/components/deals/call-summary-panel";
 import { DealActionPanel } from "@/components/deals/deal-action-panel";
 import { DealEditDialog } from "@/components/deals/deal-edit-dialog";
+import { DealTranscriptLink } from "@/components/deals/deal-transcript-link";
 import {
   GeneratedDocumentButtons,
   GeneratedDocumentsPanel,
@@ -16,7 +17,9 @@ import { ProposalPanel } from "@/components/deals/proposal-panel";
 import { TranscriptPanel } from "@/components/deals/transcript-panel";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getDealDetail } from "@/lib/data/supabase-app-data";
+import { getLinkedTranscriptForDeal, getTranscriptsForLinking } from "@/lib/data/transcripts";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 
 type DealDetailPageProps = {
   params: Promise<{
@@ -42,6 +45,15 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   if (!deal) {
     notFound();
   }
+
+  const organizationId = context.organization?.id ?? "";
+  const userRole = normalizeWorkspaceRole(context.membership?.role);
+  const canEdit = userRole !== "viewer";
+
+  const [linkedTranscript, availableTranscripts] = await Promise.all([
+    getLinkedTranscriptForDeal(organizationId, id),
+    canEdit ? getTranscriptsForLinking(organizationId) : Promise.resolve([]),
+  ]);
 
   const quoteDocument = documents.find(
     (document) => document.type === "quote_pdf",
@@ -153,6 +165,14 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 transcript={deal.transcript}
                 additionalContext={deal.additionalContext}
               />
+              <div className="mt-3 border-t pt-3">
+                <DealTranscriptLink
+                  dealId={deal.id}
+                  linkedTranscript={linkedTranscript}
+                  availableTranscripts={availableTranscripts}
+                  canEdit={canEdit}
+                />
+              </div>
             </ActionCard>
 
             <section className="bg-card/80 overflow-hidden rounded-lg border">

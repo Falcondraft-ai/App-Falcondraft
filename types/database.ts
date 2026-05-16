@@ -160,6 +160,29 @@ export type WorkflowConfigRow = {
   updated_at: string;
 };
 
+export type TranscriptRow = {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  deal_id: string | null;
+  title: string;
+  source: string;
+  status: string;
+  language: string | null;
+  transcript_text: string | null;
+  audio_storage_path: string | null;
+  recall_bot_id: string | null;
+  recall_call_id: string | null;
+  recall_meeting_url: string | null;
+  participants: unknown[] | null;
+  started_at: string | null;
+  duration_seconds: number | null;
+  error_message: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -364,6 +387,32 @@ export type Database = {
           n8n_webhook_url: string;
           n8n_workflow_id?: string | null;
           status?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      transcripts: TableDefinition<
+        TranscriptRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by: string;
+          deal_id?: string | null;
+          title: string;
+          source?: string;
+          status?: string;
+          language?: string | null;
+          transcript_text?: string | null;
+          audio_storage_path?: string | null;
+          recall_bot_id?: string | null;
+          recall_call_id?: string | null;
+          recall_meeting_url?: string | null;
+          participants?: unknown[] | null;
+          started_at?: string | null;
+          duration_seconds?: number | null;
+          error_message?: string | null;
+          archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
         }

@@ -8,6 +8,7 @@ import {
   Check,
   ExternalLink,
   FileText,
+  MessageSquareText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -26,6 +27,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -134,7 +142,13 @@ function getPreviewValue(value: string | undefined, fallback: string) {
   return trimmedValue ? trimmedValue : fallback;
 }
 
-export function NewDealForm() {
+type ExistingTranscript = { id: string; title: string; createdAt: string };
+
+export function NewDealForm({
+  existingTranscripts = [],
+}: {
+  existingTranscripts?: ExistingTranscript[];
+}) {
   const router = useRouter();
   const { language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
@@ -146,6 +160,7 @@ export function NewDealForm() {
   const [isLastStepReady, setIsLastStepReady] = React.useState(false);
   const [askExpectedCloseDate, setAskExpectedCloseDate] =
     React.useState(false);
+  const [selectedTranscriptId, setSelectedTranscriptId] = React.useState<string>("");
   const form = useForm<NewDealFormValues>({
     resolver: zodResolver(newDealSchema),
     defaultValues,
@@ -424,6 +439,9 @@ export function NewDealForm() {
         ...valuesToSubmit,
         amountEstimate,
         expectedCloseDate: valuesToSubmit.expectedCloseDate || undefined,
+        ...(selectedTranscriptId && selectedTranscriptId !== "none"
+          ? { linkedTranscriptId: selectedTranscriptId }
+          : {}),
       }),
     }).catch(() => null);
 
@@ -715,26 +733,75 @@ export function NewDealForm() {
                     ) : null}
 
                     {stepIndex === 2 ? (
-                      <FormField
-                        control={form.control}
-                        name="transcript"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{copy.transcript}</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                rows={12}
-                                placeholder={copy.transcriptPlaceholder}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              {copy.transcriptHelp}
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                      <div className="space-y-5">
+                        {existingTranscripts.length > 0 && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              {language === "en" ? "Use an existing transcript" : "Utiliser un transcript existant"}
+                            </label>
+                            <Select
+                              value={selectedTranscriptId}
+                              onValueChange={(value) => {
+                                setSelectedTranscriptId(value);
+                                if (value && value !== "none") {
+                                  fetch(`/api/transcripts/${value}`)
+                                    .then((r) => r.json())
+                                    .then((data: unknown) => {
+                                      if (data && typeof data === "object" && "transcriptText" in data && typeof (data as { transcriptText: unknown }).transcriptText === "string") {
+                                        form.setValue("transcript", (data as { transcriptText: string }).transcriptText, {
+                                          shouldDirty: true,
+                                          shouldTouch: true,
+                                          shouldValidate: true,
+                                        });
+                                      }
+                                    })
+                                    .catch(() => {});
+                                }
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={language === "en" ? "Select a transcript..." : "Sélectionner un transcript..."} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">
+                                  {language === "en" ? "None — paste manually" : "Aucun — coller manuellement"}
+                                </SelectItem>
+                                {existingTranscripts.map((t) => (
+                                  <SelectItem key={t.id} value={t.id}>
+                                    {t.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectedTranscriptId && selectedTranscriptId !== "none" && (
+                              <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <MessageSquareText className="size-3.5" />
+                                {language === "en" ? "Transcript linked — content imported below" : "Transcript lié — contenu importé ci-dessous"}
+                              </div>
+                            )}
+                          </div>
                         )}
-                      />
+                        <FormField
+                          control={form.control}
+                          name="transcript"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{copy.transcript}</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  rows={12}
+                                  placeholder={copy.transcriptPlaceholder}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {copy.transcriptHelp}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     ) : null}
 
                     {stepIndex === 3 ? (

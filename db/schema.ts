@@ -2,6 +2,8 @@ import {
   index,
   boolean,
   date,
+  integer,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -239,6 +241,40 @@ export const workflowConfigs = pgTable(
     organizationWorkflowUniqueIdx: uniqueIndex(
       "workflow_configs_organization_workflow_type_idx",
     ).on(table.organizationId, table.workflowType),
+  }),
+);
+
+export const transcripts = pgTable(
+  "transcripts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").notNull(),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    source: text("source").notNull().default("manual_paste"),
+    status: text("status").notNull().default("ready"),
+    language: text("language"),
+    transcriptText: text("transcript_text"),
+    audioStoragePath: text("audio_storage_path"),
+    recallBotId: text("recall_bot_id"),
+    recallCallId: text("recall_call_id"),
+    recallMeetingUrl: text("recall_meeting_url"),
+    participants: jsonb("participants"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    durationSeconds: integer("duration_seconds"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("transcripts_organization_id_idx").on(
+      table.organizationId,
+    ),
+    dealIdx: index("transcripts_deal_id_idx").on(table.dealId),
+    createdByIdx: index("transcripts_created_by_idx").on(table.createdBy),
   }),
 );
 

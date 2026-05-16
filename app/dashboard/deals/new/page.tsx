@@ -2,8 +2,17 @@ import { NewDealForm } from "@/components/deals/new-deal-form";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { T } from "@/components/i18n/translated-text";
+import { requireCurrentUserContext } from "@/lib/auth/session";
+import { getTranscriptsForLinking } from "@/lib/data/transcripts";
 
-export default function NewDealPage() {
+export default async function NewDealPage() {
+  const context = await requireCurrentUserContext();
+  const organizationId = context.organization?.id ?? null;
+
+  const transcripts = organizationId
+    ? await getTranscriptsForLinking(organizationId)
+    : [];
+
   return (
     <PageTransition>
       <div className="mx-auto max-w-5xl space-y-6">
@@ -12,7 +21,7 @@ export default function NewDealPage() {
           title={<T tx="dealDetail.newTitle" />}
           description={<T tx="dealDetail.newDescription" />}
         />
-        <NewDealForm />
+        <NewDealForm existingTranscripts={transcripts} />
       </div>
     </PageTransition>
   );

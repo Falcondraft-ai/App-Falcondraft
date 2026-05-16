@@ -18,6 +18,7 @@ const createDealSchema = z.object({
   additionalContext: z.string().trim().optional(),
   emailInstructions: z.string().trim().optional(),
   clientCompanyInfo: z.string().trim().optional(),
+  linkedTranscriptId: z.string().uuid().optional(),
 });
 
 type ContextErrorReason =
@@ -149,6 +150,14 @@ export async function POST(request: NextRequest) {
     return jsonError("Création impossible.", 500, {
       reason: error?.message ?? "insert_failed",
     });
+  }
+
+  if (values.linkedTranscriptId) {
+    await adminSupabase
+      .from("transcripts")
+      .update({ deal_id: data.id, updated_at: new Date().toISOString() })
+      .eq("id", values.linkedTranscriptId)
+      .eq("organization_id", organizationId);
   }
 
   return NextResponse.json({

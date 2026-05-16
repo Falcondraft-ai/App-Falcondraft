@@ -7,6 +7,16 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n/language-provider";
 import { LoadingDots } from "@/components/common/loading-dots";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -187,12 +197,13 @@ export function CallSummaryPanel({
   hasSummary: boolean;
 }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const sections = React.useMemo(() => parseCallSummary(summary), [summary]);
   const [isPolling, setIsPolling] = React.useState(false);
   const [justCompleted, setJustCompleted] = React.useState(false);
   const [isDeletingSummary, setIsDeletingSummary] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [isLocallyDeleted, setIsLocallyDeleted] = React.useState(false);
   const previousHasSummaryRef = React.useRef(hasSummary);
   const effectiveHasSummary = hasSummary && !isLocallyDeleted;
@@ -263,12 +274,6 @@ export function CallSummaryPanel({
   }, [effectiveHasSummary, isPolling, router]);
 
   async function deleteCallSummary() {
-    const confirmed = window.confirm(t("dealDetail.summaryDeleteConfirm"));
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsDeletingSummary(true);
 
     const response = await fetch(`/api/deals/${dealId}/call-summary`, {
@@ -356,19 +361,31 @@ export function CallSummaryPanel({
                 {t("common.actions.open")}
               </Button>
             </DialogTrigger>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={isDeletingSummary}
-              onClick={() => void deleteCallSummary()}
-            >
-              <Trash2 aria-hidden="true" />
-              {isDeletingSummary
-                ? t("deals.deleting")
-                : t("deals.delete")}
-            </Button>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={isDeletingSummary}
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 aria-hidden="true" />
+                {isDeletingSummary ? t("deals.deleting") : t("deals.delete")}
+              </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("deals.delete")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("dealDetail.summaryDeleteConfirm")}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{language === "en" ? "Cancel" : "Annuler"}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void deleteCallSummary()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {isDeletingSummary ? t("deals.deleting") : t("deals.delete")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>

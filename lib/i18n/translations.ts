@@ -128,12 +128,88 @@ export type TranslationKey =
   | "nav.dashboard"
   | "nav.deals"
   | "nav.documents"
+  | "nav.transcripts"
   | "nav.archives"
   | "nav.settings"
   | "nav.support"
   | "nav.internal"
   | "nav.internalAdmin"
   | "nav.internalBadge"
+  | "transcripts.empty.title"
+  | "transcripts.empty.description"
+  | "transcripts.new"
+  | "transcripts.count"
+  | "transcripts.status.ready"
+  | "transcripts.status.processing"
+  | "transcripts.status.error"
+  | "transcripts.source.paste"
+  | "transcripts.source.audio"
+  | "transcripts.source.recording"
+  | "transcripts.source.paste.description"
+  | "transcripts.source.audio.description"
+  | "transcripts.source.recording.description"
+  | "transcripts.soon"
+  | "transcripts.deal"
+  | "transcripts.by"
+  | "transcripts.delete"
+  | "transcripts.delete.title"
+  | "transcripts.delete.description"
+  | "transcripts.delete.confirm"
+  | "transcripts.delete.deleting"
+  | "transcripts.delete.success"
+  | "transcripts.delete.error"
+  | "transcripts.cancel"
+  | "transcripts.detail.back"
+  | "transcripts.detail.source"
+  | "transcripts.detail.createdAt"
+  | "transcripts.detail.createdBy"
+  | "transcripts.detail.duration"
+  | "transcripts.detail.deal"
+  | "transcripts.detail.language"
+  | "transcripts.detail.content"
+  | "transcripts.detail.noContent"
+  | "transcripts.detail.participants"
+  | "transcripts.form.guided"
+  | "transcripts.form.title"
+  | "transcripts.form.step"
+  | "transcripts.form.completed"
+  | "transcripts.form.previous"
+  | "transcripts.form.next"
+  | "transcripts.form.creating"
+  | "transcripts.form.create"
+  | "transcripts.form.step1.title"
+  | "transcripts.form.step1.description"
+  | "transcripts.form.step1.label"
+  | "transcripts.form.step1.placeholder"
+  | "transcripts.form.step1.help"
+  | "transcripts.form.step2.title"
+  | "transcripts.form.step2.description"
+  | "transcripts.form.step2.label"
+  | "transcripts.form.step2.placeholder"
+  | "transcripts.form.step2.help"
+  | "transcripts.form.step3.title"
+  | "transcripts.form.step3.description"
+  | "transcripts.form.step3.dealLabel"
+  | "transcripts.form.step3.noDeal"
+  | "transcripts.form.step3.dealHelp"
+  | "transcripts.form.step3.noDealsTitle"
+  | "transcripts.form.step3.noDealsDescription"
+  | "transcripts.form.step3.summary"
+  | "transcripts.form.step3.summaryTitle"
+  | "transcripts.form.step3.summaryLength"
+  | "transcripts.form.success"
+  | "transcripts.edit"
+  | "transcripts.edit.save"
+  | "transcripts.edit.saving"
+  | "transcripts.edit.cancel"
+  | "transcripts.edit.success"
+  | "transcripts.edit.error"
+  | "transcripts.archive"
+  | "transcripts.archive.success"
+  | "transcripts.archive.error"
+  | "transcripts.unarchive"
+  | "transcripts.unarchive.success"
+  | "transcripts.view"
   | "admin.restricted"
   | "admin.restrictedTitle"
   | "admin.restrictedDescription"
@@ -656,12 +732,88 @@ export const translations: Record<Language, Dictionary> = {
     "nav.dashboard": "Tableau de bord",
     "nav.deals": "Dossiers",
     "nav.documents": "Documents",
+    "nav.transcripts": "Transcripts",
     "nav.archives": "Archives",
     "nav.settings": "Paramètres",
     "nav.support": "Support",
     "nav.internal": "Interne",
     "nav.internalAdmin": "Admin interne",
     "nav.internalBadge": "Interne",
+    "transcripts.empty.title": "Aucun transcript",
+    "transcripts.empty.description": "Les transcripts d'appels commerciaux apparaîtront ici. Vous pouvez en ajouter un en collant du texte.",
+    "transcripts.new": "Nouveau transcript",
+    "transcripts.count": "transcript",
+    "transcripts.status.ready": "Prêt",
+    "transcripts.status.processing": "En traitement",
+    "transcripts.status.error": "Erreur",
+    "transcripts.source.paste": "Texte collé",
+    "transcripts.source.audio": "Téléversement audio",
+    "transcripts.source.recording": "Enregistrement automatique",
+    "transcripts.source.paste.description": "Collez un transcript existant pour le centraliser et le lier à un dossier.",
+    "transcripts.source.audio.description": "Importez un enregistrement pour transcription automatique.",
+    "transcripts.source.recording.description": "Connectez un outil d'enregistrement pour recevoir les transcripts directement.",
+    "transcripts.soon": "Bientôt",
+    "transcripts.deal": "Dossier",
+    "transcripts.by": "par",
+    "transcripts.delete": "Supprimer",
+    "transcripts.delete.title": "Supprimer ce transcript ?",
+    "transcripts.delete.description": "Le transcript sera définitivement supprimé. Cette action est irréversible.",
+    "transcripts.delete.confirm": "Supprimer",
+    "transcripts.delete.deleting": "Suppression...",
+    "transcripts.delete.success": "Transcript supprimé.",
+    "transcripts.delete.error": "Suppression impossible.",
+    "transcripts.cancel": "Annuler",
+    "transcripts.detail.back": "Retour",
+    "transcripts.detail.source": "Source",
+    "transcripts.detail.createdAt": "Créé le",
+    "transcripts.detail.createdBy": "Par",
+    "transcripts.detail.duration": "Durée",
+    "transcripts.detail.deal": "Dossier",
+    "transcripts.detail.language": "Langue",
+    "transcripts.detail.content": "Contenu du transcript",
+    "transcripts.detail.noContent": "Aucun contenu disponible.",
+    "transcripts.detail.participants": "Participants",
+    "transcripts.form.guided": "Création guidée",
+    "transcripts.form.title": "Nouveau transcript",
+    "transcripts.form.step": "Étape {current} sur {total}",
+    "transcripts.form.completed": "{percent}% complété",
+    "transcripts.form.previous": "Précédent",
+    "transcripts.form.next": "Suivant",
+    "transcripts.form.creating": "Création...",
+    "transcripts.form.create": "Créer le transcript",
+    "transcripts.form.step1.title": "Identification",
+    "transcripts.form.step1.description": "Donnez un titre explicite au transcript pour le retrouver facilement.",
+    "transcripts.form.step1.label": "Titre du transcript",
+    "transcripts.form.step1.placeholder": "Ex. Appel découverte — Société X",
+    "transcripts.form.step1.help": "Un titre concret pour identifier cet échange.",
+    "transcripts.form.step2.title": "Contenu",
+    "transcripts.form.step2.description": "Collez le transcript complet de l'appel ou de la réunion.",
+    "transcripts.form.step2.label": "Contenu du transcript",
+    "transcripts.form.step2.placeholder": "Collez ici le transcript de l'appel ou de la réunion...",
+    "transcripts.form.step2.help": "Plus le contenu est complet, plus les analyses seront pertinentes.",
+    "transcripts.form.step3.title": "Liaison",
+    "transcripts.form.step3.description": "Associez ce transcript à un dossier commercial existant si pertinent.",
+    "transcripts.form.step3.dealLabel": "Lier à un dossier (optionnel)",
+    "transcripts.form.step3.noDeal": "Aucun dossier",
+    "transcripts.form.step3.dealHelp": "Le transcript sera associé au dossier sélectionné pour enrichir les générations.",
+    "transcripts.form.step3.noDealsTitle": "Aucun dossier disponible",
+    "transcripts.form.step3.noDealsDescription": "Le transcript sera créé sans liaison. Vous pourrez le lier plus tard.",
+    "transcripts.form.step3.summary": "Récapitulatif",
+    "transcripts.form.step3.summaryTitle": "Titre :",
+    "transcripts.form.step3.summaryLength": "Longueur :",
+    "transcripts.form.success": "Transcript créé.",
+    "transcripts.edit": "Modifier",
+    "transcripts.edit.save": "Enregistrer",
+    "transcripts.edit.saving": "Enregistrement...",
+    "transcripts.edit.cancel": "Annuler",
+    "transcripts.edit.success": "Transcript mis à jour.",
+    "transcripts.edit.error": "Mise à jour impossible.",
+    "transcripts.archive": "Archiver",
+    "transcripts.archive.success": "Transcript archivé.",
+    "transcripts.archive.error": "Archivage impossible.",
+    "transcripts.unarchive": "Désarchiver",
+    "transcripts.unarchive.success": "Transcript désarchivé.",
+    "transcripts.view": "Voir",
     "admin.restricted": "Accès réservé",
     "admin.restrictedTitle": "Page interne FalconDraft",
     "admin.restrictedDescription":
@@ -1260,12 +1412,88 @@ export const translations: Record<Language, Dictionary> = {
     "nav.dashboard": "Dashboard",
     "nav.deals": "Deals",
     "nav.documents": "Documents",
+    "nav.transcripts": "Transcripts",
     "nav.archives": "Archive",
     "nav.settings": "Settings",
     "nav.support": "Support",
     "nav.internal": "Internal",
     "nav.internalAdmin": "Internal admin",
     "nav.internalBadge": "Internal",
+    "transcripts.empty.title": "No transcripts",
+    "transcripts.empty.description": "Call transcripts will appear here. You can add one by pasting text.",
+    "transcripts.new": "New transcript",
+    "transcripts.count": "transcript",
+    "transcripts.status.ready": "Ready",
+    "transcripts.status.processing": "Processing",
+    "transcripts.status.error": "Error",
+    "transcripts.source.paste": "Pasted text",
+    "transcripts.source.audio": "Audio upload",
+    "transcripts.source.recording": "Auto-recording",
+    "transcripts.source.paste.description": "Paste an existing transcript to centralize it and link it to a deal.",
+    "transcripts.source.audio.description": "Upload a recording for automatic transcription.",
+    "transcripts.source.recording.description": "Connect a recording tool to receive transcripts directly.",
+    "transcripts.soon": "Soon",
+    "transcripts.deal": "Deal",
+    "transcripts.by": "by",
+    "transcripts.delete": "Delete",
+    "transcripts.delete.title": "Delete this transcript?",
+    "transcripts.delete.description": "The transcript will be permanently deleted. This action cannot be undone.",
+    "transcripts.delete.confirm": "Delete",
+    "transcripts.delete.deleting": "Deleting...",
+    "transcripts.delete.success": "Transcript deleted.",
+    "transcripts.delete.error": "Unable to delete.",
+    "transcripts.cancel": "Cancel",
+    "transcripts.detail.back": "Back",
+    "transcripts.detail.source": "Source",
+    "transcripts.detail.createdAt": "Created",
+    "transcripts.detail.createdBy": "By",
+    "transcripts.detail.duration": "Duration",
+    "transcripts.detail.deal": "Deal",
+    "transcripts.detail.language": "Language",
+    "transcripts.detail.content": "Transcript content",
+    "transcripts.detail.noContent": "No content available.",
+    "transcripts.detail.participants": "Participants",
+    "transcripts.form.guided": "Guided creation",
+    "transcripts.form.title": "New transcript",
+    "transcripts.form.step": "Step {current} of {total}",
+    "transcripts.form.completed": "{percent}% complete",
+    "transcripts.form.previous": "Previous",
+    "transcripts.form.next": "Next",
+    "transcripts.form.creating": "Creating...",
+    "transcripts.form.create": "Create transcript",
+    "transcripts.form.step1.title": "Identification",
+    "transcripts.form.step1.description": "Give the transcript a clear title so you can find it easily.",
+    "transcripts.form.step1.label": "Transcript title",
+    "transcripts.form.step1.placeholder": "E.g. Discovery call — Company X",
+    "transcripts.form.step1.help": "A concrete title to identify this exchange.",
+    "transcripts.form.step2.title": "Content",
+    "transcripts.form.step2.description": "Paste the full transcript of the call or meeting.",
+    "transcripts.form.step2.label": "Transcript content",
+    "transcripts.form.step2.placeholder": "Paste the call or meeting transcript here...",
+    "transcripts.form.step2.help": "The more complete the content, the more relevant the analysis will be.",
+    "transcripts.form.step3.title": "Linking",
+    "transcripts.form.step3.description": "Associate this transcript with an existing deal if relevant.",
+    "transcripts.form.step3.dealLabel": "Link to a deal (optional)",
+    "transcripts.form.step3.noDeal": "No deal",
+    "transcripts.form.step3.dealHelp": "The transcript will be linked to the selected deal to enrich outputs.",
+    "transcripts.form.step3.noDealsTitle": "No deals available",
+    "transcripts.form.step3.noDealsDescription": "The transcript will be created without linking. You can link it later.",
+    "transcripts.form.step3.summary": "Summary",
+    "transcripts.form.step3.summaryTitle": "Title:",
+    "transcripts.form.step3.summaryLength": "Length:",
+    "transcripts.form.success": "Transcript created.",
+    "transcripts.edit": "Edit",
+    "transcripts.edit.save": "Save",
+    "transcripts.edit.saving": "Saving...",
+    "transcripts.edit.cancel": "Cancel",
+    "transcripts.edit.success": "Transcript updated.",
+    "transcripts.edit.error": "Unable to update.",
+    "transcripts.archive": "Archive",
+    "transcripts.archive.success": "Transcript archived.",
+    "transcripts.archive.error": "Unable to archive.",
+    "transcripts.unarchive": "Unarchive",
+    "transcripts.unarchive.success": "Transcript unarchived.",
+    "transcripts.view": "View",
     "admin.restricted": "Restricted access",
     "admin.restrictedTitle": "Internal FalconDraft page",
     "admin.restrictedDescription":
