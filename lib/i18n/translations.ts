@@ -141,6 +141,7 @@ export type TranslationKey =
   | "transcripts.count"
   | "transcripts.status.ready"
   | "transcripts.status.processing"
+  | "transcripts.status.waiting"
   | "transcripts.status.error"
   | "transcripts.source.paste"
   | "transcripts.source.audio"
@@ -210,6 +211,21 @@ export type TranslationKey =
   | "transcripts.unarchive"
   | "transcripts.unarchive.success"
   | "transcripts.view"
+  | "transcripts.recall.button"
+  | "transcripts.recall.title"
+  | "transcripts.recall.description"
+  | "transcripts.recall.meetingUrl"
+  | "transcripts.recall.meetingUrl.placeholder"
+  | "transcripts.recall.meetingUrl.help"
+  | "transcripts.recall.titleLabel"
+  | "transcripts.recall.titlePlaceholder"
+  | "transcripts.recall.dealLabel"
+  | "transcripts.recall.noDeal"
+  | "transcripts.recall.submit"
+  | "transcripts.recall.submitting"
+  | "transcripts.recall.success"
+  | "transcripts.recall.error"
+  | "transcripts.recall.invalidUrl"
   | "admin.restricted"
   | "admin.restrictedTitle"
   | "admin.restrictedDescription"
@@ -745,6 +761,7 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.count": "transcript",
     "transcripts.status.ready": "Prêt",
     "transcripts.status.processing": "En traitement",
+    "transcripts.status.waiting": "En attente",
     "transcripts.status.error": "Erreur",
     "transcripts.source.paste": "Texte collé",
     "transcripts.source.audio": "Téléversement audio",
@@ -814,6 +831,21 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.unarchive": "Désarchiver",
     "transcripts.unarchive.success": "Transcript désarchivé.",
     "transcripts.view": "Voir",
+    "transcripts.recall.button": "Récupérer un appel",
+    "transcripts.recall.title": "Récupérer un appel",
+    "transcripts.recall.description": "Collez le lien de votre réunion Google Meet, Zoom ou Teams pour récupérer automatiquement le transcript.",
+    "transcripts.recall.meetingUrl": "Lien de la réunion",
+    "transcripts.recall.meetingUrl.placeholder": "https://meet.google.com/abc-defg-hij",
+    "transcripts.recall.meetingUrl.help": "Google Meet, Zoom ou Microsoft Teams.",
+    "transcripts.recall.titleLabel": "Titre du transcript",
+    "transcripts.recall.titlePlaceholder": "Ex. Appel découverte — Société X",
+    "transcripts.recall.dealLabel": "Lier à un dossier (optionnel)",
+    "transcripts.recall.noDeal": "Aucun dossier",
+    "transcripts.recall.submit": "Lancer la capture",
+    "transcripts.recall.submitting": "Envoi...",
+    "transcripts.recall.success": "Capture lancée. Le transcript apparaîtra une fois l'appel terminé.",
+    "transcripts.recall.error": "Impossible de lancer la capture.",
+    "transcripts.recall.invalidUrl": "URL de réunion non supportée.",
     "admin.restricted": "Accès réservé",
     "admin.restrictedTitle": "Page interne FalconDraft",
     "admin.restrictedDescription":
@@ -1425,6 +1457,7 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.count": "transcript",
     "transcripts.status.ready": "Ready",
     "transcripts.status.processing": "Processing",
+    "transcripts.status.waiting": "Waiting",
     "transcripts.status.error": "Error",
     "transcripts.source.paste": "Pasted text",
     "transcripts.source.audio": "Audio upload",
@@ -1494,6 +1527,21 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.unarchive": "Unarchive",
     "transcripts.unarchive.success": "Transcript unarchived.",
     "transcripts.view": "View",
+    "transcripts.recall.button": "Capture a call",
+    "transcripts.recall.title": "Capture a call",
+    "transcripts.recall.description": "Paste your Google Meet, Zoom or Teams meeting link to automatically capture the transcript.",
+    "transcripts.recall.meetingUrl": "Meeting link",
+    "transcripts.recall.meetingUrl.placeholder": "https://meet.google.com/abc-defg-hij",
+    "transcripts.recall.meetingUrl.help": "Google Meet, Zoom or Microsoft Teams.",
+    "transcripts.recall.titleLabel": "Transcript title",
+    "transcripts.recall.titlePlaceholder": "E.g. Discovery call — Company X",
+    "transcripts.recall.dealLabel": "Link to a deal (optional)",
+    "transcripts.recall.noDeal": "No deal",
+    "transcripts.recall.submit": "Start capture",
+    "transcripts.recall.submitting": "Sending...",
+    "transcripts.recall.success": "Capture started. The transcript will appear once the call ends.",
+    "transcripts.recall.error": "Unable to start capture.",
+    "transcripts.recall.invalidUrl": "Unsupported meeting URL.",
     "admin.restricted": "Restricted access",
     "admin.restrictedTitle": "Internal FalconDraft page",
     "admin.restrictedDescription":

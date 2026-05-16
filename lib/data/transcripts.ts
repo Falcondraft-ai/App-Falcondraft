@@ -22,7 +22,7 @@ function normalizeSource(source: string): TranscriptSource {
 }
 
 function normalizeStatus(status: string): TranscriptStatus {
-  if (["ready", "processing", "error"].includes(status)) {
+  if (["ready", "processing", "waiting", "error"].includes(status)) {
     return status as TranscriptStatus;
   }
   return "ready";

@@ -52,6 +52,14 @@ function TranscriptStatusBadge({ status }: { status: Transcript["status"] }) {
       </Badge>
     );
   }
+  if (status === "waiting") {
+    return (
+      <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+        <Clock className="size-3" />
+        {t("transcripts.status.waiting")}
+      </Badge>
+    );
+  }
   if (status === "processing") {
     return (
       <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -315,12 +323,20 @@ export function TranscriptsPageContent({
           description={t("transcripts.empty.description")}
           action={
             canCreate ? (
-              <Button asChild>
-                <Link href="/dashboard/transcripts/new">
-                  <Plus className="mr-2 size-4" />
-                  {t("transcripts.new")}
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/transcripts/recall">
+                    <Radio className="mr-2 size-4" />
+                    {t("transcripts.recall.button")}
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/dashboard/transcripts/new">
+                    <Plus className="mr-2 size-4" />
+                    {t("transcripts.new")}
+                  </Link>
+                </Button>
+              </div>
             ) : undefined
           }
         />
@@ -336,12 +352,20 @@ export function TranscriptsPageContent({
           {transcripts.length} {t("transcripts.count")}{transcripts.length > 1 ? "s" : ""}
         </p>
         {canCreate && (
-          <Button asChild>
-            <Link href="/dashboard/transcripts/new">
-              <Plus className="mr-2 size-4" />
-              {t("transcripts.new")}
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href="/dashboard/transcripts/recall">
+                <Radio className="mr-2 size-4" />
+                {t("transcripts.recall.button")}
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/transcripts/new">
+                <Plus className="mr-2 size-4" />
+                {t("transcripts.new")}
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
       <div className="bg-card rounded-lg border">

@@ -1,6 +1,6 @@
 export type TranscriptSource = "manual_paste" | "audio_upload" | "recall_ai";
 
-export type TranscriptStatus = "ready" | "processing" | "error";
+export type TranscriptStatus = "ready" | "processing" | "waiting" | "error";
 
 export type Transcript = {
   id: string;
