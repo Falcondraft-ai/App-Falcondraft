@@ -7,8 +7,13 @@ import {
   ArrowRight,
   Check,
   ExternalLink,
+  FileAudio,
   FileText,
+  Mic,
+  Radio,
   MessageSquareText,
+  Upload,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -60,7 +65,7 @@ const newDealSchema = z.object({
   transcript: z
     .string()
     .trim()
-    .min(20, "Ajoutez au moins quelques notes d’échange."),
+    .optional(),
   additionalContext: z.string().trim().optional(),
   emailInstructions: z.string().trim().optional(),
   clientCompanyInfo: z.string().trim().optional(),
@@ -161,6 +166,11 @@ export function NewDealForm({
   const [askExpectedCloseDate, setAskExpectedCloseDate] =
     React.useState(false);
   const [selectedTranscriptId, setSelectedTranscriptId] = React.useState<string>("");
+  const [transcriptSourceMode, setTranscriptSourceMode] = React.useState<"paste" | "audio" | "recall">("paste");
+  const [audioFile, setAudioFile] = React.useState<File | null>(null);
+  const [meetingUrl, setMeetingUrl] = React.useState("");
+  const [recallLanguage, setRecallLanguage] = React.useState("fr");
+  const audioFileInputRef = React.useRef<HTMLInputElement>(null);
   const form = useForm<NewDealFormValues>({
     resolver: zodResolver(newDealSchema),
     defaultValues,
@@ -350,6 +360,30 @@ export function NewDealForm({
   }, [isLastStep, shouldReduceMotion]);
 
   async function goToNextStep() {
+    if (stepIndex === 2) {
+      if (transcriptSourceMode === "paste") {
+        const text = form.getValues("transcript")?.trim() ?? "";
+        if (text.length < 20) {
+          form.setError("transcript", { message: "Ajoutez au moins quelques notes d'échange." });
+          return;
+        }
+      } else if (transcriptSourceMode === "audio") {
+        if (!audioFile) {
+          toast.error(language === "en" ? "Select an audio file." : "Sélectionnez un fichier audio.");
+          return;
+        }
+      } else if (transcriptSourceMode === "recall") {
+        const meetingUrlRegex = /^https:\/\/(meet\.google\.com\/|zoom\.us\/j\/|teams\.microsoft\.com\/l\/meetup-join\/)/;
+        if (!meetingUrlRegex.test(meetingUrl.trim())) {
+          toast.error(language === "en" ? "Enter a valid meeting URL (Google Meet, Zoom, or Teams)." : "Entrez un lien de réunion valide (Google Meet, Zoom ou Teams).");
+          return;
+        }
+      }
+      setDirection(1);
+      setStepIndex((current) => Math.min(current + 1, onboardingSteps.length - 1));
+      return;
+    }
+
     const isStepValid = await form.trigger(currentStep.fields, {
       shouldFocus: true,
     });
@@ -437,6 +471,7 @@ export function NewDealForm({
       },
       body: JSON.stringify({
         ...valuesToSubmit,
+        transcript: transcriptSourceMode === "paste" ? valuesToSubmit.transcript : undefined,
         amountEstimate,
         expectedCloseDate: valuesToSubmit.expectedCloseDate || undefined,
         ...(selectedTranscriptId && selectedTranscriptId !== "none"
@@ -473,6 +508,39 @@ export function NewDealForm({
         description: "Le dossier a été créé, mais son identifiant est manquant.",
       });
       return;
+    }
+
+    if (transcriptSourceMode === "audio" && audioFile) {
+      const formData = new FormData();
+      formData.append("file", audioFile);
+      formData.append("title", `${valuesToSubmit.name} — Audio`);
+      formData.append("dealId", dealId);
+
+      const uploadRes = await fetch("/api/transcripts/upload", {
+        method: "POST",
+        body: formData,
+      }).catch(() => null);
+
+      if (!uploadRes?.ok) {
+        toast.warning(language === "en" ? "Deal created but audio upload failed. You can retry from the deal page." : "Dossier créé mais l'upload audio a échoué. Vous pouvez réessayer depuis le dossier.");
+      }
+    }
+
+    if (transcriptSourceMode === "recall" && meetingUrl.trim()) {
+      const recallRes = await fetch("/api/transcripts/recall", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${valuesToSubmit.name} — Réunion`,
+          meetingUrl: meetingUrl.trim(),
+          dealId,
+          language: recallLanguage !== "auto" ? recallLanguage : null,
+        }),
+      }).catch(() => null);
+
+      if (!recallRes?.ok) {
+        toast.warning(language === "en" ? "Deal created but recording bot could not be started. You can retry from Transcripts." : "Dossier créé mais le bot d'enregistrement n'a pas pu démarrer. Vous pouvez réessayer depuis Transcripts.");
+      }
     }
 
     toast.success("Dossier commercial créé.", {
@@ -744,6 +812,7 @@ export function NewDealForm({
                               onValueChange={(value) => {
                                 setSelectedTranscriptId(value);
                                 if (value && value !== "none") {
+                                  setTranscriptSourceMode("paste");
                                   fetch(`/api/transcripts/${value}`)
                                     .then((r) => r.json())
                                     .then((data: unknown) => {
@@ -781,26 +850,202 @@ export function NewDealForm({
                             )}
                           </div>
                         )}
-                        <FormField
-                          control={form.control}
-                          name="transcript"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>{copy.transcript}</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  rows={12}
-                                  placeholder={copy.transcriptPlaceholder}
-                                  {...field}
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTranscriptSourceMode("paste")}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                              transcriptSourceMode === "paste"
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border text-muted-foreground hover:bg-muted/50",
+                            )}
+                          >
+                            <FileText className="size-4" />
+                            {language === "en" ? "Paste text" : "Coller le texte"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTranscriptSourceMode("audio")}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                              transcriptSourceMode === "audio"
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border text-muted-foreground hover:bg-muted/50",
+                            )}
+                          >
+                            <Mic className="size-4" />
+                            {language === "en" ? "Upload audio" : "Téléverser un audio"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTranscriptSourceMode("recall")}
+                            className={cn(
+                              "flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                              transcriptSourceMode === "recall"
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border text-muted-foreground hover:bg-muted/50",
+                            )}
+                          >
+                            <Radio className="size-4" />
+                            {language === "en" ? "Record a meeting" : "Enregistrer une réunion"}
+                          </button>
+                        </div>
+
+                        {transcriptSourceMode === "paste" && (
+                          <FormField
+                            control={form.control}
+                            name="transcript"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{copy.transcript}</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    rows={12}
+                                    placeholder={copy.transcriptPlaceholder}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  {copy.transcriptHelp}
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+
+                        {transcriptSourceMode === "audio" && (
+                          <div className="space-y-3">
+                            {!audioFile ? (
+                              <label
+                                htmlFor="deal-audio-file-input"
+                                className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-10 transition-colors hover:border-primary/50 hover:bg-muted/30"
+                              >
+                                <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                                  <Upload className="text-muted-foreground size-5" />
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm font-medium">
+                                    {language === "en" ? "Click or drag an audio file here" : "Cliquez ou déposez un fichier audio ici"}
+                                  </p>
+                                  <p className="text-muted-foreground mt-1 text-xs">
+                                    {language === "en" ? "Accepted: MP3, WAV, M4A, WebM — max 100 MB" : "Formats acceptés : MP3, WAV, M4A, WebM — max 100 Mo"}
+                                  </p>
+                                </div>
+                                <input
+                                  ref={audioFileInputRef}
+                                  id="deal-audio-file-input"
+                                  type="file"
+                                  accept=".mp3,.wav,.m4a,.webm"
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 100 * 1024 * 1024) {
+                                      toast.error(language === "en" ? "File exceeds 100 MB limit." : "Le fichier dépasse la limite de 100 Mo.");
+                                      return;
+                                    }
+                                    setAudioFile(file);
+                                  }}
                                 />
-                              </FormControl>
-                              <FormDescription>
-                                {copy.transcriptHelp}
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                              </label>
+                            ) : (
+                              <div className="max-w-md rounded-lg border bg-card p-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                                    <FileAudio className="text-muted-foreground size-5" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">{audioFile.name}</p>
+                                    <p className="text-muted-foreground text-xs">
+                                      {audioFile.size < 1024 * 1024
+                                        ? `${(audioFile.size / 1024).toFixed(0)} Ko`
+                                        : `${(audioFile.size / (1024 * 1024)).toFixed(1)} Mo`}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setAudioFile(null);
+                                      if (audioFileInputRef.current) audioFileInputRef.current.value = "";
+                                    }}
+                                    className="text-muted-foreground hover:text-destructive shrink-0 size-8"
+                                  >
+                                    <X className="size-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            <p className="text-muted-foreground text-xs">
+                              {language === "en"
+                                ? "The audio will be transcribed automatically after the deal is created."
+                                : "L'audio sera transcrit automatiquement après la création du dossier."}
+                            </p>
+                          </div>
+                        )}
+
+                        {transcriptSourceMode === "recall" && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
+                              <Radio className="size-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                              <p className="text-sm text-blue-800 dark:text-blue-200">
+                                {language === "en"
+                                  ? "A recording bot will join your meeting and transcribe the call automatically."
+                                  : "Un bot d'enregistrement rejoindra votre réunion et transcrira l'appel automatiquement."}
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor="deal-meeting-url" className="text-sm font-medium">
+                                {language === "en" ? "Meeting URL" : "Lien de réunion"}
+                              </label>
+                              <Input
+                                id="deal-meeting-url"
+                                type="url"
+                                placeholder="https://meet.google.com/abc-defg-hij"
+                                value={meetingUrl}
+                                onChange={(e) => setMeetingUrl(e.target.value)}
+                              />
+                              <p className="text-muted-foreground text-xs">
+                                {language === "en"
+                                  ? "Google Meet, Zoom, or Microsoft Teams links are supported."
+                                  : "Liens Google Meet, Zoom ou Microsoft Teams acceptés."}
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <label htmlFor="deal-recall-language" className="text-sm font-medium">
+                                {language === "en" ? "Transcript language" : "Langue du transcript"}
+                              </label>
+                              <Select value={recallLanguage} onValueChange={setRecallLanguage}>
+                                <SelectTrigger id="deal-recall-language">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="auto">
+                                    {language === "en" ? "Auto-detect" : "Détection automatique"}
+                                  </SelectItem>
+                                  <SelectItem value="fr">
+                                    {language === "en" ? "French" : "Français"}
+                                  </SelectItem>
+                                  <SelectItem value="en">
+                                    {language === "en" ? "English" : "Anglais"}
+                                  </SelectItem>
+                                  <SelectItem value="es">
+                                    {language === "en" ? "Spanish" : "Espagnol"}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <p className="text-muted-foreground text-xs">
+                                {language === "en"
+                                  ? "Select the spoken language to improve transcription quality."
+                                  : "Sélectionnez la langue parlée pour améliorer la qualité de la transcription."}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : null}
 

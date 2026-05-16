@@ -315,6 +315,11 @@ function TranscriptRow({
               {t("transcripts.by")} {transcript.createdByName}
             </span>
           )}
+          {transcript.source === "recall_ai" && transcript.status !== "ready" && (
+            <span className="text-muted-foreground text-xs italic">
+              {t(`transcripts.status.${transcript.status}.hint` as never)}
+            </span>
+          )}
         </div>
       </Link>
       <div className="flex shrink-0 items-center gap-2">
@@ -345,15 +350,13 @@ function SourceCards() {
         icon={<Mic className="size-5 text-amber-600" />}
         title={t("transcripts.source.audio")}
         description={t("transcripts.source.audio.description")}
-        available={false}
-        badge={t("transcripts.soon")}
+        available
       />
       <SourceCard
         icon={<Radio className="size-5 text-blue-600" />}
         title={t("transcripts.source.recording")}
         description={t("transcripts.source.recording.description")}
-        available={false}
-        badge={t("transcripts.soon")}
+        available
       />
     </div>
   );

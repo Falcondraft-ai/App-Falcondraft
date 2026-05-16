@@ -22,13 +22,21 @@ type DealOption = { id: string; name: string; clientCompanyName: string };
 const MEETING_URL_REGEX =
   /^https:\/\/(meet\.google\.com\/|zoom\.us\/j\/|teams\.microsoft\.com\/l\/meetup-join\/)/;
 
+const LANGUAGE_OPTIONS = [
+  { value: "auto", labelFr: "Détection automatique", labelEn: "Auto-detect" },
+  { value: "fr", labelFr: "Français", labelEn: "French" },
+  { value: "en", labelFr: "Anglais", labelEn: "English" },
+  { value: "es", labelFr: "Espagnol", labelEn: "Spanish" },
+];
+
 export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language: uiLanguage } = useI18n();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [meetingUrl, setMeetingUrl] = React.useState("");
   const [dealId, setDealId] = React.useState("");
+  const [language, setLanguage] = React.useState("fr");
 
   const isValid =
     title.trim().length >= 3 && MEETING_URL_REGEX.test(meetingUrl.trim());
@@ -47,6 +55,7 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
           title: title.trim(),
           meetingUrl: meetingUrl.trim(),
           dealId: dealId && dealId !== "none" ? dealId : null,
+          language: language === "auto" ? null : language,
         }),
       });
 
@@ -99,6 +108,29 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
           />
           <p className="text-muted-foreground text-xs">
             {t("transcripts.recall.meetingUrl.help")}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="recall-language">
+            {uiLanguage === "en" ? "Transcript language" : "Langue du transcript"}
+          </Label>
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger id="recall-language">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {uiLanguage === "en" ? opt.labelEn : opt.labelFr}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            {uiLanguage === "en"
+              ? "Select the spoken language to improve transcription quality."
+              : "Sélectionnez la langue parlée pour améliorer la qualité de la transcription."}
           </p>
         </div>
 

@@ -143,6 +143,10 @@ export type TranslationKey =
   | "transcripts.status.processing"
   | "transcripts.status.waiting"
   | "transcripts.status.error"
+  | "transcripts.status.ready.hint"
+  | "transcripts.status.processing.hint"
+  | "transcripts.status.waiting.hint"
+  | "transcripts.status.error.hint"
   | "transcripts.source.paste"
   | "transcripts.source.audio"
   | "transcripts.source.recording"
@@ -760,9 +764,13 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.new": "Nouveau transcript",
     "transcripts.count": "transcript",
     "transcripts.status.ready": "Prêt",
-    "transcripts.status.processing": "En traitement",
-    "transcripts.status.waiting": "En attente",
+    "transcripts.status.processing": "Transcription en cours",
+    "transcripts.status.waiting": "En attente de l'appel",
     "transcripts.status.error": "Erreur",
+    "transcripts.status.ready.hint": "Le transcript est disponible et peut être utilisé pour un dossier.",
+    "transcripts.status.processing.hint": "L'appel est terminé, le transcript est en cours de préparation.",
+    "transcripts.status.waiting.hint": "FalconDraft attend que la réunion commence ou que le bot termine l'enregistrement.",
+    "transcripts.status.error.hint": "La transcription a échoué. Vous pouvez réessayer ou créer un nouveau transcript.",
     "transcripts.source.paste": "Texte collé",
     "transcripts.source.audio": "Téléversement audio",
     "transcripts.source.recording": "Enregistrement automatique",
@@ -1456,9 +1464,13 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.new": "New transcript",
     "transcripts.count": "transcript",
     "transcripts.status.ready": "Ready",
-    "transcripts.status.processing": "Processing",
-    "transcripts.status.waiting": "Waiting",
+    "transcripts.status.processing": "Transcribing",
+    "transcripts.status.waiting": "Waiting for call",
     "transcripts.status.error": "Error",
+    "transcripts.status.ready.hint": "The transcript is available and can be used for a deal.",
+    "transcripts.status.processing.hint": "The call has ended and the transcript is being prepared.",
+    "transcripts.status.waiting.hint": "FalconDraft is waiting for the meeting to start or the bot to finish recording.",
+    "transcripts.status.error.hint": "Transcription failed. You can retry or create a new transcript.",
     "transcripts.source.paste": "Pasted text",
     "transcripts.source.audio": "Audio upload",
     "transcripts.source.recording": "Auto-recording",

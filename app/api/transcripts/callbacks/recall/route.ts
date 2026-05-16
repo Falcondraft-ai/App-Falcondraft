@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { cleanTranscriptText } from "@/lib/transcripts/clean-transcript";
 import crypto from "node:crypto";
 
 function verifySvixSignature(
@@ -78,36 +79,34 @@ export async function POST(request: Request) {
 
     const botId = extractString(data, "bot_id", "bot.id");
     const recordingId = extractString(data, "recording_id", "recording.id");
-    const recallTranscriptId = extractString(data, "transcript.id");
-
-    console.log(`[Recall webhook] event="${eventType}" bot_id="${botId}" recording_id="${recordingId}" transcript_id="${recallTranscriptId}"`);
 
     const adminSupabase = getSupabaseAdminClient();
     if (!adminSupabase) {
       return NextResponse.json({ error: "Service indisponible." }, { status: 500 });
     }
 
-    // Find matching FalconDraft transcript by recall_bot_id
     let transcript: {
       id: string;
       organization_id: string;
       deal_id: string | null;
       status: string;
+      language: string | null;
     } | null = null;
 
     if (botId) {
       const { data: row } = await adminSupabase
         .from("transcripts")
-        .select("id, organization_id, deal_id, status")
+        .select("id, organization_id, deal_id, status, language")
         .eq("recall_bot_id", botId)
         .eq("source", "recall_ai")
         .maybeSingle();
       transcript = row;
     }
 
-    console.log(`[Recall webhook] transcript_found=${!!transcript} transcript_id=${transcript?.id ?? "none"}`);
-
     if (!transcript) {
+      if (botId) {
+        console.warn(`[Recall] No transcript found for bot_id=${botId}`);
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -115,7 +114,6 @@ export async function POST(request: Request) {
     if (eventType.startsWith("bot.")) {
       const recallBotStatus = eventType.replace("bot.", "");
 
-      // Always save the latest recall bot status
       await adminSupabase
         .from("transcripts")
         .update({
@@ -144,7 +142,7 @@ export async function POST(request: Request) {
     // --- recording.done ---
     if (eventType === "recording.done") {
       if (!recordingId) {
-        console.error(`[Recall] recording.done — no recording_id. data_keys=${Object.keys(data).join(",")}`);
+        console.error("[Recall] recording.done — no recording_id in payload");
         return NextResponse.json({ ok: true });
       }
 
@@ -163,33 +161,24 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      const url = `${recallBaseUrl}/api/v1/recording/${recordingId}/create_transcript/`;
-      console.log(`[Recall] Calling create_transcript: POST ${url}`);
+      const languageCode = transcript.language || "auto";
 
-      const res = await fetch(url, {
+      const res = await fetch(`${recallBaseUrl}/api/v1/recording/${recordingId}/create_transcript/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Token ${recallApiKey}`,
         },
         body: JSON.stringify({
-          provider: {
-            recallai_async: {
-              language_code: "auto",
-            },
-          },
-          diarization: {
-            use_separate_streams_when_available: true,
-          },
+          provider: { recallai_async: { language_code: languageCode } },
+          diarization: { use_separate_streams_when_available: true },
         }),
       }).catch((err: unknown) => {
-        console.error("[Recall] create_transcript fetch error:", err instanceof Error ? err.message : err);
+        console.error("[Recall] create_transcript network error:", err instanceof Error ? err.message : err);
         return null;
       });
 
-      if (res?.ok) {
-        console.log(`[Recall] create_transcript success — status=${res.status}`);
-      } else {
+      if (!res?.ok) {
         const body = res ? await res.text().catch(() => "") : "(no response)";
         console.error(`[Recall] create_transcript failed — status=${res?.status ?? "none"} body=${body}`);
       }
@@ -198,7 +187,7 @@ export async function POST(request: Request) {
     // --- transcript.done ---
     if (eventType === "transcript.done") {
       if (!recordingId) {
-        console.error(`[Recall] transcript.done — no recording_id. data_keys=${Object.keys(data).join(",")}`);
+        console.error("[Recall] transcript.done — no recording_id in payload");
         return NextResponse.json({ ok: true });
       }
 
@@ -210,11 +199,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      // Step 1: Get recording to find transcript download_url
-      const recordingUrl = `${recallBaseUrl}/api/v1/recording/${recordingId}/`;
-      console.log(`[Recall] Fetching recording: GET ${recordingUrl}`);
-
-      const recordingRes = await fetch(recordingUrl, {
+      // Get recording to find transcript download_url
+      const recordingRes = await fetch(`${recallBaseUrl}/api/v1/recording/${recordingId}/`, {
         method: "GET",
         headers: {
           Authorization: `Token ${recallApiKey}`,
@@ -227,27 +213,22 @@ export async function POST(request: Request) {
 
       if (!recordingRes?.ok) {
         const body = recordingRes ? await recordingRes.text().catch(() => "") : "(no response)";
-        console.error(`[Recall] fetch recording failed — status=${recordingRes?.status ?? "none"} body=${body.slice(0, 500)}`);
+        console.error(`[Recall] fetch recording failed — status=${recordingRes?.status ?? "none"} body=${body.slice(0, 300)}`);
         return NextResponse.json({ ok: true });
       }
 
       const recording = (await recordingRes.json()) as Record<string, unknown>;
-      console.log(`[Recall] recording keys: ${Object.keys(recording).join(",")}`);
-
-      // Extract download_url from media_shortcuts.transcript.data.download_url
       const mediaShortcuts = recording.media_shortcuts as Record<string, unknown> | undefined;
       const transcriptShortcut = mediaShortcuts?.transcript as Record<string, unknown> | undefined;
       const transcriptData = transcriptShortcut?.data as Record<string, unknown> | undefined;
       const downloadUrl = transcriptData?.download_url as string | undefined;
 
       if (!downloadUrl) {
-        console.error(`[Recall] No download_url in recording. media_shortcuts keys: ${mediaShortcuts ? Object.keys(mediaShortcuts).join(",") : "none"}, transcript: ${JSON.stringify(transcriptShortcut).slice(0, 300)}`);
+        console.error(`[Recall] No download_url in recording media_shortcuts`);
         return NextResponse.json({ ok: true });
       }
 
-      // Step 2: Fetch transcript segments from download_url
-      console.log(`[Recall] Fetching transcript data from download_url`);
-
+      // Fetch transcript segments
       const dataRes = await fetch(downloadUrl, {
         method: "GET",
         headers: { Accept: "application/json" },
@@ -258,12 +239,11 @@ export async function POST(request: Request) {
 
       if (!dataRes?.ok) {
         const body = dataRes ? await dataRes.text().catch(() => "") : "(no response)";
-        console.error(`[Recall] fetch transcript data failed — status=${dataRes?.status ?? "none"} body=${body.slice(0, 500)}`);
+        console.error(`[Recall] fetch transcript data failed — status=${dataRes?.status ?? "none"} body=${body.slice(0, 300)}`);
         return NextResponse.json({ ok: true });
       }
 
       const dataBody = await dataRes.text();
-      console.log(`[Recall] transcript data preview: ${dataBody.slice(0, 300)}`);
 
       let segments: Array<{
         participant?: { name?: string | null };
@@ -278,9 +258,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      console.log(`[Recall] transcript fetched — ${segments.length} segments`);
-
-      const transcriptText = segments
+      const rawTranscriptText = segments
         .map((segment) => {
           const speaker = segment.participant?.name || "Participant";
           const text = (segment.words ?? []).map((w) => w.text ?? "").join(" ").trim();
@@ -289,9 +267,9 @@ export async function POST(request: Request) {
         .filter(Boolean)
         .join("\n\n");
 
-      console.log(`[Recall] transcript built — length=${transcriptText.length}`);
+      if (rawTranscriptText) {
+        const transcriptText = await cleanTranscriptText(rawTranscriptText);
 
-      if (transcriptText) {
         await adminSupabase
           .from("transcripts")
           .update({
@@ -312,16 +290,14 @@ export async function POST(request: Request) {
             .eq("id", transcript.deal_id)
             .eq("organization_id", transcript.organization_id);
         }
-
-        console.log(`[Recall] transcript saved — transcript_id=${transcript.id}`);
       } else {
-        console.error("[Recall] transcript text is empty after parsing segments");
+        console.error("[Recall] Transcript text empty after parsing segments");
       }
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
-    console.error("[Recall webhook] Unhandled error:", err instanceof Error ? err.message : err, err instanceof Error ? err.stack : "");
+    console.error("[Recall webhook] Unhandled error:", err instanceof Error ? err.message : err);
     return NextResponse.json({ error: "Erreur interne." }, { status: 500 });
   }
 }
