@@ -194,17 +194,59 @@ export async function POST(request: Request) {
 
   // --- transcript.done ---
   if (eventType === "transcript.done" || eventType === "bot.transcription_complete" || eventType === "transcript.ready") {
-    const transcriptObj = data.transcript;
-    let transcriptText: string | null = null;
+    const recallApiKey = process.env.RECALL_API_KEY;
+    const recallBaseUrl = process.env.RECALL_API_BASE_URL || "https://api.recall.ai";
 
-    if (typeof transcriptObj === "string") {
-      transcriptText = transcriptObj;
-    } else if (transcriptObj && typeof transcriptObj === "object") {
-      const obj = transcriptObj as Record<string, unknown>;
-      if (typeof obj.text === "string") transcriptText = obj.text;
+    // Extract the Recall transcript ID from the webhook payload
+    const recallTranscriptId = extractString(data, "transcript.id");
+
+    console.log(`[Recall] transcript.done — recall_transcript_id="${recallTranscriptId}"`);
+
+    if (!recallTranscriptId || !recallApiKey) {
+      console.error(`[Recall] Cannot fetch transcript — transcript_id=${recallTranscriptId}, api_key_set=${!!recallApiKey}`);
+      return NextResponse.json({ ok: true });
     }
 
-    console.log(`[Recall] transcript event — text_length=${transcriptText?.length ?? 0}`);
+    // Fetch the transcript content from Recall.ai API
+    const fetchUrl = `${recallBaseUrl}/api/v1/transcript/${recallTranscriptId}/`;
+    console.log(`[Recall] Fetching transcript: GET ${fetchUrl}`);
+
+    const res = await fetch(fetchUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Token ${recallApiKey}`,
+        Accept: "application/json",
+      },
+    }).catch((err: unknown) => {
+      console.error("[Recall] fetch transcript error:", err instanceof Error ? err.message : err);
+      return null;
+    });
+
+    if (!res?.ok) {
+      const body = res ? await res.text().catch(() => "") : "(no response)";
+      console.error(`[Recall] fetch transcript failed — status=${res?.status ?? "none"} body=${body.slice(0, 500)}`);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Parse transcript segments and build full text
+    const segments = (await res.json()) as Array<{
+      participant?: { name?: string | null };
+      words?: Array<{ text?: string }>;
+    }>;
+
+    console.log(`[Recall] transcript fetched — ${segments.length} segments`);
+
+    // Build readable transcript: "Speaker: text\n\nSpeaker: text\n..."
+    const transcriptText = segments
+      .map((segment) => {
+        const speaker = segment.participant?.name || "Participant";
+        const text = (segment.words ?? []).map((w) => w.text ?? "").join(" ").trim();
+        return text ? `${speaker}: ${text}` : null;
+      })
+      .filter(Boolean)
+      .join("\n\n");
+
+    console.log(`[Recall] transcript built — length=${transcriptText.length}`);
 
     if (transcriptText) {
       await adminSupabase
@@ -226,6 +268,8 @@ export async function POST(request: Request) {
           .eq("id", transcript.deal_id)
           .eq("organization_id", transcript.organization_id);
       }
+    } else {
+      console.error("[Recall] transcript text is empty after parsing segments");
     }
   }
 
