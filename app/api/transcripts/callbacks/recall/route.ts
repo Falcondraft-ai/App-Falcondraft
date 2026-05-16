@@ -2,20 +2,39 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import crypto from "node:crypto";
 
-function verifyWebhookSignature(
-  payload: string,
-  signature: string | null,
+function verifySvixSignature(
+  rawBody: string,
+  msgId: string | null,
+  timestamp: string | null,
+  signatureHeader: string | null,
   secret: string,
 ): boolean {
-  if (!signature) return false;
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(payload)
-    .digest("hex");
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expected),
+  if (!msgId || !timestamp || !signatureHeader) return false;
+
+  const secretBytes = Buffer.from(
+    secret.startsWith("whsec_") ? secret.slice(6) : secret,
+    "base64",
   );
+
+  const signedPayload = `${msgId}.${timestamp}.${rawBody}`;
+  const expected = crypto
+    .createHmac("sha256", secretBytes)
+    .update(signedPayload)
+    .digest("base64");
+
+  const signatures = signatureHeader.split(" ");
+  for (const sig of signatures) {
+    const value = sig.startsWith("v1,") ? sig.slice(3) : null;
+    if (!value) continue;
+    if (
+      value.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(value), Buffer.from(expected))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function POST(request: Request) {
@@ -25,9 +44,11 @@ export async function POST(request: Request) {
   }
 
   const rawBody = await request.text();
-  const signature = request.headers.get("x-recall-signature");
+  const msgId = request.headers.get("webhook-id");
+  const timestamp = request.headers.get("webhook-timestamp");
+  const signature = request.headers.get("webhook-signature");
 
-  if (!verifyWebhookSignature(rawBody, signature, secret)) {
+  if (!verifySvixSignature(rawBody, msgId, timestamp, signature, secret)) {
     return NextResponse.json({ error: "Signature invalide." }, { status: 401 });
   }
 
