@@ -3,6 +3,7 @@ import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
+import { triggerAudioTranscription } from "@/lib/transcripts/trigger-transcription";
 
 const ALLOWED_MIME_TYPES = new Set([
   "audio/mpeg",
@@ -104,6 +105,13 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  triggerAudioTranscription({
+    transcriptId: data.id,
+    organizationId,
+    audioStoragePath: storagePath,
+    language: language ?? null,
+  }).catch(() => {});
 
   return NextResponse.json({ id: data.id }, { status: 201 });
 }

@@ -190,7 +190,7 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
       };
 
   return (
-    <section className="overflow-hidden border bg-[#f1eadf] shadow-[0_24px_70px_-48px_rgba(22,31,48,0.62)] dark:bg-card/90">
+    <section className="border bg-[#f1eadf] shadow-[0_24px_70px_-48px_rgba(22,31,48,0.62)] dark:bg-card/90">
       <div className="grid lg:min-h-[30rem] lg:grid-cols-[19rem_1fr]">
         <aside className="border-b border-[#26344d] bg-[#142033] px-5 py-5 text-[#f7f1e8] lg:border-r lg:border-b-0">
           <div className="flex items-start gap-3">
@@ -390,23 +390,21 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                             />
                           </label>
                         ) : (
-                          <div className="rounded-lg border bg-card p-4">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex size-10 items-center justify-center rounded-md bg-muted">
-                                  <FileAudio className="text-muted-foreground size-5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium">{audioFile.name}</p>
-                                  <p className="text-muted-foreground text-xs">{formatFileSize(audioFile.size)}</p>
-                                </div>
+                          <div className="max-w-md rounded-lg border bg-card p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                                <FileAudio className="text-muted-foreground size-5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">{audioFile.name}</p>
+                                <p className="text-muted-foreground text-xs">{formatFileSize(audioFile.size)}</p>
                               </div>
                               <Button
                                 type="button"
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 onClick={removeFile}
-                                className="text-muted-foreground hover:text-destructive"
+                                className="text-muted-foreground hover:text-destructive shrink-0 size-8"
                               >
                                 <X className="size-4" />
                               </Button>
