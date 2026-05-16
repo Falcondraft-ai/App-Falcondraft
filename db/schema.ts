@@ -260,6 +260,7 @@ export const transcripts = pgTable(
     transcriptText: text("transcript_text"),
     audioStoragePath: text("audio_storage_path"),
     recallBotId: text("recall_bot_id"),
+    recallBotStatus: text("recall_bot_status"),
     recallCallId: text("recall_call_id"),
     recallMeetingUrl: text("recall_meeting_url"),
     participants: jsonb("participants"),

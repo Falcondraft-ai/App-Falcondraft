@@ -48,6 +48,14 @@ export function TranscriptDetailContent({
   const [editTitle, setEditTitle] = React.useState(transcript.title);
   const [editContent, setEditContent] = React.useState(transcript.transcriptText ?? "");
 
+  const isPending = transcript.status === "processing" || transcript.status === "waiting";
+
+  React.useEffect(() => {
+    if (!isPending) return;
+    const interval = setInterval(() => router.refresh(), 5000);
+    return () => clearInterval(interval);
+  }, [isPending, router]);
+
   const canEdit = userRole !== "viewer" && !transcript.id.startsWith("deal-");
   const canDelete = userRole === "manager";
 

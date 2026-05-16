@@ -172,6 +172,7 @@ export type TranscriptRow = {
   transcript_text: string | null;
   audio_storage_path: string | null;
   recall_bot_id: string | null;
+  recall_bot_status: string | null;
   recall_call_id: string | null;
   recall_meeting_url: string | null;
   participants: unknown[] | null;
@@ -406,6 +407,7 @@ export type Database = {
           transcript_text?: string | null;
           audio_storage_path?: string | null;
           recall_bot_id?: string | null;
+          recall_bot_status?: string | null;
           recall_call_id?: string | null;
           recall_meeting_url?: string | null;
           participants?: unknown[] | null;

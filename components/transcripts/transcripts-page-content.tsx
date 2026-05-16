@@ -42,9 +42,66 @@ import type { Transcript } from "@/types/transcript";
 
 type DealOption = { id: string; name: string; clientCompanyName: string };
 
-function TranscriptStatusBadge({ status }: { status: Transcript["status"] }) {
-  const { t } = useI18n();
-  if (status === "ready") {
+const RECALL_STATUS_LABELS: Record<string, { fr: string; en: string }> = {
+  joining_call: { fr: "Connexion à l'appel", en: "Joining call" },
+  in_waiting_room: { fr: "En salle d'attente", en: "In waiting room" },
+  in_call_not_recording: { fr: "Dans l'appel", en: "In call" },
+  recording_permission_allowed: { fr: "Permission accordée", en: "Permission granted" },
+  recording_permission_denied: { fr: "Permission refusée", en: "Permission denied" },
+  in_call_recording: { fr: "Enregistrement en cours", en: "Recording" },
+  call_ended: { fr: "Appel terminé", en: "Call ended" },
+  done: { fr: "Terminé", en: "Done" },
+  fatal: { fr: "Erreur fatale", en: "Fatal error" },
+};
+
+function RecallBotStatusBadge({ recallBotStatus, language }: { recallBotStatus: string; language: string }) {
+  const labels = RECALL_STATUS_LABELS[recallBotStatus];
+  const label = labels ? (language === "en" ? labels.en : labels.fr) : recallBotStatus;
+
+  if (recallBotStatus === "fatal" || recallBotStatus === "recording_permission_denied") {
+    return (
+      <Badge variant="outline" className="gap-1 border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+        <AlertCircle className="size-3" />
+        {label}
+      </Badge>
+    );
+  }
+
+  if (recallBotStatus === "in_call_recording") {
+    return (
+      <Badge variant="outline" className="gap-1 border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+        <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
+        {label}
+      </Badge>
+    );
+  }
+
+  if (recallBotStatus === "done" || recallBotStatus === "call_ended") {
+    return (
+      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <Clock className="size-3" />
+        {label}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+      <Clock className="size-3" />
+      {label}
+    </Badge>
+  );
+}
+
+function TranscriptStatusBadge({ transcript }: { transcript: Transcript }) {
+  const { t, language } = useI18n();
+
+  // For recall_ai source with a bot status, show the detailed Recall status
+  if (transcript.source === "recall_ai" && transcript.recallBotStatus && transcript.status !== "ready" && transcript.status !== "error") {
+    return <RecallBotStatusBadge recallBotStatus={transcript.recallBotStatus} language={language} />;
+  }
+
+  if (transcript.status === "ready") {
     return (
       <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
         <CheckCircle2 className="size-3" />
@@ -52,7 +109,7 @@ function TranscriptStatusBadge({ status }: { status: Transcript["status"] }) {
       </Badge>
     );
   }
-  if (status === "waiting") {
+  if (transcript.status === "waiting") {
     return (
       <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
         <Clock className="size-3" />
@@ -60,7 +117,7 @@ function TranscriptStatusBadge({ status }: { status: Transcript["status"] }) {
       </Badge>
     );
   }
-  if (status === "processing") {
+  if (transcript.status === "processing") {
     return (
       <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
         <Clock className="size-3" />
@@ -244,7 +301,7 @@ function TranscriptRow({
       <Link href={href} className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium group-hover:underline">{transcript.title}</p>
-          <TranscriptStatusBadge status={transcript.status} />
+          <TranscriptStatusBadge transcript={transcript} />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
           <TranscriptSourceLabel source={transcript.source} />
@@ -314,6 +371,16 @@ export function TranscriptsPageContent({
   const { t } = useI18n();
   const canCreate = userRole !== "viewer";
   const canDelete = userRole === "manager";
+
+  const hasPending = transcripts.some(
+    (t) => t.status === "processing" || t.status === "waiting",
+  );
+
+  React.useEffect(() => {
+    if (!hasPending) return;
+    const interval = setInterval(() => router.refresh(), 5000);
+    return () => clearInterval(interval);
+  }, [hasPending, router]);
 
   if (transcripts.length === 0) {
     return (
