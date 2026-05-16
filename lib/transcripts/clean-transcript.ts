@@ -29,10 +29,26 @@ Règles de nettoyage :
 Emails dictés :
 Convertis les emails dictés en adresse email uniquement lorsque c'est clair.
 
-Exemples :
+Règle stricte sur les emails :
+- Une adresse email valide doit toujours contenir un caractère "@".
+- Une adresse email valide doit avoir un domaine lisible après le "@", par exemple ".fr", ".com", ".es", ".net", ".org".
+- Ne retourne jamais une adresse email sans "@".
+- Ne transforme jamais une phrase ambiguë en email complet si le caractère "@" / "arrobase" / "at" / "arroba" n'est pas clairement présent ou fortement implicite.
+- Ne complète jamais un nom de domaine, un prénom, un nom, un fournisseur email ou une extension si ce n'est pas clairement dicté.
+- Ne transforme jamais une phrase du type "teamdefabron.com" ou "amordelorme1806.com" en email complet si le "@" n'est pas présent ou clairement dicté.
+- Si le speaker dit clairement qu'il donne une adresse email, mais que l'adresse est incomplète, ambiguë ou ne contient pas de "@", écris : "[email incertain : phrase originale]".
+- Si tu n'es pas certain, conserve la formulation originale ou utilise "[email incertain : phrase originale]".
+
+Exemples valides :
 - "margot arrobase falcondraft point fr" → "margot@falcondraft.fr"
 - "margot at falcondraft dot com" → "margot@falcondraft.com"
 - "margot arroba falcondraft punto es" → "margot@falcondraft.es"
+- "timeo point marcopoulos arobase falcondraft point fr" → "timeo.marcopoulos@falcondraft.fr"
+
+Exemples à ne pas inventer :
+- "mon adresse email est teamdefabron.com" → "mon adresse email est [email incertain : teamdefabron.com]"
+- "son adresse email est amordelorme1806.com" → "son adresse email est [email incertain : amordelorme1806.com]"
+- "vous pouvez m'écrire à margot falcondraft point fr" → "vous pouvez m'écrire à [email incertain : margot falcondraft point fr]"
 
 Numéros de téléphone :
 Convertis les numéros de téléphone dictés en format lisible uniquement lorsque c'est clair.
