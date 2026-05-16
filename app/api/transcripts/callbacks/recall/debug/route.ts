@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
-  // Only allow authenticated users (for manual debug)
   await requireCurrentUserContext();
 
-  const body = await request.json() as { recallTranscriptId?: string };
-  const recallTranscriptId = body.recallTranscriptId;
+  const body = await request.json() as { recordingId?: string };
+  const recordingId = body.recordingId;
 
-  if (!recallTranscriptId) {
-    return NextResponse.json({ error: "recallTranscriptId required" }, { status: 400 });
+  if (!recordingId) {
+    return NextResponse.json({ error: "recordingId required" }, { status: 400 });
   }
 
   const recallApiKey = process.env.RECALL_API_KEY;
@@ -19,59 +18,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "RECALL_API_KEY not set" }, { status: 500 });
   }
 
-  // Step 1: Get transcript metadata
-  const metaUrl = `${recallBaseUrl}/api/v1/transcript/${recallTranscriptId}/`;
-  const metaRes = await fetch(metaUrl, {
+  // Step 1: Get recording
+  const recordingUrl = `${recallBaseUrl}/api/v1/recording/${recordingId}/`;
+  const recordingRes = await fetch(recordingUrl, {
     headers: { Authorization: `Token ${recallApiKey}`, Accept: "application/json" },
   });
 
-  const metaStatus = metaRes.status;
-  const metaBody = await metaRes.text();
-
-  if (!metaRes.ok) {
+  if (!recordingRes.ok) {
     return NextResponse.json({
-      step: "meta",
-      status: metaStatus,
-      body: metaBody.slice(0, 1000),
+      step: "recording",
+      status: recordingRes.status,
+      body: (await recordingRes.text()).slice(0, 1000),
     });
   }
 
-  const metaParsed = JSON.parse(metaBody);
-  const downloadUrl = metaParsed?.download_url ?? null;
+  const recording = await recordingRes.json() as Record<string, unknown>;
+  const mediaShortcuts = recording.media_shortcuts as Record<string, unknown> | undefined;
+  const transcriptShortcut = mediaShortcuts?.transcript as Record<string, unknown> | undefined;
+  const transcriptData = transcriptShortcut?.data as Record<string, unknown> | undefined;
+  const downloadUrl = transcriptData?.download_url as string | undefined;
 
   if (!downloadUrl) {
     return NextResponse.json({
-      step: "meta_parsed",
-      keys: Object.keys(metaParsed),
-      preview: JSON.stringify(metaParsed).slice(0, 1000),
-      downloadUrl: null,
+      step: "no_download_url",
+      recordingKeys: Object.keys(recording),
+      mediaShortcutsKeys: mediaShortcuts ? Object.keys(mediaShortcuts) : null,
+      transcriptShortcut: JSON.stringify(transcriptShortcut).slice(0, 500),
     });
   }
 
-  // Step 2: Fetch actual transcript data
+  // Step 2: Fetch transcript data
   const dataRes = await fetch(downloadUrl, {
     headers: { Accept: "application/json" },
   });
 
-  const dataStatus = dataRes.status;
-  const dataBody = await dataRes.text();
-
   if (!dataRes.ok) {
     return NextResponse.json({
       step: "download",
-      status: dataStatus,
-      body: dataBody.slice(0, 1000),
+      status: dataRes.status,
+      body: (await dataRes.text()).slice(0, 1000),
     });
   }
 
-  const dataParsed = JSON.parse(dataBody);
+  const data = await dataRes.json();
 
   return NextResponse.json({
     step: "success",
-    metaKeys: Object.keys(metaParsed),
     downloadUrl,
-    dataType: Array.isArray(dataParsed) ? "array" : typeof dataParsed,
-    dataLength: Array.isArray(dataParsed) ? dataParsed.length : null,
-    dataPreview: JSON.stringify(dataParsed).slice(0, 500),
+    dataType: Array.isArray(data) ? "array" : typeof data,
+    segmentCount: Array.isArray(data) ? data.length : null,
+    preview: JSON.stringify(data).slice(0, 500),
   });
 }

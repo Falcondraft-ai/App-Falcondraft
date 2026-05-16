@@ -197,8 +197,8 @@ export async function POST(request: Request) {
 
     // --- transcript.done ---
     if (eventType === "transcript.done") {
-      if (!recallTranscriptId) {
-        console.error(`[Recall] transcript.done — no transcript_id. data_keys=${Object.keys(data).join(",")}`);
+      if (!recordingId) {
+        console.error(`[Recall] transcript.done — no recording_id. data_keys=${Object.keys(data).join(",")}`);
         return NextResponse.json({ ok: true });
       }
 
@@ -210,97 +210,72 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      // Step 1: Get transcript metadata (contains download_url)
-      const metaUrl = `${recallBaseUrl}/api/v1/transcript/${recallTranscriptId}/`;
-      console.log(`[Recall] Fetching transcript metadata: GET ${metaUrl}`);
+      // Step 1: Get recording to find transcript download_url
+      const recordingUrl = `${recallBaseUrl}/api/v1/recording/${recordingId}/`;
+      console.log(`[Recall] Fetching recording: GET ${recordingUrl}`);
 
-      const metaRes = await fetch(metaUrl, {
+      const recordingRes = await fetch(recordingUrl, {
         method: "GET",
         headers: {
           Authorization: `Token ${recallApiKey}`,
           Accept: "application/json",
         },
       }).catch((err: unknown) => {
-        console.error("[Recall] fetch transcript meta error:", err instanceof Error ? err.message : err);
+        console.error("[Recall] fetch recording error:", err instanceof Error ? err.message : err);
         return null;
       });
 
-      if (!metaRes?.ok) {
-        const body = metaRes ? await metaRes.text().catch(() => "") : "(no response)";
-        console.error(`[Recall] fetch transcript meta failed — status=${metaRes?.status ?? "none"} body=${body.slice(0, 500)}`);
+      if (!recordingRes?.ok) {
+        const body = recordingRes ? await recordingRes.text().catch(() => "") : "(no response)";
+        console.error(`[Recall] fetch recording failed — status=${recordingRes?.status ?? "none"} body=${body.slice(0, 500)}`);
         return NextResponse.json({ ok: true });
       }
 
-      const metaBody = await metaRes.text();
-      console.log(`[Recall] transcript meta response: ${metaBody.slice(0, 500)}`);
+      const recording = (await recordingRes.json()) as Record<string, unknown>;
+      console.log(`[Recall] recording keys: ${Object.keys(recording).join(",")}`);
 
-      let metaParsed: unknown;
-      try {
-        metaParsed = JSON.parse(metaBody);
-      } catch {
-        console.error("[Recall] Failed to parse transcript meta as JSON");
-        return NextResponse.json({ ok: true });
-      }
-
-      // Extract download_url from the transcript object
-      const downloadUrl =
-        (metaParsed && typeof metaParsed === "object"
-          ? ((metaParsed as Record<string, unknown>).download_url as string) ?? null
-          : null);
+      // Extract download_url from media_shortcuts.transcript.data.download_url
+      const mediaShortcuts = recording.media_shortcuts as Record<string, unknown> | undefined;
+      const transcriptShortcut = mediaShortcuts?.transcript as Record<string, unknown> | undefined;
+      const transcriptData = transcriptShortcut?.data as Record<string, unknown> | undefined;
+      const downloadUrl = transcriptData?.download_url as string | undefined;
 
       if (!downloadUrl) {
-        // Maybe the response IS the segments directly (array)
-        if (Array.isArray(metaParsed)) {
-          console.log(`[Recall] meta response is already an array — using as segments`);
-          // Fall through to segment parsing below with metaParsed as segments
-        } else {
-          console.error(`[Recall] No download_url found. Keys: ${metaParsed && typeof metaParsed === "object" ? Object.keys(metaParsed as Record<string, unknown>).join(",") : typeof metaParsed}`);
-          return NextResponse.json({ ok: true });
-        }
+        console.error(`[Recall] No download_url in recording. media_shortcuts keys: ${mediaShortcuts ? Object.keys(mediaShortcuts).join(",") : "none"}, transcript: ${JSON.stringify(transcriptShortcut).slice(0, 300)}`);
+        return NextResponse.json({ ok: true });
       }
 
-      // Step 2: Fetch actual transcript segments from download_url
+      // Step 2: Fetch transcript segments from download_url
+      console.log(`[Recall] Fetching transcript data from download_url`);
+
+      const dataRes = await fetch(downloadUrl, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }).catch((err: unknown) => {
+        console.error("[Recall] fetch transcript data error:", err instanceof Error ? err.message : err);
+        return null;
+      });
+
+      if (!dataRes?.ok) {
+        const body = dataRes ? await dataRes.text().catch(() => "") : "(no response)";
+        console.error(`[Recall] fetch transcript data failed — status=${dataRes?.status ?? "none"} body=${body.slice(0, 500)}`);
+        return NextResponse.json({ ok: true });
+      }
+
+      const dataBody = await dataRes.text();
+      console.log(`[Recall] transcript data preview: ${dataBody.slice(0, 300)}`);
+
       let segments: Array<{
         participant?: { name?: string | null };
         words?: Array<{ text?: string }>;
       }>;
 
-      if (Array.isArray(metaParsed)) {
-        segments = metaParsed;
-      } else {
-        console.log(`[Recall] Fetching transcript data: GET ${downloadUrl}`);
-
-        const dataRes = await fetch(downloadUrl!, {
-          method: "GET",
-          headers: { Accept: "application/json" },
-        }).catch((err: unknown) => {
-          console.error("[Recall] fetch transcript data error:", err instanceof Error ? err.message : err);
-          return null;
-        });
-
-        if (!dataRes?.ok) {
-          const body = dataRes ? await dataRes.text().catch(() => "") : "(no response)";
-          console.error(`[Recall] fetch transcript data failed — status=${dataRes?.status ?? "none"} body=${body.slice(0, 500)}`);
-          return NextResponse.json({ ok: true });
-        }
-
-        const dataBody = await dataRes.text();
-        console.log(`[Recall] transcript data preview: ${dataBody.slice(0, 300)}`);
-
-        let dataParsed: unknown;
-        try {
-          dataParsed = JSON.parse(dataBody);
-        } catch {
-          console.error("[Recall] Failed to parse transcript data as JSON");
-          return NextResponse.json({ ok: true });
-        }
-
-        if (Array.isArray(dataParsed)) {
-          segments = dataParsed;
-        } else {
-          console.error(`[Recall] transcript data is not an array. type=${typeof dataParsed}, keys=${dataParsed && typeof dataParsed === "object" ? Object.keys(dataParsed as Record<string, unknown>).join(",") : "n/a"}`);
-          return NextResponse.json({ ok: true });
-        }
+      try {
+        const parsed = JSON.parse(dataBody);
+        segments = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        console.error("[Recall] Failed to parse transcript data as JSON");
+        return NextResponse.json({ ok: true });
       }
 
       console.log(`[Recall] transcript fetched — ${segments.length} segments`);
@@ -322,6 +297,7 @@ export async function POST(request: Request) {
           .update({
             status: "ready",
             transcript_text: transcriptText,
+            recall_bot_status: "done",
             updated_at: new Date().toISOString(),
           })
           .eq("id", transcript.id);
@@ -337,7 +313,7 @@ export async function POST(request: Request) {
             .eq("organization_id", transcript.organization_id);
         }
 
-        console.log(`[Recall] transcript saved to DB — transcript_id=${transcript.id}`);
+        console.log(`[Recall] transcript saved — transcript_id=${transcript.id}`);
       } else {
         console.error("[Recall] transcript text is empty after parsing segments");
       }
