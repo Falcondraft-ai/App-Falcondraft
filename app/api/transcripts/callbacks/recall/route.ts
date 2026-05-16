@@ -37,6 +37,25 @@ function verifySvixSignature(
   return false;
 }
 
+function extractString(obj: unknown, ...keys: string[]): string | null {
+  if (!obj || typeof obj !== "object") return null;
+  const record = obj as Record<string, unknown>;
+  for (const key of keys) {
+    if (key.includes(".")) {
+      const [first, ...rest] = key.split(".");
+      const nested = record[first];
+      if (nested && typeof nested === "object") {
+        const val = extractString(nested, rest.join("."));
+        if (val) return val;
+      }
+    } else {
+      const val = record[key];
+      if (typeof val === "string" && val.length > 0) return val;
+    }
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   const secret = process.env.RECALL_WEBHOOK_SECRET;
   if (!secret) {
@@ -52,41 +71,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Signature invalide." }, { status: 401 });
   }
 
-  const event = JSON.parse(rawBody) as {
-    event?: string;
-    data?: {
-      bot_id?: string;
-      transcript?: { text?: string } | null;
-      status?: { code?: string; message?: string };
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  };
+  const payload = JSON.parse(rawBody) as Record<string, unknown>;
+  const eventType = (payload.event as string) ?? "";
+  const data = (payload.data as Record<string, unknown>) ?? {};
 
-  const botId = event.data?.bot_id;
-  if (!botId) {
-    return NextResponse.json({ ok: true });
-  }
+  // Extract bot_id from multiple possible locations
+  const botId = extractString(data, "bot_id", "bot.id");
+  // Extract recording_id from multiple possible locations
+  const recordingId = extractString(data, "recording_id", "recording.id", "id");
+
+  // DEBUG: log full payload shape (no secrets, truncated)
+  console.log(`[Recall webhook] event="${eventType}" bot_id="${botId}" recording_id="${recordingId}" payload=${JSON.stringify(payload).slice(0, 800)}`);
 
   const adminSupabase = getSupabaseAdminClient();
   if (!adminSupabase) {
     return NextResponse.json({ error: "Service indisponible." }, { status: 500 });
   }
 
-  const { data: transcript } = await adminSupabase
-    .from("transcripts")
-    .select("id, organization_id, deal_id, status")
-    .eq("recall_bot_id", botId)
-    .maybeSingle();
+  // Find matching FalconDraft transcript by recall_bot_id
+  let transcript: {
+    id: string;
+    organization_id: string;
+    deal_id: string | null;
+    status: string;
+  } | null = null;
+
+  if (botId) {
+    const { data: row } = await adminSupabase
+      .from("transcripts")
+      .select("id, organization_id, deal_id, status")
+      .eq("recall_bot_id", botId)
+      .eq("source", "recall_ai")
+      .maybeSingle();
+    transcript = row;
+  }
+
+  console.log(`[Recall webhook] transcript_found=${!!transcript} transcript_id=${transcript?.id ?? "none"}`);
 
   if (!transcript) {
     return NextResponse.json({ ok: true });
   }
 
-  const eventType = event.event ?? "";
-
+  // --- bot.status_change ---
   if (eventType === "bot.status_change") {
-    const statusCode = event.data?.status?.code;
+    const statusCode = extractString(data, "status.code");
 
     if (statusCode === "in_call_recording" && transcript.status === "waiting") {
       await adminSupabase
@@ -95,28 +123,90 @@ export async function POST(request: Request) {
         .eq("id", transcript.id);
     }
 
-    if (statusCode === "fatal" || statusCode === "done") {
-      if (statusCode === "fatal") {
-        const errorMsg =
-          event.data?.status?.message ?? "Le bot Recall.ai a rencontré une erreur.";
-        await adminSupabase
-          .from("transcripts")
-          .update({
-            status: "error",
-            error_message: errorMsg,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", transcript.id);
-      }
+    if (statusCode === "fatal") {
+      const errorMsg =
+        extractString(data, "status.message") ?? "Le bot Recall.ai a rencontré une erreur.";
+      await adminSupabase
+        .from("transcripts")
+        .update({
+          status: "error",
+          error_message: errorMsg,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", transcript.id);
     }
   }
 
-  if (eventType === "bot.transcription_complete" || eventType === "transcript.ready") {
-    const transcriptText =
-      event.data?.transcript?.text ??
-      (typeof event.data?.transcript === "string" ? event.data.transcript : null);
+  // --- recording.done ---
+  if (eventType === "recording.done") {
+    if (!recordingId) {
+      console.error(`[Recall] recording.done — no recording_id extracted. data_keys=${Object.keys(data).join(",")}`);
+      return NextResponse.json({ ok: true });
+    }
 
-    if (transcriptText && typeof transcriptText === "string") {
+    // Update status to processing before requesting transcription
+    if (transcript.status === "waiting" || transcript.status === "processing") {
+      await adminSupabase
+        .from("transcripts")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("id", transcript.id);
+    }
+
+    const recallApiKey = process.env.RECALL_API_KEY;
+    const recallBaseUrl = process.env.RECALL_API_BASE_URL || "https://api.recall.ai";
+
+    if (!recallApiKey) {
+      console.error("[Recall] RECALL_API_KEY not set, cannot call create_transcript");
+      return NextResponse.json({ ok: true });
+    }
+
+    const url = `${recallBaseUrl}/api/v1/recording/${recordingId}/create_transcript/`;
+    console.log(`[Recall] Calling create_transcript: POST ${url}`);
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Token ${recallApiKey}`,
+      },
+      body: JSON.stringify({
+        provider: {
+          recallai_async: {
+            language_code: "auto",
+          },
+        },
+        diarization: {
+          use_separate_streams_when_available: true,
+        },
+      }),
+    }).catch((err: unknown) => {
+      console.error("[Recall] create_transcript fetch error:", err instanceof Error ? err.message : err);
+      return null;
+    });
+
+    if (res?.ok) {
+      console.log(`[Recall] create_transcript success — status=${res.status}`);
+    } else {
+      const body = res ? await res.text().catch(() => "") : "(no response)";
+      console.error(`[Recall] create_transcript failed — status=${res?.status ?? "none"} body=${body}`);
+    }
+  }
+
+  // --- transcript.done ---
+  if (eventType === "transcript.done" || eventType === "bot.transcription_complete" || eventType === "transcript.ready") {
+    const transcriptObj = data.transcript;
+    let transcriptText: string | null = null;
+
+    if (typeof transcriptObj === "string") {
+      transcriptText = transcriptObj;
+    } else if (transcriptObj && typeof transcriptObj === "object") {
+      const obj = transcriptObj as Record<string, unknown>;
+      if (typeof obj.text === "string") transcriptText = obj.text;
+    }
+
+    console.log(`[Recall] transcript event — text_length=${transcriptText?.length ?? 0}`);
+
+    if (transcriptText) {
       await adminSupabase
         .from("transcripts")
         .update({
