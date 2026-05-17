@@ -20,9 +20,8 @@ export async function triggerAudioTranscription(params: TriggerParams) {
   if (!n8nSecret || !callbackBaseUrl) return;
 
   const { data: workflowConfig } = await adminSupabase
-    .from("workflow_configs")
+    .from("system_workflow_configs")
     .select("n8n_webhook_url")
-    .eq("organization_id", organizationId)
     .eq("workflow_type", "audio_transcription")
     .eq("status", "active")
     .maybeSingle();

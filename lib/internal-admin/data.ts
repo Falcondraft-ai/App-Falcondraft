@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { managedWorkflowTypes } from "@/lib/internal-admin/workflows";
 import type {
   OrganizationInvitationRow,
   OrganizationMemberRow,
@@ -160,7 +161,10 @@ export async function getInternalAdminWorkspaceData(input: {
     InternalAdminWorkflowConfig[]
   >();
 
+  const managedTypes = new Set<string>(managedWorkflowTypes);
+
   for (const config of workflowConfigs) {
+    if (!managedTypes.has(config.workflow_type)) continue;
     const mappedConfig = mapWorkflowConfig(config);
     const current = configsByOrganization.get(config.organization_id) ?? [];
     current.push(mappedConfig);

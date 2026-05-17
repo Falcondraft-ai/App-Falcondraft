@@ -8,6 +8,7 @@ import {
   PROFILE_PHOTO_UPDATED_EVENT,
   type ProfilePhotoResponse,
 } from "@/lib/profile-photo";
+import { useI18n } from "@/components/i18n/language-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ export function ProfilePhotoControl({
   userName: string;
   userEmail: string;
 }) {
+  const { t } = useI18n();
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [photoUrl, setPhotoUrl] = React.useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -64,15 +66,15 @@ export function ProfilePhotoControl({
     }
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Format non pris en charge", {
-        description: "Choisissez une image au format PNG, JPG ou WebP.",
+      toast.error(t("settings.photo.errorFormatTitle"), {
+        description: t("settings.photo.errorFormat"),
       });
       return;
     }
 
     if (file.size > maxProfilePhotoSize) {
-      toast.error("Image trop lourde", {
-        description: "La photo doit rester sous 2 Mo.",
+      toast.error(t("settings.photo.errorSizeTitle"), {
+        description: t("settings.photo.errorSize"),
       });
       return;
     }
@@ -88,17 +90,17 @@ export function ProfilePhotoControl({
 
     const result = (await response?.json().catch(() => ({
       success: false,
-      message: "La photo n’a pas pu être enregistrée.",
+      message: t("settings.photo.errorDescription"),
     }))) as ProfilePhotoResponse | undefined;
 
     setIsUpdating(false);
 
     if (!response?.ok || !result?.success) {
-      toast.error("Photo non enregistrée", {
+      toast.error(t("settings.photo.errorTitle"), {
         description:
           result && "message" in result
             ? result.message
-            : "La photo n’a pas pu être enregistrée.",
+            : t("settings.photo.errorDescription"),
       });
       return;
     }
@@ -106,7 +108,7 @@ export function ProfilePhotoControl({
     setPhotoUrl(result.url);
     setIsDialogOpen(false);
     notifyProfilePhotoUpdated();
-    toast.success("Photo de profil mise à jour.");
+    toast.success(t("settings.photo.successUpdated"));
   }
 
   async function removePhoto() {
@@ -119,15 +121,15 @@ export function ProfilePhotoControl({
     setIsUpdating(false);
 
     if (!response?.ok) {
-      toast.error("Photo non retirée", {
-        description: "La photo n’a pas pu être supprimée.",
+      toast.error(t("settings.photo.removeErrorTitle"), {
+        description: t("settings.photo.removeErrorDescription"),
       });
       return;
     }
 
     setPhotoUrl(null);
     notifyProfilePhotoUpdated();
-    toast.success("Photo de profil retirée.");
+    toast.success(t("settings.photo.successRemoved"));
   }
 
   return (
@@ -162,26 +164,25 @@ export function ProfilePhotoControl({
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button type="button" variant="outline">
-              Choisir une photo
+              {t("settings.photo.choose")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Photo de profil</DialogTitle>
+              <DialogTitle>{t("settings.photo.dialogTitle")}</DialogTitle>
               <DialogDescription>
-                Choisissez une image professionnelle, nette et centrée sur le
-                visage.
+                {t("settings.photo.dialogDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="rounded-md border bg-muted/45 p-3 text-sm">
-              <p className="font-medium">Formats acceptés</p>
+              <p className="font-medium">{t("settings.photo.formats")}</p>
               <p className="text-muted-foreground mt-1">
-                PNG, JPG ou WebP. Taille maximale : 2 Mo.
+                {t("settings.photo.formatsDetail")}
               </p>
             </div>
             <div className="flex justify-end">
               <Button type="button" onClick={() => inputRef.current?.click()}>
-                {isUpdating ? "Enregistrement..." : "Sélectionner une image"}
+                {isUpdating ? t("settings.photo.saving") : t("settings.photo.select")}
               </Button>
             </div>
           </DialogContent>
@@ -193,7 +194,7 @@ export function ProfilePhotoControl({
             disabled={isUpdating}
             onClick={() => void removePhoto()}
           >
-            {isUpdating ? "Mise à jour..." : "Retirer"}
+            {isUpdating ? t("settings.photo.updating") : t("settings.photo.remove")}
           </Button>
         ) : null}
       </div>

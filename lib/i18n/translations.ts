@@ -441,6 +441,19 @@ export type TranslationKey =
   | "integrations.microsoft.body1"
   | "integrations.microsoft.body2"
   | "integrations.microsoft.cta"
+  | "integrations.microsoft.connect"
+  | "integrations.microsoft.disconnect"
+  | "integrations.microsoft.disconnecting"
+  | "integrations.microsoft.connected"
+  | "integrations.microsoft.disconnected"
+  | "integrations.microsoft.connectedAccount"
+  | "integrations.microsoft.connectedToast"
+  | "integrations.microsoft.disconnectedToast"
+  | "integrations.microsoft.disconnectError"
+  | "integrations.microsoft.denied"
+  | "integrations.microsoft.refused"
+  | "integrations.microsoft.unavailable"
+  | "integrations.microsoft.error"
   | "billing.current"
   | "billing.details"
   | "billing.statusDetail"
@@ -470,6 +483,25 @@ export type TranslationKey =
   | "settings.nav.billing"
   | "settings.profile.title"
   | "settings.profile.description"
+  | "settings.photo.choose"
+  | "settings.photo.remove"
+  | "settings.photo.dialogTitle"
+  | "settings.photo.dialogDescription"
+  | "settings.photo.formats"
+  | "settings.photo.formatsDetail"
+  | "settings.photo.select"
+  | "settings.photo.saving"
+  | "settings.photo.updating"
+  | "settings.photo.errorTitle"
+  | "settings.photo.errorDescription"
+  | "settings.photo.errorSize"
+  | "settings.photo.errorSizeTitle"
+  | "settings.photo.errorFormat"
+  | "settings.photo.errorFormatTitle"
+  | "settings.photo.successUpdated"
+  | "settings.photo.successRemoved"
+  | "settings.photo.removeErrorTitle"
+  | "settings.photo.removeErrorDescription"
   | "settings.preferences.title"
   | "settings.preferences.description"
   | "settings.organizationName"
@@ -1121,13 +1153,27 @@ export const translations: Record<Language, Dictionary> = {
     "integrations.gmail.disconnecting": "Déconnexion…",
     "integrations.gmail.disconnect": "Déconnecter",
     "integrations.gmail.connect": "Connecter Gmail",
-    "integrations.microsoft.subtitle": "Connexion Microsoft à venir",
+    "integrations.microsoft.subtitle": "Compte Microsoft personnel ou professionnel",
     "integrations.microsoft.comingSoon": "Bientôt",
     "integrations.microsoft.body1":
-      "Cette option suivra la même logique que Gmail : préparation de brouillons uniquement.",
+      "Connectez votre compte Outlook ou Microsoft 365 pour préparer vos brouillons commerciaux directement depuis FalconDraft.",
     "integrations.microsoft.body2":
-      "Elle sera activée lorsque la connexion Microsoft 365 sera ajoutée à FalconDraft.",
-    "integrations.microsoft.cta": "Connexion à venir",
+      "FalconDraft prépare uniquement des brouillons. Vous restez maître de l'envoi.",
+    "integrations.microsoft.cta": "Connecter Outlook",
+    "integrations.microsoft.connect": "Connecter Outlook",
+    "integrations.microsoft.disconnect": "Déconnecter",
+    "integrations.microsoft.disconnecting": "Déconnexion...",
+    "integrations.microsoft.connected": "Connecté",
+    "integrations.microsoft.disconnected": "Non connecté",
+    "integrations.microsoft.connectedAccount": "Compte connecté",
+    "integrations.microsoft.connectedToast": "Outlook est connecté à FalconDraft.",
+    "integrations.microsoft.disconnectedToast": "Outlook déconnecté.",
+    "integrations.microsoft.disconnectError": "Déconnexion impossible.",
+    "integrations.microsoft.denied": "Connexion Outlook annulée.",
+    "integrations.microsoft.refused": "Connexion Outlook refusée pour ce workspace.",
+    "integrations.microsoft.unavailable": "Configuration Outlook indisponible.",
+    "integrations.microsoft.error":
+      "Une erreur s'est produite lors de la connexion Outlook. Veuillez réessayer.",
     "billing.current": "Abonnement actuel",
     "billing.details":
       "{price} · Statut {status} · Prochaine échéance : {nextInvoice}",
@@ -1164,6 +1210,26 @@ export const translations: Record<Language, Dictionary> = {
     "settings.profile.title": "Profil",
     "settings.profile.description":
       "Photo et identité affichées dans votre espace client.",
+    "settings.photo.choose": "Choisir une photo",
+    "settings.photo.remove": "Retirer",
+    "settings.photo.dialogTitle": "Photo de profil",
+    "settings.photo.dialogDescription":
+      "Choisissez une image professionnelle, nette et centrée sur le visage.",
+    "settings.photo.formats": "Formats acceptés",
+    "settings.photo.formatsDetail": "PNG, JPG ou WebP. Taille maximale : 2 Mo.",
+    "settings.photo.select": "Sélectionner une image",
+    "settings.photo.saving": "Enregistrement...",
+    "settings.photo.updating": "Mise à jour...",
+    "settings.photo.errorTitle": "Photo non enregistrée",
+    "settings.photo.errorDescription": "La photo n'a pas pu être enregistrée.",
+    "settings.photo.errorSize": "La photo doit rester sous 2 Mo.",
+    "settings.photo.errorSizeTitle": "Image trop lourde",
+    "settings.photo.errorFormat": "Choisissez une image au format PNG, JPG ou WebP.",
+    "settings.photo.errorFormatTitle": "Format non pris en charge",
+    "settings.photo.successUpdated": "Photo de profil mise à jour.",
+    "settings.photo.successRemoved": "Photo de profil retirée.",
+    "settings.photo.removeErrorTitle": "Photo non retirée",
+    "settings.photo.removeErrorDescription": "La photo n'a pas pu être supprimée.",
     "settings.preferences.title": "Préférences",
     "settings.preferences.description":
       "Réglages utiles pour adapter l’espace à votre usage quotidien.",
@@ -1813,13 +1879,27 @@ export const translations: Record<Language, Dictionary> = {
     "integrations.gmail.disconnecting": "Disconnecting…",
     "integrations.gmail.disconnect": "Disconnect",
     "integrations.gmail.connect": "Connect Gmail",
-    "integrations.microsoft.subtitle": "Microsoft connection coming soon",
+    "integrations.microsoft.subtitle": "Personal or professional Microsoft account",
     "integrations.microsoft.comingSoon": "Soon",
     "integrations.microsoft.body1":
-      "This option will follow the same logic as Gmail: draft preparation only.",
+      "Connect your Outlook or Microsoft 365 account to prepare your commercial drafts directly from FalconDraft.",
     "integrations.microsoft.body2":
-      "It will be enabled when Microsoft 365 connection is added to FalconDraft.",
-    "integrations.microsoft.cta": "Connection coming soon",
+      "FalconDraft only prepares drafts. You keep full control over sending.",
+    "integrations.microsoft.cta": "Connect Outlook",
+    "integrations.microsoft.connect": "Connect Outlook",
+    "integrations.microsoft.disconnect": "Disconnect",
+    "integrations.microsoft.disconnecting": "Disconnecting...",
+    "integrations.microsoft.connected": "Connected",
+    "integrations.microsoft.disconnected": "Not connected",
+    "integrations.microsoft.connectedAccount": "Connected account",
+    "integrations.microsoft.connectedToast": "Outlook is connected to FalconDraft.",
+    "integrations.microsoft.disconnectedToast": "Outlook disconnected.",
+    "integrations.microsoft.disconnectError": "Disconnect failed.",
+    "integrations.microsoft.denied": "Outlook connection cancelled.",
+    "integrations.microsoft.refused": "Outlook connection refused for this workspace.",
+    "integrations.microsoft.unavailable": "Outlook configuration unavailable.",
+    "integrations.microsoft.error":
+      "An error occurred during Outlook connection. Please try again.",
     "billing.current": "Current subscription",
     "billing.details":
       "{price} · Status {status} · Next due date: {nextInvoice}",
@@ -1855,6 +1935,26 @@ export const translations: Record<Language, Dictionary> = {
     "settings.profile.title": "Profile",
     "settings.profile.description":
       "Photo and identity shown in your client workspace.",
+    "settings.photo.choose": "Choose a photo",
+    "settings.photo.remove": "Remove",
+    "settings.photo.dialogTitle": "Profile photo",
+    "settings.photo.dialogDescription":
+      "Choose a professional photo, clear and centered on your face.",
+    "settings.photo.formats": "Accepted formats",
+    "settings.photo.formatsDetail": "PNG, JPG or WebP. Maximum size: 2 MB.",
+    "settings.photo.select": "Select an image",
+    "settings.photo.saving": "Saving...",
+    "settings.photo.updating": "Updating...",
+    "settings.photo.errorTitle": "Photo not saved",
+    "settings.photo.errorDescription": "The photo could not be saved.",
+    "settings.photo.errorSize": "The photo must be under 2 MB.",
+    "settings.photo.errorSizeTitle": "Image too large",
+    "settings.photo.errorFormat": "Please choose a PNG, JPG or WebP image.",
+    "settings.photo.errorFormatTitle": "Unsupported format",
+    "settings.photo.successUpdated": "Profile photo updated.",
+    "settings.photo.successRemoved": "Profile photo removed.",
+    "settings.photo.removeErrorTitle": "Photo not removed",
+    "settings.photo.removeErrorDescription": "The photo could not be removed.",
     "settings.preferences.title": "Preferences",
     "settings.preferences.description":
       "Settings that adapt the workspace to your daily workflow.",

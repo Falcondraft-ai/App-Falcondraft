@@ -12,29 +12,24 @@ import type { EmailConnectionStatus } from "@/lib/email/connections";
 
 type GmailConnectionCardProps = {
   initialConnection: EmailConnectionStatus | null;
+  initialOutlookConnection: EmailConnectionStatus | null;
 };
 
-function getToastKey(status: string | null) {
-  if (status === "connected") {
-    return "integrations.gmail.connectedToast" as const;
-  }
+function getGmailToastKey(status: string | null) {
+  if (status === "connected") return "integrations.gmail.connectedToast" as const;
+  if (status === "denied") return "integrations.gmail.denied" as const;
+  if (status === "invalid" || status === "forbidden") return "integrations.gmail.refused" as const;
+  if (status === "unavailable") return "integrations.gmail.unavailable" as const;
+  if (status === "error") return "integrations.gmail.error" as const;
+  return null;
+}
 
-  if (status === "denied") {
-    return "integrations.gmail.denied" as const;
-  }
-
-  if (status === "invalid" || status === "forbidden") {
-    return "integrations.gmail.refused" as const;
-  }
-
-  if (status === "unavailable") {
-    return "integrations.gmail.unavailable" as const;
-  }
-
-  if (status === "error") {
-    return "integrations.gmail.error" as const;
-  }
-
+function getOutlookToastKey(status: string | null) {
+  if (status === "connected") return "integrations.microsoft.connectedToast" as const;
+  if (status === "denied") return "integrations.microsoft.denied" as const;
+  if (status === "invalid" || status === "forbidden") return "integrations.microsoft.refused" as const;
+  if (status === "unavailable") return "integrations.microsoft.unavailable" as const;
+  if (status === "error") return "integrations.microsoft.error" as const;
   return null;
 }
 
@@ -66,25 +61,36 @@ function ConnectionStatus({ connected }: { connected: boolean }) {
 
 export function GmailConnectionCard({
   initialConnection,
+  initialOutlookConnection,
 }: GmailConnectionCardProps) {
   const searchParams = useSearchParams();
   const { t } = useI18n();
   const [connection, setConnection] = React.useState(initialConnection);
+  const [outlookConnection, setOutlookConnection] = React.useState(initialOutlookConnection);
   const [isDisconnecting, setIsDisconnecting] = React.useState(false);
+  const [isDisconnectingOutlook, setIsDisconnectingOutlook] = React.useState(false);
   const shouldReduceMotion = useReducedMotion();
   const connected = connection?.status === "connected";
+  const outlookConnected = outlookConnection?.status === "connected";
 
   React.useEffect(() => {
-    const messageKey = getToastKey(searchParams.get("gmail"));
+    const gmailKey = getGmailToastKey(searchParams.get("gmail"));
+    const outlookKey = getOutlookToastKey(searchParams.get("outlook"));
 
-    if (!messageKey) {
-      return;
+    if (gmailKey) {
+      if (searchParams.get("gmail") === "connected") {
+        toast.success(t(gmailKey));
+      } else {
+        toast.error(t(gmailKey));
+      }
     }
 
-    if (searchParams.get("gmail") === "connected") {
-      toast.success(t(messageKey));
-    } else {
-      toast.error(t(messageKey));
+    if (outlookKey) {
+      if (searchParams.get("outlook") === "connected") {
+        toast.success(t(outlookKey));
+      } else {
+        toast.error(t(outlookKey));
+      }
     }
   }, [searchParams, t]);
 
@@ -114,6 +120,35 @@ export function GmailConnectionCard({
       );
     } finally {
       setIsDisconnecting(false);
+    }
+  }
+
+  async function disconnectOutlook() {
+    setIsDisconnectingOutlook(true);
+
+    try {
+      const response = await fetch("/api/email/connections/microsoft", {
+        method: "DELETE",
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message ?? t("integrations.microsoft.disconnectError"));
+      }
+
+      setOutlookConnection(null);
+      toast.success(t("integrations.microsoft.disconnectedToast"));
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("integrations.microsoft.disconnectError"),
+      );
+    } finally {
+      setIsDisconnectingOutlook(false);
     }
   }
 
@@ -208,7 +243,10 @@ export function GmailConnectionCard({
           initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
           animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.06, ease: "easeOut" }}
-          className="bg-card/65 relative overflow-hidden rounded-2xl border p-5 opacity-90 shadow-sm"
+          className={cn(
+            "group bg-card/85 relative overflow-hidden rounded-2xl border p-5 shadow-sm transition-colors",
+            outlookConnected ? "border-emerald-500/30" : "hover:border-primary/30",
+          )}
         >
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#F25022] via-[#00A4EF] to-[#FFB900]" />
           <div className="flex min-h-[260px] flex-col">
@@ -231,30 +269,50 @@ export function GmailConnectionCard({
                   </p>
                 </div>
               </div>
-              <span className="bg-secondary/60 text-muted-foreground rounded-full border px-2.5 py-1 text-xs font-medium">
-                {t("integrations.microsoft.comingSoon")}
-              </span>
+              <ConnectionStatus connected={outlookConnected} />
             </div>
 
             <div className="text-muted-foreground mt-5 space-y-3 text-sm leading-6">
-              <p>
-                {t("integrations.microsoft.body1")}
-              </p>
-              <p>
-                {t("integrations.microsoft.body2")}
-              </p>
+              <p>{t("integrations.microsoft.body1")}</p>
+              <p>{t("integrations.microsoft.body2")}</p>
             </div>
 
-            <div className="mt-auto pt-5">
-              <Button
-                type="button"
-                variant="outline"
-                size="default"
-                disabled
-                className="min-w-44"
-              >
-                {t("integrations.microsoft.cta")}
-              </Button>
+            {outlookConnected ? (
+              <div className="bg-background/70 mt-5 rounded-xl border p-3">
+                <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
+                  {t("integrations.microsoft.connectedAccount")}
+                </p>
+                <p className="mt-1 truncate text-sm font-medium">
+                  {outlookConnection.email}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
+              {outlookConnected ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  disabled={isDisconnectingOutlook}
+                  onClick={disconnectOutlook}
+                  className="min-w-36"
+                >
+                  {isDisconnectingOutlook
+                    ? t("integrations.microsoft.disconnecting")
+                    : t("integrations.microsoft.disconnect")}
+                </Button>
+              ) : (
+                <Button
+                  asChild
+                  size="default"
+                  className="min-w-44 shadow-sm transition-transform hover:-translate-y-0.5"
+                >
+                  <a href="/api/email/oauth/microsoft/start">
+                    {t("integrations.microsoft.connect")}
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         </motion.article>

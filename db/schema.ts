@@ -279,6 +279,16 @@ export const transcripts = pgTable(
   }),
 );
 
+export const systemWorkflowConfigs = pgTable("system_workflow_configs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workflowType: text("workflow_type").notNull().unique(),
+  n8nWebhookUrl: text("n8n_webhook_url").notNull(),
+  n8nWorkflowId: text("n8n_workflow_id"),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

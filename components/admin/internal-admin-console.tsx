@@ -265,11 +265,11 @@ function formatAmount(value: number | null) {
 }
 
 function getAutomationState(organization: InternalAdminOrganization) {
-  const activeConfigs = organization.workflowConfigs.filter(
-    (config) => config.status === "active" && config.n8nWebhookUrl,
+  const configsWithUrl = organization.workflowConfigs.filter(
+    (config) => config.n8nWebhookUrl,
   );
 
-  if (activeConfigs.length === 0) {
+  if (configsWithUrl.length === 0) {
     return {
       label: "N8N inactif",
       className: "bg-muted-foreground",
@@ -277,7 +277,11 @@ function getAutomationState(organization: InternalAdminOrganization) {
     };
   }
 
-  if (activeConfigs.length === managedWorkflowTypes.length) {
+  const allActive = configsWithUrl.every(
+    (config) => config.status === "active",
+  );
+
+  if (allActive) {
     return {
       label: "N8N actif",
       className: "bg-emerald-500",
@@ -285,9 +289,21 @@ function getAutomationState(organization: InternalAdminOrganization) {
     };
   }
 
+  const someActive = configsWithUrl.some(
+    (config) => config.status === "active",
+  );
+
+  if (someActive) {
+    return {
+      label: "N8N partiel",
+      className: "bg-amber-500",
+      badge: "outline" as const,
+    };
+  }
+
   return {
-    label: "N8N partiel",
-    className: "bg-amber-500",
+    label: "N8N inactif",
+    className: "bg-muted-foreground",
     badge: "outline" as const,
   };
 }

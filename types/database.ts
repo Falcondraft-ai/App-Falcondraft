@@ -160,6 +160,16 @@ export type WorkflowConfigRow = {
   updated_at: string;
 };
 
+export type SystemWorkflowConfigRow = {
+  id: string;
+  workflow_type: string;
+  n8n_webhook_url: string;
+  n8n_workflow_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TranscriptRow = {
   id: string;
   organization_id: string;
@@ -389,6 +399,27 @@ export type Database = {
           n8n_workflow_id?: string | null;
           status?: string;
           created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      system_workflow_configs: TableDefinition<
+        SystemWorkflowConfigRow,
+        {
+          id?: string;
+          workflow_type: string;
+          n8n_webhook_url: string;
+          n8n_workflow_id?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          workflow_type?: string;
+          n8n_webhook_url?: string;
+          n8n_workflow_id?: string | null;
+          status?: string;
           updated_at?: string;
         }
       >;

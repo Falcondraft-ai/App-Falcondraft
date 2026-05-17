@@ -2,15 +2,18 @@ import { PageTransition } from "@/components/common/page-transition";
 import { T } from "@/components/i18n/translated-text";
 import { GmailConnectionCard } from "@/components/settings/gmail-connection-card";
 import { requireCurrentUserContext } from "@/lib/auth/session";
-import { getGmailConnectionForUser } from "@/lib/email/connections";
+import {
+  getGmailConnectionForUser,
+  getOutlookConnectionForUser,
+} from "@/lib/email/connections";
 
 export default async function IntegrationsSettingsPage() {
   const context = await requireCurrentUserContext();
   const organizationId = context.organization?.id ?? null;
-  const gmailConnection = await getGmailConnectionForUser({
-    organizationId,
-    userId: context.user.id,
-  });
+  const [gmailConnection, outlookConnection] = await Promise.all([
+    getGmailConnectionForUser({ organizationId, userId: context.user.id }),
+    getOutlookConnectionForUser({ organizationId, userId: context.user.id }),
+  ]);
 
   return (
     <PageTransition>
@@ -20,7 +23,10 @@ export default async function IntegrationsSettingsPage() {
             <T tx="integrations.description" />
           </p>
         </div>
-        <GmailConnectionCard initialConnection={gmailConnection} />
+        <GmailConnectionCard
+          initialConnection={gmailConnection}
+          initialOutlookConnection={outlookConnection}
+        />
       </div>
     </PageTransition>
   );
