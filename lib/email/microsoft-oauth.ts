@@ -3,7 +3,7 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 export const outlookDraftScope =
-  "openid profile email offline_access https://graph.microsoft.com/Mail.ReadWrite";
+  "openid profile email offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.ReadWrite";
 export const outlookOAuthProvider = "outlook";
 
 type MicrosoftOAuthState = {
