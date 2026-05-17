@@ -87,10 +87,10 @@ function getLocalizedWorkflowError(message: string, language: "fr" | "en") {
   }
 
   const knownMessages: Record<string, string> = {
-    "Connectez Gmail avant de créer un brouillon.":
-      "Connect Gmail before creating a draft.",
-    "Vérification de la connexion Gmail impossible.":
-      "Gmail connection could not be checked.",
+    "Connectez Gmail ou Outlook avant de créer un brouillon.":
+      "Connect Gmail or Outlook before creating a draft.",
+    "Vérification de la connexion email impossible.":
+      "Email connection could not be checked.",
     "Validez d’abord la proposition pour générer le document final.":
       "Approve the proposal first to generate the final document.",
     "Le déclenchement du workflow a échoué.":

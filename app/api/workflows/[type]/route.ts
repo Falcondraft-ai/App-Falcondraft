@@ -261,22 +261,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { data: gmailConnection, error: gmailConnectionError } =
+    const { data: emailConnection, error: emailConnectionError } =
       await adminSupabase
         .from("email_connections")
         .select("id")
         .eq("organization_id", organizationId)
         .eq("user_id", user.id)
-        .eq("provider", "gmail")
         .eq("status", "connected")
         .maybeSingle();
 
-    if (gmailConnectionError) {
-      return jsonError("Vérification de la connexion Gmail impossible.", 500);
+    if (emailConnectionError) {
+      return jsonError("Vérification de la connexion email impossible.", 500);
     }
 
-    if (!gmailConnection) {
-      return jsonError("Connectez Gmail avant de créer un brouillon.", 409);
+    if (!emailConnection) {
+      return jsonError("Connectez Gmail ou Outlook avant de créer un brouillon.", 409);
     }
   }
 
