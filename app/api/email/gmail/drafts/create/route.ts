@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createGmailDraftForConnectedUser } from "@/lib/email/gmail-drafts";
+import { createOutlookDraft } from "@/lib/email/outlook-drafts";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/database";
 
@@ -186,11 +187,30 @@ function statusForDraftError(error: unknown) {
     return 403;
   }
 
-  if (error.message.includes("Aucune connexion Gmail active")) {
+  if (
+    error.message.includes("Aucune connexion Gmail active") ||
+    error.message.includes("Aucune connexion Outlook active") ||
+    error.message.includes("no_email_connection")
+  ) {
     return 409;
   }
 
   return 502;
+}
+
+async function resolveEmailProvider(
+  adminSupabase: SupabaseClient<Database>,
+  input: { organizationId: string; userId: string },
+) {
+  const { data } = await adminSupabase
+    .from("email_connections")
+    .select("provider")
+    .eq("organization_id", input.organizationId)
+    .eq("user_id", input.userId)
+    .eq("status", "connected")
+    .maybeSingle();
+
+  return data?.provider ?? null;
 }
 
 function getWorkflowRunId(input: ParsedCreateDraftBody) {
@@ -420,15 +440,40 @@ export async function POST(request: NextRequest) {
     return jsonError("Invalid PDF attachment.", 400, "invalid_pdf_attachment");
   }
 
-  try {
-    const draft = await createGmailDraftForConnectedUser({
+  const provider = await resolveEmailProvider(adminSupabase, {
+    organizationId: parsedBody.data.organization_id,
+    userId: parsedBody.data.user_id,
+  });
+
+  if (!provider) {
+    await insertDraftAuditLog(adminSupabase, {
       organizationId: parsedBody.data.organization_id,
       userId: parsedBody.data.user_id,
-      to: parsedBody.data.to,
-      subject: parsedBody.data.subject,
-      body: parsedBody.data.body,
-      attachments,
+      action: "email_draft_failed",
+      dealId,
     });
+    console.warn("No connected email provider for draft creation.", logContext);
+    return jsonError(
+      "Connect Gmail or Outlook before creating a draft.",
+      409,
+      "no_email_connection",
+    );
+  }
+
+  const draftInput = {
+    organizationId: parsedBody.data.organization_id,
+    userId: parsedBody.data.user_id,
+    to: parsedBody.data.to,
+    subject: parsedBody.data.subject,
+    body: parsedBody.data.body,
+    attachments,
+  };
+
+  try {
+    const draft =
+      provider === "outlook"
+        ? await createOutlookDraft(draftInput)
+        : await createGmailDraftForConnectedUser(draftInput);
 
     await insertDraftAuditLog(adminSupabase, {
       organizationId: parsedBody.data.organization_id,
@@ -442,7 +487,7 @@ export async function POST(request: NextRequest) {
       workflowRunId,
     });
 
-    console.info("Created Gmail draft from n8n workflow.", logContext);
+    console.info(`Created ${provider} draft from n8n workflow.`, logContext);
 
     return NextResponse.json({
       success: true,
@@ -458,15 +503,16 @@ export async function POST(request: NextRequest) {
       action: "email_draft_failed",
       dealId,
     });
-    console.error("Failed to create Gmail draft from n8n workflow.", {
+    console.error(`Failed to create ${provider} draft from n8n workflow.`, {
       ...logContext,
       reason: error instanceof Error ? error.message : "unknown_error",
     });
 
+    const providerLabel = provider === "outlook" ? "Outlook" : "Gmail";
     return jsonError(
-      "Gmail draft creation failed.",
+      `${providerLabel} draft creation failed.`,
       statusForDraftError(error),
-      "gmail_draft_failed",
+      provider === "outlook" ? "outlook_draft_failed" : "gmail_draft_failed",
     );
   }
 }
