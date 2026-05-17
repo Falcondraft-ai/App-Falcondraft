@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { googleOAuthProvider } from "@/lib/email/google-oauth";
 import {
   exchangeMicrosoftOAuthCode,
   getMicrosoftProfileEmail,
@@ -95,6 +96,14 @@ export async function GET(request: NextRequest) {
     if (error || !connection) {
       return settingsRedirect(request.url, "error");
     }
+
+    // Disconnect the competing provider when a new one is connected
+    await adminSupabase
+      .from("email_connections")
+      .delete()
+      .eq("organization_id", context.organization.id)
+      .eq("user_id", user.id)
+      .eq("provider", googleOAuthProvider);
 
     await adminSupabase.from("audit_logs").insert({
       organization_id: context.organization.id,

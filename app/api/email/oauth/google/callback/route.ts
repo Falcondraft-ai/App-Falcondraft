@@ -6,6 +6,7 @@ import {
   googleOAuthProvider,
   verifyGoogleOAuthState,
 } from "@/lib/email/google-oauth";
+import { outlookOAuthProvider } from "@/lib/email/microsoft-oauth";
 import { encryptToken } from "@/lib/email/token-crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -95,6 +96,14 @@ export async function GET(request: NextRequest) {
     if (error || !connection) {
       return settingsRedirect(request.url, "error");
     }
+
+    // Disconnect the competing provider when a new one is connected
+    await adminSupabase
+      .from("email_connections")
+      .delete()
+      .eq("organization_id", context.organization.id)
+      .eq("user_id", user.id)
+      .eq("provider", outlookOAuthProvider);
 
     await adminSupabase.from("audit_logs").insert({
       organization_id: context.organization.id,
