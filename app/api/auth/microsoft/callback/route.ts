@@ -114,7 +114,8 @@ export async function GET(request: NextRequest) {
     });
 
     return settingsRedirect(request.url, "connected");
-  } catch {
+  } catch (err) {
+    console.error("[microsoft/callback] OAuth error:", err instanceof Error ? err.message : err);
     return settingsRedirect(request.url, "error");
   }
 }
