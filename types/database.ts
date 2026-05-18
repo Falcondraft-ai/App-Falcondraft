@@ -302,6 +302,22 @@ export type ProspectInteractionRow = {
   created_at: string;
 };
 
+export type ProspectDocumentRow = {
+  id: string;
+  organization_id: string;
+  company_id: string;
+  uploaded_by: string;
+  document_type: string;
+  file_name: string;
+  file_path: string;
+  mime_type: string;
+  size_bytes: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -677,6 +693,25 @@ export type Database = {
           linkedin_url?: string | null;
           source?: string | null;
           status?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      prospect_documents: TableDefinition<
+        ProspectDocumentRow,
+        {
+          id?: string;
+          organization_id: string;
+          company_id: string;
+          uploaded_by: string;
+          document_type?: string;
+          file_name: string;
+          file_path: string;
+          mime_type: string;
+          size_bytes: number;
+          status?: string;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         }

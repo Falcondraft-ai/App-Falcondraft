@@ -26,10 +26,12 @@ import {
 import {
   ProspectionStatusDropdown,
 } from "@/components/prospection/status-badge";
+import { DocumentsSection } from "@/components/prospection/documents-section";
 import type {
   ProspectCompanyRow,
   ProspectInteractionRow,
   ProspectTaskRow,
+  ProspectDocumentRow,
 } from "@/types/database";
 
 type ProspectTaskWithCompany = ProspectTaskRow & {
@@ -75,10 +77,14 @@ export function LeadDetail({
   company,
   initialInteractions,
   initialTasks,
+  initialDocuments,
+  isManager,
 }: {
   company: ProspectCompanyRow;
   initialInteractions: ProspectInteractionRow[];
   initialTasks: ProspectTaskWithCompany[];
+  initialDocuments: ProspectDocumentRow[];
+  isManager: boolean;
 }) {
   const [data, setData] = React.useState(company);
   const [interactions, setInteractions] = React.useState(initialInteractions);
@@ -525,6 +531,12 @@ export function LeadDetail({
               </div>
             </Card>
           )}
+
+          <DocumentsSection
+            initialDocuments={initialDocuments}
+            companyId={company.id}
+            isManager={isManager}
+          />
         </div>
 
         <div className="space-y-4">

@@ -2,11 +2,12 @@ import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/common/page-transition";
 import { LeadDetail } from "@/components/prospection/lead-detail";
 import { requireCurrentUserContext } from "@/lib/auth/session";
-import { canAccessProspection } from "@/lib/internal-access";
+import { canAccessProspection, canManageProspection } from "@/lib/internal-access";
 import {
   getProspectCompanyById,
   getProspectInteractions,
   getProspectTasks,
+  getProspectDocuments,
 } from "@/lib/prospection/data";
 
 export default async function LeadDetailPage({
@@ -27,9 +28,13 @@ export default async function LeadDetailPage({
   const company = await getProspectCompanyById(organizationId, id);
   if (!company) notFound();
 
-  const [interactions, tasks] = await Promise.all([
+  const isManager = canManageProspection(context);
+  const userId = context.user.id;
+
+  const [interactions, tasks, documents] = await Promise.all([
     getProspectInteractions(organizationId, id),
     getProspectTasks(organizationId, { companyId: id }),
+    getProspectDocuments(organizationId, id, userId, isManager),
   ]);
 
   return (
@@ -38,6 +43,8 @@ export default async function LeadDetailPage({
         company={company}
         initialInteractions={interactions}
         initialTasks={tasks}
+        initialDocuments={documents}
+        isManager={isManager}
       />
     </PageTransition>
   );

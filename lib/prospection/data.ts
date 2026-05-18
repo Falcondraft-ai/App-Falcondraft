@@ -1,11 +1,13 @@
 import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   ProspectCompanyRow,
   ProspectingSearchRow,
   ProspectTaskRow,
   ProspectInteractionRow,
+  ProspectDocumentRow,
 } from "@/types/database";
 
 function orgFilter(organizationId: string) {
@@ -317,4 +319,198 @@ export async function createProspectingSearch(
   }
 
   return data as ProspectingSearchRow;
+}
+
+// --- Document functions ---
+
+export async function getProspectDocuments(
+  organizationId: string,
+  companyId: string,
+  userId: string,
+  isManager: boolean,
+): Promise<ProspectDocumentRow[]> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return [];
+
+  let query = supabase
+    .from("prospect_documents")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (!isManager) {
+    query = query.eq("uploaded_by", userId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("[prospection] Failed to fetch documents:", error.message);
+    return [];
+  }
+
+  return data as ProspectDocumentRow[];
+}
+
+export async function getAllProspectDocuments(
+  organizationId: string,
+): Promise<ProspectDocumentRow[]> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("prospect_documents")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[prospection] Failed to fetch all documents:", error.message);
+    return [];
+  }
+
+  return data as ProspectDocumentRow[];
+}
+
+export async function getProspectDocumentById(
+  documentId: string,
+  organizationId: string,
+): Promise<ProspectDocumentRow | null> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("prospect_documents")
+    .select("*")
+    .eq("id", documentId)
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return data as ProspectDocumentRow;
+}
+
+export async function createProspectDocument(
+  organizationId: string,
+  doc: {
+    company_id: string;
+    uploaded_by: string;
+    file_name: string;
+    file_path: string;
+    mime_type: string;
+    size_bytes: number;
+    document_type?: string;
+  },
+): Promise<ProspectDocumentRow | null> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("prospect_documents")
+    .insert({
+      organization_id: organizationId,
+      company_id: doc.company_id,
+      uploaded_by: doc.uploaded_by,
+      document_type: doc.document_type ?? "client_file",
+      file_name: doc.file_name,
+      file_path: doc.file_path,
+      mime_type: doc.mime_type,
+      size_bytes: doc.size_bytes,
+      status: "active",
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("[prospection] Failed to create document:", error.message);
+    return null;
+  }
+
+  return data as ProspectDocumentRow;
+}
+
+export async function archiveProspectDocument(
+  documentId: string,
+  organizationId: string,
+  userId: string,
+  isManager: boolean,
+): Promise<boolean> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const doc = await getProspectDocumentById(documentId, organizationId);
+  if (!doc) return false;
+
+  if (!isManager && doc.uploaded_by !== userId) return false;
+
+  const { error } = await supabase
+    .from("prospect_documents")
+    .update({ status: "archived" })
+    .eq("id", documentId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("[prospection] Failed to archive document:", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function permanentlyDeleteProspectDocument(
+  documentId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const doc = await getProspectDocumentById(documentId, organizationId);
+  if (!doc) return false;
+
+  const adminClient = getSupabaseAdminClient();
+  if (!adminClient) return false;
+
+  const { error: storageError } = await adminClient.storage
+    .from("prospection-documents")
+    .remove([doc.file_path]);
+
+  if (storageError) {
+    console.error("[prospection] Failed to remove file from storage:", storageError.message);
+  }
+
+  const { error } = await supabase
+    .from("prospect_documents")
+    .update({ deleted_at: new Date().toISOString(), status: "deleted" })
+    .eq("id", documentId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("[prospection] Failed to mark document deleted:", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getProspectDocumentSignedUrl(
+  filePath: string,
+): Promise<string | null> {
+  const adminClient = getSupabaseAdminClient();
+  if (!adminClient) return null;
+
+  const { data, error } = await adminClient.storage
+    .from("prospection-documents")
+    .createSignedUrl(filePath, 120);
+
+  if (error || !data?.signedUrl) {
+    console.error("[prospection] Failed to create signed URL:", error?.message);
+    return null;
+  }
+
+  return data.signedUrl;
 }

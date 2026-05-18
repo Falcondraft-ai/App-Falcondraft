@@ -76,3 +76,7 @@ export function canViewInternalAdmin(context: CurrentUserContext) {
 
   return isWorkspaceManager(context.membership.role);
 }
+
+export function canManageProspection(context: CurrentUserContext) {
+  return canViewInternalAdmin(context);
+}

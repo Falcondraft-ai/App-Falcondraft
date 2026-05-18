@@ -6,17 +6,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardTab } from "@/components/prospection/dashboard-tab";
 import { LeadsTab } from "@/components/prospection/leads-tab";
 import { SearchesTab } from "@/components/prospection/searches-tab";
+import { AdminDocumentsTab } from "@/components/prospection/admin-documents-tab";
 import type {
   ProspectCompanyRow,
   ProspectingSearchRow,
+  ProspectDocumentRow,
 } from "@/types/database";
 
 export function ProspectionPage({
   initialCompanies,
   initialSearches,
+  initialAllDocuments,
+  isManager,
 }: {
   initialCompanies: ProspectCompanyRow[];
   initialSearches: ProspectingSearchRow[];
+  initialAllDocuments: ProspectDocumentRow[];
+  isManager: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -48,6 +54,11 @@ export function ProspectionPage({
           <TabsTrigger value="searches">
             <T tx="prospection.searches" /> ({initialSearches.length})
           </TabsTrigger>
+          {isManager && (
+            <TabsTrigger value="admin">
+              Administration
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -61,6 +72,12 @@ export function ProspectionPage({
         <TabsContent value="searches">
           <SearchesTab searches={initialSearches} />
         </TabsContent>
+
+        {isManager && (
+          <TabsContent value="admin">
+            <AdminDocumentsTab initialDocuments={initialAllDocuments} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
