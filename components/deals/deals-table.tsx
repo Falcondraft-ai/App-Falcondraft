@@ -42,7 +42,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { dealStatuses, type Deal, type DealStatus } from "@/types/deal";
-import type { TranslationKey } from "@/lib/i18n/translations";
+import { getLocalizedCopy, type TranslationKey } from "@/lib/i18n/translations";
 
 type StatusFilter = DealStatus | "all";
 
@@ -276,7 +276,9 @@ export function DealsTable({
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem
                         disabled={archivingDealId === deal.id}
-                        onSelect={() => setConfirmAction({ type: "archive", deal })}
+                        onSelect={() =>
+                          setConfirmAction({ type: "archive", deal })
+                        }
                       >
                         {mode === "archived" ? (
                           <RotateCcw aria-hidden="true" />
@@ -292,7 +294,9 @@ export function DealsTable({
                       <DropdownMenuItem
                         variant="destructive"
                         disabled={deletingDealId === deal.id}
-                        onSelect={() => setConfirmAction({ type: "delete", deal })}
+                        onSelect={() =>
+                          setConfirmAction({ type: "delete", deal })
+                        }
                       >
                         <Trash2 aria-hidden="true" />
                         {deletingDealId === deal.id
@@ -322,40 +326,57 @@ export function DealsTable({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction?.type === "delete"
-                ? language === "en"
-                  ? "Delete deal"
-                  : "Supprimer le dossier"
+                ? getLocalizedCopy(language, {
+                    fr: "Supprimer le dossier",
+                    en: "Delete deal",
+                    es: "Eliminar expediente",
+                  })
                 : mode === "archived"
-                  ? language === "en"
-                    ? "Restore deal"
-                    : "Restaurer le dossier"
-                  : language === "en"
-                    ? "Archive deal"
-                    : "Archiver le dossier"}
+                  ? getLocalizedCopy(language, {
+                      fr: "Restaurer le dossier",
+                      en: "Restore deal",
+                      es: "Restaurar expediente",
+                    })
+                  : getLocalizedCopy(language, {
+                      fr: "Archiver le dossier",
+                      en: "Archive deal",
+                      es: "Archivar expediente",
+                    })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction?.type === "delete"
-                ? language === "en"
-                  ? `Permanently delete "${confirmAction.deal.name}"? This action is irreversible.`
-                  : `Supprimer définitivement le dossier "${confirmAction.deal.name}" ? Cette action est irréversible.`
+                ? getLocalizedCopy(language, {
+                    fr: `Supprimer définitivement le dossier "${confirmAction.deal.name}" ? Cette action est irréversible.`,
+                    en: `Permanently delete "${confirmAction.deal.name}"? This action is irreversible.`,
+                    es: `¿Eliminar definitivamente el expediente "${confirmAction.deal.name}"? Esta acción es irreversible.`,
+                  })
                 : mode === "archived"
-                  ? language === "en"
-                    ? `Restore "${confirmAction?.deal.name}" to the sales pipeline?`
-                    : `Restaurer le dossier "${confirmAction?.deal.name}" dans le pipeline commercial ?`
-                  : language === "en"
-                    ? `Archive "${confirmAction?.deal.name}"? It will be removed from the sales pipeline.`
-                    : `Archiver le dossier "${confirmAction?.deal.name}" ? Il sortira du pipeline commercial.`}
+                  ? getLocalizedCopy(language, {
+                      fr: `Restaurer le dossier "${confirmAction?.deal.name}" dans le pipeline commercial ?`,
+                      en: `Restore "${confirmAction?.deal.name}" to the sales pipeline?`,
+                      es: `¿Restaurar "${confirmAction?.deal.name}" en el pipeline comercial?`,
+                    })
+                  : getLocalizedCopy(language, {
+                      fr: `Archiver le dossier "${confirmAction?.deal.name}" ? Il sortira du pipeline commercial.`,
+                      en: `Archive "${confirmAction?.deal.name}"? It will be removed from the sales pipeline.`,
+                      es: `¿Archivar "${confirmAction?.deal.name}"? Saldrá del pipeline comercial.`,
+                    })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>
-              {language === "en" ? "Cancel" : "Annuler"}
+              {getLocalizedCopy(language, {
+                fr: "Annuler",
+                en: "Cancel",
+                es: "Cancelar",
+              })}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirmAction?.type === "delete")
                   void deleteDeal(confirmAction.deal);
-                else if (confirmAction) void updateArchiveState(confirmAction.deal);
+                else if (confirmAction)
+                  void updateArchiveState(confirmAction.deal);
               }}
               className={
                 confirmAction?.type === "delete"
@@ -364,16 +385,22 @@ export function DealsTable({
               }
             >
               {confirmAction?.type === "delete"
-                ? language === "en"
-                  ? "Delete"
-                  : "Supprimer"
+                ? getLocalizedCopy(language, {
+                    fr: "Supprimer",
+                    en: "Delete",
+                    es: "Eliminar",
+                  })
                 : mode === "archived"
-                  ? language === "en"
-                    ? "Restore"
-                    : "Restaurer"
-                  : language === "en"
-                    ? "Archive"
-                    : "Archiver"}
+                  ? getLocalizedCopy(language, {
+                      fr: "Restaurer",
+                      en: "Restore",
+                      es: "Restaurar",
+                    })
+                  : getLocalizedCopy(language, {
+                      fr: "Archiver",
+                      en: "Archive",
+                      es: "Archivar",
+                    })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

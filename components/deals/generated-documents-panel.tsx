@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { TranslationKey } from "@/lib/i18n/translations";
+import { getLocalizedCopy, type TranslationKey } from "@/lib/i18n/translations";
 import type { GeneratedDealDocument } from "@/types/document";
 
 function getErrorMessage(result: unknown, fallback: string) {
@@ -81,34 +81,58 @@ export function GeneratedDocumentButtons({
   const [loadingAction, setLoadingAction] = React.useState<
     "open" | "download" | null
   >(null);
-  const copy =
-    language === "en"
-      ? {
-          unavailableTitle: "Document unavailable",
-          unavailableDescription:
-            "The file is not available for this deal yet.",
-          downloadFailed: "Download failed",
-          openFailed: "Open failed",
-          genericOpenFailed: "The document could not be opened.",
-          noFile: "No file is available for this document.",
-          signedUrlFailed: "The secure link could not be generated.",
-          invalidSignedUrl: "The secure link is invalid.",
-          opening: "Opening...",
-          preparing: "Preparing...",
-        }
-      : {
-          unavailableTitle: "Document indisponible",
-          unavailableDescription:
-            "Le fichier n’est pas encore disponible pour ce dossier.",
-          downloadFailed: "Téléchargement impossible",
-          openFailed: "Ouverture impossible",
-          genericOpenFailed: "Le document n’a pas pu être ouvert.",
-          noFile: "Aucun fichier disponible pour ce document.",
-          signedUrlFailed: "Le lien sécurisé n’a pas pu être généré.",
-          invalidSignedUrl: "Le lien sécurisé est invalide.",
-          opening: "Ouverture...",
-          preparing: "Préparation...",
-        };
+  const copy = {
+    unavailableTitle: getLocalizedCopy(language, {
+      fr: "Document indisponible",
+      en: "Document unavailable",
+      es: "Documento no disponible",
+    }),
+    unavailableDescription: getLocalizedCopy(language, {
+      fr: "Le fichier n’est pas encore disponible pour ce dossier.",
+      en: "The file is not available for this deal yet.",
+      es: "El archivo aún no está disponible para este expediente.",
+    }),
+    downloadFailed: getLocalizedCopy(language, {
+      fr: "Téléchargement impossible",
+      en: "Download failed",
+      es: "Descarga imposible",
+    }),
+    openFailed: getLocalizedCopy(language, {
+      fr: "Ouverture impossible",
+      en: "Open failed",
+      es: "Apertura imposible",
+    }),
+    genericOpenFailed: getLocalizedCopy(language, {
+      fr: "Le document n’a pas pu être ouvert.",
+      en: "The document could not be opened.",
+      es: "No se ha podido abrir el documento.",
+    }),
+    noFile: getLocalizedCopy(language, {
+      fr: "Aucun fichier disponible pour ce document.",
+      en: "No file is available for this document.",
+      es: "No hay ningún archivo disponible para este documento.",
+    }),
+    signedUrlFailed: getLocalizedCopy(language, {
+      fr: "Le lien sécurisé n’a pas pu être généré.",
+      en: "The secure link could not be generated.",
+      es: "No se ha podido generar el enlace seguro.",
+    }),
+    invalidSignedUrl: getLocalizedCopy(language, {
+      fr: "Le lien sécurisé est invalide.",
+      en: "The secure link is invalid.",
+      es: "El enlace seguro no es válido.",
+    }),
+    opening: getLocalizedCopy(language, {
+      fr: "Ouverture...",
+      en: "Opening...",
+      es: "Abriendo...",
+    }),
+    preparing: getLocalizedCopy(language, {
+      fr: "Préparation...",
+      en: "Preparing...",
+      es: "Preparando...",
+    }),
+  };
 
   async function openDocument(download: boolean) {
     if (!document) {

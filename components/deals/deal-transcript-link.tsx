@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getLocalizedCopy } from "@/lib/i18n/translations";
 
 type LinkedTranscript = { id: string; title: string } | null;
 type AvailableTranscript = { id: string; title: string; createdAt: string };
@@ -45,10 +46,22 @@ export function DealTranscriptLink({
         body: JSON.stringify({ transcriptId: selectedId }),
       });
       if (!res.ok) {
-        toast.error(language === "en" ? "Failed to link transcript." : "Liaison impossible.");
+        toast.error(
+          getLocalizedCopy(language, {
+            fr: "Liaison impossible.",
+            en: "Failed to link transcript.",
+            es: "No se ha podido asociar la transcripción.",
+          }),
+        );
         return;
       }
-      toast.success(language === "en" ? "Transcript linked." : "Transcript associé.");
+      toast.success(
+        getLocalizedCopy(language, {
+          fr: "Transcript associé.",
+          en: "Transcript linked.",
+          es: "Transcripción asociada.",
+        }),
+      );
       setSelectedId("");
       router.refresh();
     } finally {
@@ -63,10 +76,22 @@ export function DealTranscriptLink({
         method: "DELETE",
       });
       if (!res.ok) {
-        toast.error(language === "en" ? "Failed to unlink transcript." : "Dissociation impossible.");
+        toast.error(
+          getLocalizedCopy(language, {
+            fr: "Dissociation impossible.",
+            en: "Failed to unlink transcript.",
+            es: "No se ha podido desvincular la transcripción.",
+          }),
+        );
         return;
       }
-      toast.success(language === "en" ? "Transcript unlinked." : "Transcript dissocié.");
+      toast.success(
+        getLocalizedCopy(language, {
+          fr: "Transcript dissocié.",
+          en: "Transcript unlinked.",
+          es: "Transcripción desvinculada.",
+        }),
+      );
       router.refresh();
     } finally {
       setUnlinking(false);
@@ -75,21 +100,31 @@ export function DealTranscriptLink({
 
   if (linkedTranscript) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-md border bg-card p-3">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="bg-card flex items-center justify-between gap-3 rounded-md border p-3">
+        <div className="flex min-w-0 items-center gap-2">
           <MessageSquareText className="text-muted-foreground size-4 shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{linkedTranscript.title}</p>
+            <p className="truncate text-sm font-medium">
+              {linkedTranscript.title}
+            </p>
             <p className="text-muted-foreground text-xs">
-              {language === "en" ? "Linked transcript" : "Transcript associé"}
+              {getLocalizedCopy(language, {
+                fr: "Transcript associé",
+                en: "Linked transcript",
+                es: "Transcripción asociada",
+              })}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href={`/dashboard/transcripts/${linkedTranscript.id}`}>
               <ExternalLink className="mr-1.5 size-3" />
-              {language === "en" ? "Open" : "Ouvrir"}
+              {getLocalizedCopy(language, {
+                fr: "Ouvrir",
+                en: "Open",
+                es: "Abrir",
+              })}
             </Link>
           </Button>
           {canEdit && (
@@ -102,8 +137,16 @@ export function DealTranscriptLink({
             >
               <Unlink className="mr-1.5 size-3" />
               {unlinking
-                ? (language === "en" ? "Unlinking..." : "Dissociation...")
-                : (language === "en" ? "Unlink" : "Dissocier")}
+                ? getLocalizedCopy(language, {
+                    fr: "Dissociation...",
+                    en: "Unlinking...",
+                    es: "Desvinculando...",
+                  })
+                : getLocalizedCopy(language, {
+                    fr: "Dissocier",
+                    en: "Unlink",
+                    es: "Desvincular",
+                  })}
             </Button>
           )}
         </div>
@@ -117,9 +160,11 @@ export function DealTranscriptLink({
     return (
       <div className="rounded-md border border-dashed p-3">
         <p className="text-muted-foreground text-sm">
-          {language === "en"
-            ? "No transcript available to link."
-            : "Aucun transcript disponible pour l'association."}
+          {getLocalizedCopy(language, {
+            fr: "Aucun transcript disponible pour l'association.",
+            en: "No transcript available to link.",
+            es: "No hay ninguna transcripción disponible para asociar.",
+          })}
         </p>
       </div>
     );
@@ -127,12 +172,16 @@ export function DealTranscriptLink({
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-dashed p-3 sm:flex-row sm:items-center">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <Link2 className="text-muted-foreground size-4 shrink-0" />
         <Select value={selectedId} onValueChange={setSelectedId}>
           <SelectTrigger className="h-8 flex-1">
             <SelectValue
-              placeholder={language === "en" ? "Select a transcript..." : "Sélectionner un transcript..."}
+              placeholder={getLocalizedCopy(language, {
+                fr: "Sélectionner un transcript...",
+                en: "Select a transcript...",
+                es: "Seleccionar una transcripción...",
+              })}
             />
           </SelectTrigger>
           <SelectContent>
@@ -151,8 +200,16 @@ export function DealTranscriptLink({
       >
         <Link2 className="mr-1.5 size-3" />
         {linking
-          ? (language === "en" ? "Linking..." : "Association...")
-          : (language === "en" ? "Link" : "Associer")}
+          ? getLocalizedCopy(language, {
+              fr: "Association...",
+              en: "Linking...",
+              es: "Asociando...",
+            })
+          : getLocalizedCopy(language, {
+              fr: "Associer",
+              en: "Link",
+              es: "Asociar",
+            })}
       </Button>
     </div>
   );

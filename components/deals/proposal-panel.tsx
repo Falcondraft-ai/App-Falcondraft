@@ -30,6 +30,7 @@ import {
   getProposalGenerationStorageKey,
   PROPOSAL_GENERATION_EVENT,
 } from "@/lib/workflow-progress";
+import { getLocalizedCopy } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
 
 type ProposalSection = {
@@ -79,7 +80,7 @@ function FormattedDocumentText({ value }: { value: string }) {
           return (
             <strong
               key={`${part}-${index}`}
-              className="font-semibold text-foreground"
+              className="text-foreground font-semibold"
             >
               {part.slice(2, -2)}
             </strong>
@@ -151,7 +152,7 @@ function ProposalSectionList({
       {sections.map((section) => (
         <section
           key={`${section.number}-${section.title}`}
-          className="border-l-2 border-primary/70 pl-3"
+          className="border-primary/70 border-l-2 pl-3"
         >
           <div className="flex items-baseline gap-2">
             <span className="text-primary font-mono text-xs">
@@ -168,7 +169,7 @@ function ProposalSectionList({
                     key={`${section.number}-${itemIndex}`}
                     className="flex gap-2"
                   >
-                    <span className="mt-2 size-1 shrink-0 bg-primary/70" />
+                    <span className="bg-primary/70 mt-2 size-1 shrink-0" />
                     <span>
                       <FormattedDocumentText value={item} />
                     </span>
@@ -200,7 +201,10 @@ export function ProposalPanel({
   const router = useRouter();
   const { t, language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
-  const sections = React.useMemo(() => parseProposalContent(content), [content]);
+  const sections = React.useMemo(
+    () => parseProposalContent(content),
+    [content],
+  );
   const [isPolling, setIsPolling] = React.useState(false);
   const [justCompleted, setJustCompleted] = React.useState(false);
   const [isDeletingProposal, setIsDeletingProposal] = React.useState(false);
@@ -254,7 +258,10 @@ export function ProposalPanel({
 
     return () => {
       window.removeEventListener("storage", syncGenerationState);
-      window.removeEventListener(PROPOSAL_GENERATION_EVENT, syncGenerationState);
+      window.removeEventListener(
+        PROPOSAL_GENERATION_EVENT,
+        syncGenerationState,
+      );
     };
   }, [dealId, effectiveHasProposal, t]);
 
@@ -307,7 +314,7 @@ export function ProposalPanel({
 
   if (!effectiveHasProposal) {
     return (
-      <div className="rounded-md border bg-muted/35 p-3">
+      <div className="bg-muted/35 rounded-md border p-3">
         <p className="text-sm font-medium">
           {isPolling ? (
             <>
@@ -330,13 +337,13 @@ export function ProposalPanel({
   return (
     <motion.div
       className={cn(
-        "relative overflow-hidden rounded-md border bg-card p-3",
+        "bg-card relative overflow-hidden rounded-md border p-3",
         justCompleted ? "border-primary/80" : "border-border",
       )}
     >
       {justCompleted && !shouldReduceMotion ? (
         <motion.div
-          className="pointer-events-none absolute inset-0 border-2 border-primary"
+          className="border-primary pointer-events-none absolute inset-0 border-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 1, 0] }}
           transition={{ duration: 1.6, ease: "easeOut" }}
@@ -363,12 +370,15 @@ export function ProposalPanel({
                 {t("dealDetail.editUnavailable")}
               </Button>
             )}
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialog
+              open={deleteDialogOpen}
+              onOpenChange={setDeleteDialogOpen}
+            >
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="px-2 text-destructive/75 hover:bg-destructive/10 hover:text-destructive"
+                className="text-destructive/75 hover:bg-destructive/10 hover:text-destructive px-2"
                 disabled={isDeletingProposal}
                 onClick={() => setDeleteDialogOpen(true)}
               >
@@ -378,12 +388,25 @@ export function ProposalPanel({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{t("deals.delete")}</AlertDialogTitle>
-                  <AlertDialogDescription>{t("dealDetail.proposalDeleteConfirm")}</AlertDialogDescription>
+                  <AlertDialogDescription>
+                    {t("dealDetail.proposalDeleteConfirm")}
+                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{language === "en" ? "Cancel" : "Annuler"}</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => void deleteProposal()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    {isDeletingProposal ? t("deals.deleting") : t("deals.delete")}
+                  <AlertDialogCancel>
+                    {getLocalizedCopy(language, {
+                      fr: "Annuler",
+                      en: "Cancel",
+                      es: "Cancelar",
+                    })}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => void deleteProposal()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeletingProposal
+                      ? t("deals.deleting")
+                      : t("deals.delete")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

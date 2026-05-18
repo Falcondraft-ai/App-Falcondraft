@@ -16,17 +16,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getLocalizedCopy, type Language } from "@/lib/i18n/translations";
 
 type DealOption = { id: string; name: string; clientCompanyName: string };
 
 const MEETING_URL_REGEX =
-  /^https:\/\/(meet\.google\.com\/|zoom\.us\/j\/|teams\.microsoft\.com\/l\/meetup-join\/)/;
+  /^https:\/\/([a-z0-9-]+\.)?(meet\.google\.com\/|zoom\.us\/(j|wc\/join)\/|teams\.(microsoft|live)\.com\/l\/(meetup-join|meet)\/)/;
 
 const LANGUAGE_OPTIONS = [
-  { value: "auto", labelFr: "Détection automatique", labelEn: "Auto-detect" },
-  { value: "fr", labelFr: "Français", labelEn: "French" },
-  { value: "en", labelFr: "Anglais", labelEn: "English" },
-  { value: "es", labelFr: "Espagnol", labelEn: "Spanish" },
+  {
+    value: "auto",
+    label: {
+      fr: "Détection automatique",
+      en: "Auto-detect",
+      es: "Detección automática",
+    },
+  },
+  { value: "fr", label: { fr: "Français", en: "French", es: "Francés" } },
+  { value: "en", label: { fr: "Anglais", en: "English", es: "Inglés" } },
+  { value: "es", label: { fr: "Espagnol", en: "Spanish", es: "Español" } },
 ];
 
 export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
@@ -76,7 +84,7 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border bg-card shadow-sm"
+      className="bg-card rounded-lg border shadow-sm"
     >
       <div className="space-y-5 p-5 sm:p-6">
         <div className="flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
@@ -87,7 +95,9 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="recall-title">{t("transcripts.recall.titleLabel")}</Label>
+          <Label htmlFor="recall-title">
+            {t("transcripts.recall.titleLabel")}
+          </Label>
           <Input
             id="recall-title"
             placeholder={t("transcripts.recall.titlePlaceholder")}
@@ -98,7 +108,9 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="recall-meeting-url">{t("transcripts.recall.meetingUrl")}</Label>
+          <Label htmlFor="recall-meeting-url">
+            {t("transcripts.recall.meetingUrl")}
+          </Label>
           <Input
             id="recall-meeting-url"
             type="url"
@@ -113,7 +125,11 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
 
         <div className="space-y-2">
           <Label htmlFor="recall-language">
-            {uiLanguage === "en" ? "Transcript language" : "Langue du transcript"}
+            {getLocalizedCopy(uiLanguage, {
+              fr: "Langue du transcript",
+              en: "Transcript language",
+              es: "Idioma de la transcripción",
+            })}
           </Label>
           <Select value={language} onValueChange={setLanguage}>
             <SelectTrigger id="recall-language">
@@ -122,27 +138,36 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
             <SelectContent>
               {LANGUAGE_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
-                  {uiLanguage === "en" ? opt.labelEn : opt.labelFr}
+                  {getLocalizedCopy(
+                    uiLanguage,
+                    opt.label as Record<Language, string>,
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <p className="text-muted-foreground text-xs">
-            {uiLanguage === "en"
-              ? "Select the spoken language to improve transcription quality."
-              : "Sélectionnez la langue parlée pour améliorer la qualité de la transcription."}
+            {getLocalizedCopy(uiLanguage, {
+              fr: "Sélectionnez la langue parlée pour améliorer la qualité de la transcription.",
+              en: "Select the spoken language to improve transcription quality.",
+              es: "Selecciona el idioma hablado para mejorar la calidad de la transcripción.",
+            })}
           </p>
         </div>
 
         {deals.length > 0 && (
           <div className="space-y-2">
-            <Label htmlFor="recall-deal">{t("transcripts.recall.dealLabel")}</Label>
+            <Label htmlFor="recall-deal">
+              {t("transcripts.recall.dealLabel")}
+            </Label>
             <Select value={dealId} onValueChange={setDealId}>
               <SelectTrigger id="recall-deal">
                 <SelectValue placeholder={t("transcripts.recall.noDeal")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">{t("transcripts.recall.noDeal")}</SelectItem>
+                <SelectItem value="none">
+                  {t("transcripts.recall.noDeal")}
+                </SelectItem>
                 {deals.map((deal) => (
                   <SelectItem key={deal.id} value={deal.id}>
                     {deal.name} — {deal.clientCompanyName}
@@ -154,7 +179,7 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t bg-muted/35 px-5 py-4 sm:px-6">
+      <div className="bg-muted/35 flex items-center justify-between border-t px-5 py-4 sm:px-6">
         <Button type="button" variant="outline" asChild>
           <Link href="/dashboard/transcripts">
             <ArrowLeft className="mr-2 size-4" />
@@ -162,7 +187,9 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
           </Link>
         </Button>
         <Button type="submit" disabled={!isValid || isSubmitting}>
-          {isSubmitting ? t("transcripts.recall.submitting") : t("transcripts.recall.submit")}
+          {isSubmitting
+            ? t("transcripts.recall.submitting")
+            : t("transcripts.recall.submit")}
         </Button>
       </div>
     </form>

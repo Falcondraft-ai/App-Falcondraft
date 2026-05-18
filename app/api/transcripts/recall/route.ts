@@ -5,7 +5,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 
 const MEETING_URL_REGEX =
-  /^https:\/\/(meet\.google\.com\/|zoom\.us\/j\/|teams\.microsoft\.com\/l\/meetup-join\/)/;
+  /^https:\/\/([a-z0-9-]+\.)?(meet\.google\.com\/|zoom\.us\/(j|wc\/join)\/|teams\.(microsoft|live)\.com\/l\/(meetup-join|meet)\/)/;
 
 const requestSchema = z.object({
   title: z.string().min(3).max(200),

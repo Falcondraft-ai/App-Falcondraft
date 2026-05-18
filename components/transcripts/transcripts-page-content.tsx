@@ -38,29 +38,74 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  getLocalizedCopy,
+  languageIntlLocales,
+  type Language,
+} from "@/lib/i18n/translations";
 import type { Transcript } from "@/types/transcript";
 
 type DealOption = { id: string; name: string; clientCompanyName: string };
 
-const RECALL_STATUS_LABELS: Record<string, { fr: string; en: string }> = {
-  joining_call: { fr: "Connexion à l'appel", en: "Joining call" },
-  in_waiting_room: { fr: "En salle d'attente", en: "In waiting room" },
-  in_call_not_recording: { fr: "Dans l'appel", en: "In call" },
-  recording_permission_allowed: { fr: "Permission accordée", en: "Permission granted" },
-  recording_permission_denied: { fr: "Permission refusée", en: "Permission denied" },
-  in_call_recording: { fr: "Enregistrement en cours", en: "Recording" },
-  call_ended: { fr: "Appel terminé", en: "Call ended" },
-  done: { fr: "Terminé", en: "Done" },
-  fatal: { fr: "Erreur fatale", en: "Fatal error" },
+const RECALL_STATUS_LABELS: Record<string, Record<Language, string>> = {
+  joining_call: {
+    fr: "Connexion à l'appel",
+    en: "Joining call",
+    es: "Conectando a la llamada",
+  },
+  in_waiting_room: {
+    fr: "En salle d'attente",
+    en: "In waiting room",
+    es: "En sala de espera",
+  },
+  in_call_not_recording: {
+    fr: "Dans l'appel",
+    en: "In call",
+    es: "En la llamada",
+  },
+  recording_permission_allowed: {
+    fr: "Permission accordée",
+    en: "Permission granted",
+    es: "Permiso concedido",
+  },
+  recording_permission_denied: {
+    fr: "Permission refusée",
+    en: "Permission denied",
+    es: "Permiso denegado",
+  },
+  in_call_recording: {
+    fr: "Enregistrement en cours",
+    en: "Recording",
+    es: "Grabando",
+  },
+  call_ended: {
+    fr: "Appel terminé",
+    en: "Call ended",
+    es: "Llamada finalizada",
+  },
+  done: { fr: "Terminé", en: "Done", es: "Terminado" },
+  fatal: { fr: "Erreur fatale", en: "Fatal error", es: "Error crítico" },
 };
 
-function RecallBotStatusBadge({ recallBotStatus, language }: { recallBotStatus: string; language: string }) {
+function RecallBotStatusBadge({
+  recallBotStatus,
+  language,
+}: {
+  recallBotStatus: string;
+  language: Language;
+}) {
   const labels = RECALL_STATUS_LABELS[recallBotStatus];
-  const label = labels ? (language === "en" ? labels.en : labels.fr) : recallBotStatus;
+  const label = labels ? getLocalizedCopy(language, labels) : recallBotStatus;
 
-  if (recallBotStatus === "fatal" || recallBotStatus === "recording_permission_denied") {
+  if (
+    recallBotStatus === "fatal" ||
+    recallBotStatus === "recording_permission_denied"
+  ) {
     return (
-      <Badge variant="outline" className="gap-1 border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+      <Badge
+        variant="outline"
+        className="gap-1 border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+      >
         <AlertCircle className="size-3" />
         {label}
       </Badge>
@@ -69,8 +114,11 @@ function RecallBotStatusBadge({ recallBotStatus, language }: { recallBotStatus: 
 
   if (recallBotStatus === "in_call_recording") {
     return (
-      <Badge variant="outline" className="gap-1 border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
-        <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
+      <Badge
+        variant="outline"
+        className="gap-1 border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300"
+      >
+        <span className="size-2 animate-pulse rounded-full bg-rose-500" />
         {label}
       </Badge>
     );
@@ -78,7 +126,10 @@ function RecallBotStatusBadge({ recallBotStatus, language }: { recallBotStatus: 
 
   if (recallBotStatus === "done" || recallBotStatus === "call_ended") {
     return (
-      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+      <Badge
+        variant="outline"
+        className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+      >
         <Clock className="size-3" />
         {label}
       </Badge>
@@ -86,7 +137,10 @@ function RecallBotStatusBadge({ recallBotStatus, language }: { recallBotStatus: 
   }
 
   return (
-    <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+    <Badge
+      variant="outline"
+      className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
+    >
       <Clock className="size-3" />
       {label}
     </Badge>
@@ -97,13 +151,26 @@ function TranscriptStatusBadge({ transcript }: { transcript: Transcript }) {
   const { t, language } = useI18n();
 
   // For recall_ai source with a bot status, show the detailed Recall status
-  if (transcript.source === "recall_ai" && transcript.recallBotStatus && transcript.status !== "ready" && transcript.status !== "error") {
-    return <RecallBotStatusBadge recallBotStatus={transcript.recallBotStatus} language={language} />;
+  if (
+    transcript.source === "recall_ai" &&
+    transcript.recallBotStatus &&
+    transcript.status !== "ready" &&
+    transcript.status !== "error"
+  ) {
+    return (
+      <RecallBotStatusBadge
+        recallBotStatus={transcript.recallBotStatus}
+        language={language}
+      />
+    );
   }
 
   if (transcript.status === "ready") {
     return (
-      <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+      <Badge
+        variant="outline"
+        className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+      >
         <CheckCircle2 className="size-3" />
         {t("transcripts.status.ready")}
       </Badge>
@@ -111,7 +178,10 @@ function TranscriptStatusBadge({ transcript }: { transcript: Transcript }) {
   }
   if (transcript.status === "waiting") {
     return (
-      <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+      <Badge
+        variant="outline"
+        className="gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
+      >
         <Clock className="size-3" />
         {t("transcripts.status.waiting")}
       </Badge>
@@ -119,14 +189,20 @@ function TranscriptStatusBadge({ transcript }: { transcript: Transcript }) {
   }
   if (transcript.status === "processing") {
     return (
-      <Badge variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+      <Badge
+        variant="outline"
+        className="gap-1 border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+      >
         <Clock className="size-3" />
         {t("transcripts.status.processing")}
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="gap-1 border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+    <Badge
+      variant="outline"
+      className="gap-1 border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+    >
       <AlertCircle className="size-3" />
       {t("transcripts.status.error")}
     </Badge>
@@ -135,14 +211,28 @@ function TranscriptStatusBadge({ transcript }: { transcript: Transcript }) {
 
 function TranscriptSourceLabel({ source }: { source: Transcript["source"] }) {
   const { t } = useI18n();
-  if (source === "manual_paste") return <span className="text-muted-foreground text-xs">{t("transcripts.source.paste")}</span>;
-  if (source === "audio_upload") return <span className="text-muted-foreground text-xs">{t("transcripts.source.audio")}</span>;
-  return <span className="text-muted-foreground text-xs">{t("transcripts.source.recording")}</span>;
+  if (source === "manual_paste")
+    return (
+      <span className="text-muted-foreground text-xs">
+        {t("transcripts.source.paste")}
+      </span>
+    );
+  if (source === "audio_upload")
+    return (
+      <span className="text-muted-foreground text-xs">
+        {t("transcripts.source.audio")}
+      </span>
+    );
+  return (
+    <span className="text-muted-foreground text-xs">
+      {t("transcripts.source.recording")}
+    </span>
+  );
 }
 
-function formatRelativeDate(dateString: string, language: string) {
+function formatRelativeDate(dateString: string, language: Language) {
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "fr-FR", {
+  return new Intl.DateTimeFormat(languageIntlLocales[language], {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -274,7 +364,9 @@ function TranscriptRowActions({
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? t("transcripts.delete.deleting") : t("transcripts.delete.confirm")}
+              {deleting
+                ? t("transcripts.delete.deleting")
+                : t("transcripts.delete.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -300,7 +392,9 @@ function TranscriptRow({
     <div className="group flex items-start justify-between gap-4 border-b px-1 py-3.5 last:border-b-0">
       <Link href={href} className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium group-hover:underline">{transcript.title}</p>
+          <p className="truncate text-sm font-medium group-hover:underline">
+            {transcript.title}
+          </p>
           <TranscriptStatusBadge transcript={transcript} />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -315,11 +409,12 @@ function TranscriptRow({
               {t("transcripts.by")} {transcript.createdByName}
             </span>
           )}
-          {transcript.source === "recall_ai" && transcript.status !== "ready" && (
-            <span className="text-muted-foreground text-xs italic">
-              {t(`transcripts.status.${transcript.status}.hint` as never)}
-            </span>
-          )}
+          {transcript.source === "recall_ai" &&
+            transcript.status !== "ready" && (
+              <span className="text-muted-foreground text-xs italic">
+                {t(`transcripts.status.${transcript.status}.hint` as never)}
+              </span>
+            )}
         </div>
       </Link>
       <div className="flex shrink-0 items-center gap-2">
@@ -419,7 +514,8 @@ export function TranscriptsPageContent({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm">
-          {transcripts.length} {t("transcripts.count")}{transcripts.length > 1 ? "s" : ""}
+          {transcripts.length} {t("transcripts.count")}
+          {transcripts.length > 1 ? "s" : ""}
         </p>
         {canCreate && (
           <div className="flex gap-2">
@@ -474,11 +570,16 @@ function SourceCard({
         <div className="shrink-0 pt-0.5">{icon}</div>
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium">{title}</p>
-          <p className="text-muted-foreground text-xs leading-relaxed">{description}</p>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            {description}
+          </p>
         </div>
       </div>
       {!available && badge && (
-        <Badge variant="secondary" className="absolute right-3 top-3 text-[10px]">
+        <Badge
+          variant="secondary"
+          className="absolute top-3 right-3 text-[10px]"
+        >
           {badge}
         </Badge>
       )}

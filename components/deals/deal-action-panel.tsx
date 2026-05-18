@@ -29,6 +29,7 @@ import {
   PROPOSAL_VALIDATION_EVENT,
 } from "@/lib/workflow-progress";
 import { cn } from "@/lib/utils";
+import type { Language } from "@/lib/i18n/translations";
 import type { DealStatus } from "@/types/deal";
 import type { GeneratedDealDocument } from "@/types/document";
 
@@ -81,28 +82,46 @@ function handleMockWorkflowAction(label: string, message: string) {
   });
 }
 
-function getLocalizedWorkflowError(message: string, language: "fr" | "en") {
-  if (language !== "en") {
+function getLocalizedWorkflowError(message: string, language: Language) {
+  if (language === "fr") {
     return message;
   }
 
-  const knownMessages: Record<string, string> = {
-    "Connectez Gmail ou Outlook avant de créer un brouillon.":
-      "Connect Gmail or Outlook before creating a draft.",
-    "Vérification de la connexion email impossible.":
-      "Email connection could not be checked.",
-    "Validez d’abord la proposition pour générer le document final.":
-      "Approve the proposal first to generate the final document.",
-    "Le déclenchement du workflow a échoué.":
-      "The workflow could not be started.",
-    "Configuration du workflow introuvable.":
-      "Workflow configuration was not found.",
-    "Dossier commercial introuvable.": "Deal not found.",
-    "Votre rôle ne permet pas de modifier ce dossier.":
-      "Your role does not allow you to modify this deal.",
+  const knownMessages: Record<
+    string,
+    Record<Exclude<Language, "fr">, string>
+  > = {
+    "Connectez Gmail ou Outlook avant de créer un brouillon.": {
+      en: "Connect Gmail or Outlook before creating a draft.",
+      es: "Conecta Gmail u Outlook antes de crear un borrador.",
+    },
+    "Vérification de la connexion email impossible.": {
+      en: "Email connection could not be checked.",
+      es: "No se ha podido comprobar la conexión de email.",
+    },
+    "Validez d’abord la proposition pour générer le document final.": {
+      en: "Approve the proposal first to generate the final document.",
+      es: "Valida primero la propuesta comercial para generar el documento final.",
+    },
+    "Le déclenchement du workflow a échoué.": {
+      en: "The workflow could not be started.",
+      es: "No se ha podido iniciar la generación.",
+    },
+    "Configuration du workflow introuvable.": {
+      en: "Workflow configuration was not found.",
+      es: "No se ha encontrado la configuración de generación.",
+    },
+    "Dossier commercial introuvable.": {
+      en: "Deal not found.",
+      es: "Expediente comercial no encontrado.",
+    },
+    "Votre rôle ne permet pas de modifier ce dossier.": {
+      en: "Your role does not allow you to modify this deal.",
+      es: "Tu rol no permite modificar este expediente.",
+    },
   };
 
-  return knownMessages[message] ?? message;
+  return knownMessages[message]?.[language] ?? message;
 }
 
 function getVisibleActionLimit(
@@ -193,127 +212,196 @@ export function DealActionPanel({
     hasProposal,
   );
   const copy =
-    language === "en"
+    language === "es"
       ? {
           labels: [
-            "Generate call summary",
-            "Generate proposal",
-            "Edit proposal",
-            "Approve proposal",
-            "Download quote",
-            "Download final PDF",
-            "Open signature link",
-            "Prepare email draft",
+            "Generar resumen de llamada",
+            "Generar propuesta comercial",
+            "Editar propuesta comercial",
+            "Validar propuesta comercial",
+            "Descargar presupuesto",
+            "Descargar PDF final",
+            "Abrir enlace de firma",
+            "Preparar borrador de email",
           ],
-          triggering: "Starting...",
-          triggeringShort: "Starting",
-          generating: "Generation in progress",
-          launching: "Starting",
-          processing: "Processing",
-          signatureComing: "Signature — feature coming soon",
-          callSummaryStartFailed: "Could not start",
-          callSummaryStartFallback: "The call summary could not be started.",
-          callSummaryStarted: "Call summary started",
-          callSummaryStartedDescription:
-            "The page will update as soon as it is ready.",
-          proposalStartFailed: "Could not start",
-          proposalStartFallback: "Proposal generation could not be started.",
-          proposalStarted: "Proposal generation started",
-          proposalStartedDescription:
-            "The deal will update when the proposal is ready.",
-          emailDraftStartFailed: "Draft creation failed",
-          emailDraftStartFallback: "The Gmail draft could not be started.",
-          emailDraftStarted: "Gmail draft creation started",
-          emailDraftStartedDescription:
-            "The deal will update when the draft is ready.",
-          emailDraftReady: "Gmail draft ready",
-          emailDraftReadyDescription:
-            "The email draft is ready in your connected mailbox.",
-          finalDocumentReady: "Final document ready",
-          finalDocumentReadyDescription:
-            "The final document is now available in the deal.",
-          editUnavailable: "Editing link unavailable",
-          editUnavailableDescription:
-            "The link will be available once the proposal is synchronized.",
-          deleteConfirm:
-            "Permanently delete this deal? This action cannot be undone.",
-          deleteFallback: "The deal could not be deleted.",
-          deleteFailed: "Deletion failed",
-          deleteSuccess: "Deal deleted",
-          deleteSuccessDescription: "Back to the sales pipeline.",
-          archiveConfirm:
-            "Archive this deal? It will no longer be counted in the pipeline.",
-          archiveFallback: "The deal could not be archived.",
-          archiveFailed: "Archiving failed",
-          archiveSuccess: "Deal archived",
-          archiveSuccessDescription:
-            "It has been removed from the sales pipeline.",
-          next: "Next",
-          ready: "Ready",
-          validateFirst:
-            "Approve the proposal first to generate the final document.",
-          archiveLoading: "Archiving...",
-          archive: "Archive deal",
-          deleteLoading: "Deleting...",
-          delete: "Delete deal",
-          cancel: "Cancel",
-        }
-      : {
-          labels: dealActions.map((action) => action.label),
-          triggering: "Déclenchement...",
-          triggeringShort: "Déclenchement",
-          generating: "Génération en cours",
-          launching: "Lancement",
-          processing: "Traitement en cours",
-          signatureComing: "Signature — fonctionnalité à venir",
-          callSummaryStartFailed: "Déclenchement impossible",
+          triggering: "Iniciando...",
+          triggeringShort: "Inicio",
+          generating: "Generación en curso",
+          launching: "Inicio",
+          processing: "Procesando",
+          signatureComing: "Firma — funcionalidad próximamente",
+          callSummaryStartFailed: "No se ha podido iniciar",
           callSummaryStartFallback:
-            "Le compte-rendu n’a pas pu être déclenché.",
-          callSummaryStarted: "Compte-rendu lancé",
+            "No se ha podido iniciar el resumen de llamada.",
+          callSummaryStarted: "Resumen de llamada iniciado",
           callSummaryStartedDescription:
-            "La page se mettra à jour dès qu’il sera prêt.",
-          proposalStartFailed: "Déclenchement impossible",
+            "La página se actualizará en cuanto esté listo.",
+          proposalStartFailed: "No se ha podido iniciar",
           proposalStartFallback:
-            "La génération de proposition n’a pas pu être déclenchée.",
-          proposalStarted: "Génération de proposition lancée",
+            "No se ha podido iniciar la generación de la propuesta comercial.",
+          proposalStarted: "Generación de propuesta comercial iniciada",
           proposalStartedDescription:
-            "Le dossier se mettra à jour lorsque la proposition sera prête.",
-          emailDraftStartFailed: "Création du brouillon impossible",
-          emailDraftStartFallback: "Le brouillon Gmail n’a pas pu être lancé.",
-          emailDraftStarted: "Création du brouillon Gmail lancée",
+            "El expediente se actualizará cuando la propuesta comercial esté lista.",
+          emailDraftStartFailed: "Creación del borrador imposible",
+          emailDraftStartFallback:
+            "No se ha podido iniciar el borrador de Gmail.",
+          emailDraftStarted: "Creación del borrador de Gmail iniciada",
           emailDraftStartedDescription:
-            "Le dossier se mettra à jour lorsque le brouillon sera prêt.",
-          emailDraftReady: "Brouillon Gmail prêt",
+            "El expediente se actualizará cuando el borrador esté listo.",
+          emailDraftReady: "Borrador de Gmail listo",
           emailDraftReadyDescription:
-            "Le brouillon est prêt dans votre messagerie connectée.",
-          finalDocumentReady: "Document final prêt",
+            "El borrador de email está listo en tu buzón conectado.",
+          finalDocumentReady: "Documento final listo",
           finalDocumentReadyDescription:
-            "Le document final est disponible dans le dossier.",
-          editUnavailable: "Lien d’édition indisponible",
+            "El documento final ya está disponible en el expediente.",
+          editUnavailable: "Enlace de edición no disponible",
           editUnavailableDescription:
-            "Le lien sera disponible dès que la proposition aura été synchronisée.",
+            "El enlace estará disponible cuando la propuesta comercial esté sincronizada.",
           deleteConfirm:
-            "Supprimer définitivement ce dossier commercial ? Cette action est irréversible.",
-          deleteFallback: "Le dossier commercial n’a pas pu être supprimé.",
-          deleteFailed: "Suppression impossible",
-          deleteSuccess: "Dossier commercial supprimé",
-          deleteSuccessDescription: "Retour au pipeline commercial.",
+            "¿Eliminar definitivamente este expediente comercial? Esta acción es irreversible.",
+          deleteFallback: "No se ha podido eliminar el expediente comercial.",
+          deleteFailed: "Eliminación imposible",
+          deleteSuccess: "Expediente comercial eliminado",
+          deleteSuccessDescription: "Vuelta al pipeline comercial.",
           archiveConfirm:
-            "Archiver ce dossier commercial ? Il ne sera plus comptabilisé dans le pipeline.",
-          archiveFallback: "Le dossier commercial n’a pas pu être archivé.",
-          archiveFailed: "Archivage impossible",
-          archiveSuccess: "Dossier archivé",
-          archiveSuccessDescription: "Il a été retiré du pipeline commercial.",
-          next: "Suivant",
-          ready: "Prêt",
+            "¿Archivar este expediente comercial? Dejará de contabilizarse en el pipeline.",
+          archiveFallback: "No se ha podido archivar el expediente comercial.",
+          archiveFailed: "Archivado imposible",
+          archiveSuccess: "Expediente archivado",
+          archiveSuccessDescription: "Se ha retirado del pipeline comercial.",
+          next: "Siguiente",
+          ready: "Listo",
           validateFirst:
-            "Validez d’abord la proposition pour générer le document final.",
-          archiveLoading: "Archivage...",
-          archive: "Archiver le dossier",
-          deleteLoading: "Suppression...",
-          delete: "Supprimer le dossier",
-          cancel: "Annuler",
-        };
+            "Valida primero la propuesta comercial para generar el documento final.",
+          archiveLoading: "Archivando...",
+          archive: "Archivar expediente",
+          deleteLoading: "Eliminando...",
+          delete: "Eliminar expediente",
+          cancel: "Cancelar",
+        }
+      : language === "en"
+        ? {
+            labels: [
+              "Generate call summary",
+              "Generate proposal",
+              "Edit proposal",
+              "Approve proposal",
+              "Download quote",
+              "Download final PDF",
+              "Open signature link",
+              "Prepare email draft",
+            ],
+            triggering: "Starting...",
+            triggeringShort: "Starting",
+            generating: "Generation in progress",
+            launching: "Starting",
+            processing: "Processing",
+            signatureComing: "Signature — feature coming soon",
+            callSummaryStartFailed: "Could not start",
+            callSummaryStartFallback: "The call summary could not be started.",
+            callSummaryStarted: "Call summary started",
+            callSummaryStartedDescription:
+              "The page will update as soon as it is ready.",
+            proposalStartFailed: "Could not start",
+            proposalStartFallback: "Proposal generation could not be started.",
+            proposalStarted: "Proposal generation started",
+            proposalStartedDescription:
+              "The deal will update when the proposal is ready.",
+            emailDraftStartFailed: "Draft creation failed",
+            emailDraftStartFallback: "The Gmail draft could not be started.",
+            emailDraftStarted: "Gmail draft creation started",
+            emailDraftStartedDescription:
+              "The deal will update when the draft is ready.",
+            emailDraftReady: "Gmail draft ready",
+            emailDraftReadyDescription:
+              "The email draft is ready in your connected mailbox.",
+            finalDocumentReady: "Final document ready",
+            finalDocumentReadyDescription:
+              "The final document is now available in the deal.",
+            editUnavailable: "Editing link unavailable",
+            editUnavailableDescription:
+              "The link will be available once the proposal is synchronized.",
+            deleteConfirm:
+              "Permanently delete this deal? This action cannot be undone.",
+            deleteFallback: "The deal could not be deleted.",
+            deleteFailed: "Deletion failed",
+            deleteSuccess: "Deal deleted",
+            deleteSuccessDescription: "Back to the sales pipeline.",
+            archiveConfirm:
+              "Archive this deal? It will no longer be counted in the pipeline.",
+            archiveFallback: "The deal could not be archived.",
+            archiveFailed: "Archiving failed",
+            archiveSuccess: "Deal archived",
+            archiveSuccessDescription:
+              "It has been removed from the sales pipeline.",
+            next: "Next",
+            ready: "Ready",
+            validateFirst:
+              "Approve the proposal first to generate the final document.",
+            archiveLoading: "Archiving...",
+            archive: "Archive deal",
+            deleteLoading: "Deleting...",
+            delete: "Delete deal",
+            cancel: "Cancel",
+          }
+        : {
+            labels: dealActions.map((action) => action.label),
+            triggering: "Déclenchement...",
+            triggeringShort: "Déclenchement",
+            generating: "Génération en cours",
+            launching: "Lancement",
+            processing: "Traitement en cours",
+            signatureComing: "Signature — fonctionnalité à venir",
+            callSummaryStartFailed: "Déclenchement impossible",
+            callSummaryStartFallback:
+              "Le compte-rendu n’a pas pu être déclenché.",
+            callSummaryStarted: "Compte-rendu lancé",
+            callSummaryStartedDescription:
+              "La page se mettra à jour dès qu’il sera prêt.",
+            proposalStartFailed: "Déclenchement impossible",
+            proposalStartFallback:
+              "La génération de proposition n’a pas pu être déclenchée.",
+            proposalStarted: "Génération de proposition lancée",
+            proposalStartedDescription:
+              "Le dossier se mettra à jour lorsque la proposition sera prête.",
+            emailDraftStartFailed: "Création du brouillon impossible",
+            emailDraftStartFallback:
+              "Le brouillon Gmail n’a pas pu être lancé.",
+            emailDraftStarted: "Création du brouillon Gmail lancée",
+            emailDraftStartedDescription:
+              "Le dossier se mettra à jour lorsque le brouillon sera prêt.",
+            emailDraftReady: "Brouillon Gmail prêt",
+            emailDraftReadyDescription:
+              "Le brouillon est prêt dans votre messagerie connectée.",
+            finalDocumentReady: "Document final prêt",
+            finalDocumentReadyDescription:
+              "Le document final est disponible dans le dossier.",
+            editUnavailable: "Lien d’édition indisponible",
+            editUnavailableDescription:
+              "Le lien sera disponible dès que la proposition aura été synchronisée.",
+            deleteConfirm:
+              "Supprimer définitivement ce dossier commercial ? Cette action est irréversible.",
+            deleteFallback: "Le dossier commercial n’a pas pu être supprimé.",
+            deleteFailed: "Suppression impossible",
+            deleteSuccess: "Dossier commercial supprimé",
+            deleteSuccessDescription: "Retour au pipeline commercial.",
+            archiveConfirm:
+              "Archiver ce dossier commercial ? Il ne sera plus comptabilisé dans le pipeline.",
+            archiveFallback: "Le dossier commercial n’a pas pu être archivé.",
+            archiveFailed: "Archivage impossible",
+            archiveSuccess: "Dossier archivé",
+            archiveSuccessDescription:
+              "Il a été retiré du pipeline commercial.",
+            next: "Suivant",
+            ready: "Prêt",
+            validateFirst:
+              "Validez d’abord la proposition pour générer le document final.",
+            archiveLoading: "Archivage...",
+            archive: "Archiver le dossier",
+            deleteLoading: "Suppression...",
+            delete: "Supprimer le dossier",
+            cancel: "Annuler",
+          };
 
   React.useEffect(() => {
     const storageKey = getCallSummaryGenerationStorageKey(dealId);
@@ -858,12 +946,24 @@ export function DealActionPanel({
         );
       })}
       <div className="space-y-2 pt-3">
-        <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialog
+          open={archiveDialogOpen}
+          onOpenChange={setArchiveDialogOpen}
+        >
           <Button
             type="button"
             variant="outline"
             className="w-full justify-start"
-            disabled={isArchivingDeal || isDeletingDeal || isTriggeringCallSummary || isCallSummaryGenerating || isTriggeringProposal || isProposalGenerating || isTriggeringEmailDraft || localActionIndex !== null}
+            disabled={
+              isArchivingDeal ||
+              isDeletingDeal ||
+              isTriggeringCallSummary ||
+              isCallSummaryGenerating ||
+              isTriggeringProposal ||
+              isProposalGenerating ||
+              isTriggeringEmailDraft ||
+              localActionIndex !== null
+            }
             onClick={() => setArchiveDialogOpen(true)}
           >
             {isArchivingDeal ? copy.archiveLoading : copy.archive}
@@ -871,7 +971,9 @@ export function DealActionPanel({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{copy.archive}</AlertDialogTitle>
-              <AlertDialogDescription>{copy.archiveConfirm}</AlertDialogDescription>
+              <AlertDialogDescription>
+                {copy.archiveConfirm}
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>
@@ -886,7 +988,16 @@ export function DealActionPanel({
             type="button"
             variant="destructive"
             className="w-full justify-start"
-            disabled={isDeletingDeal || isArchivingDeal || isTriggeringCallSummary || isCallSummaryGenerating || isTriggeringProposal || isProposalGenerating || isTriggeringEmailDraft || localActionIndex !== null}
+            disabled={
+              isDeletingDeal ||
+              isArchivingDeal ||
+              isTriggeringCallSummary ||
+              isCallSummaryGenerating ||
+              isTriggeringProposal ||
+              isProposalGenerating ||
+              isTriggeringEmailDraft ||
+              localActionIndex !== null
+            }
             onClick={() => setDeleteDialogOpen(true)}
           >
             {isDeletingDeal ? copy.deleteLoading : copy.delete}
@@ -894,11 +1005,16 @@ export function DealActionPanel({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{copy.delete}</AlertDialogTitle>
-              <AlertDialogDescription>{copy.deleteConfirm}</AlertDialogDescription>
+              <AlertDialogDescription>
+                {copy.deleteConfirm}
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void deleteDeal()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction
+                onClick={() => void deleteDeal()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
                 {isDeletingDeal ? copy.deleteLoading : copy.delete}
               </AlertDialogAction>
             </AlertDialogFooter>

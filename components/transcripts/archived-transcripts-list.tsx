@@ -2,7 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArchiveRestore, MessageSquareText, MoreHorizontal, Trash2 } from "lucide-react";
+import {
+  ArchiveRestore,
+  MessageSquareText,
+  MoreHorizontal,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/language-provider";
@@ -24,10 +29,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  getLocalizedCopy,
+  languageIntlLocales,
+  type Language,
+} from "@/lib/i18n/translations";
 import type { Transcript } from "@/types/transcript";
 
-function formatDate(dateString: string, language: string) {
-  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "fr-FR", {
+function formatDate(dateString: string, language: Language) {
+  return new Intl.DateTimeFormat(languageIntlLocales[language], {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -81,9 +91,14 @@ function ArchivedTranscriptRow({
 
   return (
     <div className="flex items-center justify-between gap-4 border-b px-1 py-3 last:border-b-0">
-      <Link href={`/dashboard/transcripts/${transcript.id}`} className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium hover:underline">{transcript.title}</p>
-        <div className="flex items-center gap-2 mt-0.5">
+      <Link
+        href={`/dashboard/transcripts/${transcript.id}`}
+        className="min-w-0 flex-1"
+      >
+        <p className="truncate text-sm font-medium hover:underline">
+          {transcript.title}
+        </p>
+        <div className="mt-0.5 flex items-center gap-2">
           {transcript.dealName && (
             <span className="text-muted-foreground text-xs">
               {t("transcripts.deal")} : {transcript.dealName}
@@ -132,7 +147,9 @@ function ArchivedTranscriptRow({
         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("transcripts.delete.title")}</AlertDialogTitle>
+              <AlertDialogTitle>
+                {t("transcripts.delete.title")}
+              </AlertDialogTitle>
               <AlertDialogDescription>
                 {t("transcripts.delete.description")}
               </AlertDialogDescription>
@@ -144,7 +161,9 @@ function ArchivedTranscriptRow({
                 disabled={deleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {deleting ? t("transcripts.delete.deleting") : t("transcripts.delete.confirm")}
+                {deleting
+                  ? t("transcripts.delete.deleting")
+                  : t("transcripts.delete.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -171,7 +190,11 @@ export function ArchivedTranscriptsList({
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <MessageSquareText className="text-muted-foreground size-8 opacity-40" />
           <p className="text-muted-foreground text-sm">
-            {language === "en" ? "No archived transcripts." : "Aucun transcript archivé."}
+            {getLocalizedCopy(language, {
+              fr: "Aucun transcript archivé.",
+              en: "No archived transcripts.",
+              es: "No hay transcripciones archivadas.",
+            })}
           </p>
         </div>
       </section>

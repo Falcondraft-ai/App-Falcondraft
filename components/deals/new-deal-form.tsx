@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getLocalizedCopy } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
 
 const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
@@ -60,12 +61,12 @@ const newDealSchema = z.object({
     ),
   expectedCloseDate: z.string().trim().optional(),
   clientContactName: z.string().trim().min(2, "Indiquez le contact principal."),
-  clientEmail: z.string().trim().email("Indiquez un email professionnel valide."),
-  phone: z.string().trim().optional(),
-  transcript: z
+  clientEmail: z
     .string()
     .trim()
-    .optional(),
+    .email("Indiquez un email professionnel valide."),
+  phone: z.string().trim().optional(),
+  transcript: z.string().trim().optional(),
   additionalContext: z.string().trim().optional(),
   emailInstructions: z.string().trim().optional(),
   clientCompanyInfo: z.string().trim().optional(),
@@ -163,10 +164,12 @@ export function NewDealForm({
   const [stepIndex, setStepIndex] = React.useState(0);
   const [direction, setDirection] = React.useState(1);
   const [isLastStepReady, setIsLastStepReady] = React.useState(false);
-  const [askExpectedCloseDate, setAskExpectedCloseDate] =
-    React.useState(false);
-  const [selectedTranscriptId, setSelectedTranscriptId] = React.useState<string>("");
-  const [transcriptSourceMode, setTranscriptSourceMode] = React.useState<"paste" | "audio" | "recall">("paste");
+  const [askExpectedCloseDate, setAskExpectedCloseDate] = React.useState(false);
+  const [selectedTranscriptId, setSelectedTranscriptId] =
+    React.useState<string>("");
+  const [transcriptSourceMode, setTranscriptSourceMode] = React.useState<
+    "paste" | "audio" | "recall"
+  >("paste");
   const [audioFile, setAudioFile] = React.useState<File | null>(null);
   const [meetingUrl, setMeetingUrl] = React.useState("");
   const [recallLanguage, setRecallLanguage] = React.useState("fr");
@@ -177,106 +180,157 @@ export function NewDealForm({
     mode: "onTouched",
   });
   const copy =
-    language === "en"
+    language === "es"
       ? {
-          guided: "Guided creation",
-          newDeal: "New deal",
-          unnamedDeal: "Deal to name",
-          clientMissing: "Client to specify",
-          stepOf: `Step ${stepIndex + 1} of ${onboardingSteps.length}`,
-          dealTitle: "Deal title",
-          dealPlaceholder: "RFP response — regional office",
-          dealHelp: "A concrete name the whole team can understand.",
-          clientCompany: "Client company",
-          clientPlaceholder: "Firm, developer, department...",
-          budget: "Budget envelope",
-          budgetHelp: "Optional, only if the client shared a budget.",
-          closeDate: "Target close date",
-          closeDateHelp:
-            "Optional, useful if the deal must be ready before a specific date.",
-          contactName: "Main contact",
-          workEmail: "Work email",
-          phone: "Phone",
-          phoneHelp: "Optional, kept in the deal context.",
-          transcript: "Transcript or call notes",
-          transcriptPlaceholder:
-            "Paste discovery notes, objectives, constraints, objections, deadlines, decision criteria, and next steps...",
-          transcriptHelp:
-            "The more precise the notes, the more useful the call summary and proposal will be.",
-          context: "Additional context",
-          contextPlaceholder:
-            "Preferred references, sensitive points, political constraints, sales angle...",
-          emailInstructions: "Email instructions",
-          emailPlaceholder:
-            "Message tone, points to mention, proposed next step...",
-          companyInfo: "Company information for the quote",
-          importing: "Importing…",
-          importPappers: "Import from Pappers",
-          searchPappers: "Search on Pappers",
-          companyInfoPlaceholder:
-            "Legal name, address, company ID, VAT number, billing email...",
-          companyInfoHelp:
-            "Paste useful quote information here: legal name, address, company ID, VAT number, billing email, etc.",
-          deal: "Deal",
-          client: "Client",
-          contact: "Contact",
-          missing: "To fill in",
-          previous: "Previous",
-          completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% complete`,
-          creating: "Creating...",
-          create: "Create deal",
-          next: "Next",
-        }
-      : {
-          guided: "Création guidée",
-          newDeal: "Nouveau dossier",
-          unnamedDeal: "Dossier à nommer",
-          clientMissing: "Client à préciser",
-          stepOf: `Étape ${stepIndex + 1} sur ${onboardingSteps.length}`,
-          dealTitle: "Intitulé du dossier",
-          dealPlaceholder: "Réponse appel d’offres — siège régional",
-          dealHelp: "Un nom concret, compréhensible par toute l’équipe.",
-          clientCompany: "Entreprise cliente",
-          clientPlaceholder: "Cabinet, promoteur, direction...",
-          budget: "Enveloppe budgétaire",
+          guided: "Creación guiada",
+          newDeal: "Nuevo expediente",
+          unnamedDeal: "Expediente por nombrar",
+          clientMissing: "Cliente por precisar",
+          stepOf: `Paso ${stepIndex + 1} de ${onboardingSteps.length}`,
+          dealTitle: "Título del expediente",
+          dealPlaceholder: "Respuesta a licitación — sede regional",
+          dealHelp: "Un nombre concreto que todo el equipo pueda entender.",
+          clientCompany: "Empresa cliente",
+          clientPlaceholder: "Estudio, promotora, departamento...",
+          budget: "Presupuesto estimado",
           budgetHelp:
-            "Optionnel, seulement si le client a partagé une enveloppe.",
-          closeDate: "Échéance cible",
+            "Opcional, solo si el cliente ha compartido un presupuesto.",
+          closeDate: "Fecha objetivo",
           closeDateHelp:
-            "Optionnel, utile si le dossier doit être prêt avant une date précise.",
-          contactName: "Contact principal",
-          workEmail: "Email professionnel",
-          phone: "Téléphone",
-          phoneHelp: "Optionnel, conservé dans le contexte du dossier.",
-          transcript: "Transcript ou notes d’appel",
+            "Opcional, útil si el expediente debe estar listo antes de una fecha concreta.",
+          contactName: "Contacto principal",
+          workEmail: "Email profesional",
+          phone: "Teléfono",
+          phoneHelp: "Opcional, conservado en el contexto del expediente.",
+          transcript: "Transcripción o notas de llamada",
           transcriptPlaceholder:
-            "Collez ici les notes de découverte, objectifs, contraintes, objections, délais, critères de décision et prochaines étapes...",
+            "Pega aquí notas de descubrimiento, objetivos, restricciones, objeciones, plazos, criterios de decisión y próximos pasos...",
           transcriptHelp:
-            "Plus les notes sont précises, plus le compte-rendu et la proposition seront exploitables.",
-          context: "Contexte complémentaire",
+            "Cuanto más precisas sean las notas, más útiles serán el resumen de llamada y la propuesta comercial.",
+          context: "Contexto adicional",
           contextPlaceholder:
-            "Références à privilégier, points sensibles, contraintes politiques, angle commercial...",
-          emailInstructions: "Instructions email",
+            "Referencias a priorizar, puntos sensibles, restricciones políticas, ángulo comercial...",
+          emailInstructions: "Instrucciones para el email",
           emailPlaceholder:
-            "Ton du message, points à mentionner, proposition de prochaine étape...",
-          companyInfo: "Informations société pour le devis",
-          importing: "Import en cours…",
-          importPappers: "Importer depuis Pappers",
-          searchPappers: "Rechercher sur Pappers",
+            "Tono del mensaje, puntos que mencionar, próxima etapa propuesta...",
+          companyInfo: "Información de empresa para el presupuesto",
+          importing: "Importando…",
+          importPappers: "Importar desde Pappers",
+          searchPappers: "Buscar en Pappers",
           companyInfoPlaceholder:
-            "Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation...",
+            "Razón social, dirección, identificador de empresa, IVA, email de facturación...",
           companyInfoHelp:
-            "Collez ici les informations utiles pour le devis : raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation, etc.",
-          deal: "Dossier",
-          client: "Client",
-          contact: "Contact",
-          missing: "À renseigner",
-          previous: "Précédent",
-          completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% complété`,
-          creating: "Création...",
-          create: "Créer le dossier",
-          next: "Suivant",
-        };
+            "Pega aquí la información útil para el presupuesto: razón social, dirección, identificador de empresa, IVA, email de facturación, etc.",
+          deal: "Expediente",
+          client: "Cliente",
+          contact: "Contacto",
+          missing: "Por completar",
+          previous: "Anterior",
+          completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% completado`,
+          creating: "Creando...",
+          create: "Crear expediente",
+          next: "Siguiente",
+        }
+      : language === "en"
+        ? {
+            guided: "Guided creation",
+            newDeal: "New deal",
+            unnamedDeal: "Deal to name",
+            clientMissing: "Client to specify",
+            stepOf: `Step ${stepIndex + 1} of ${onboardingSteps.length}`,
+            dealTitle: "Deal title",
+            dealPlaceholder: "RFP response — regional office",
+            dealHelp: "A concrete name the whole team can understand.",
+            clientCompany: "Client company",
+            clientPlaceholder: "Firm, developer, department...",
+            budget: "Budget envelope",
+            budgetHelp: "Optional, only if the client shared a budget.",
+            closeDate: "Target close date",
+            closeDateHelp:
+              "Optional, useful if the deal must be ready before a specific date.",
+            contactName: "Main contact",
+            workEmail: "Work email",
+            phone: "Phone",
+            phoneHelp: "Optional, kept in the deal context.",
+            transcript: "Transcript or call notes",
+            transcriptPlaceholder:
+              "Paste discovery notes, objectives, constraints, objections, deadlines, decision criteria, and next steps...",
+            transcriptHelp:
+              "The more precise the notes, the more useful the call summary and proposal will be.",
+            context: "Additional context",
+            contextPlaceholder:
+              "Preferred references, sensitive points, political constraints, sales angle...",
+            emailInstructions: "Email instructions",
+            emailPlaceholder:
+              "Message tone, points to mention, proposed next step...",
+            companyInfo: "Company information for the quote",
+            importing: "Importing…",
+            importPappers: "Import from Pappers",
+            searchPappers: "Search on Pappers",
+            companyInfoPlaceholder:
+              "Legal name, address, company ID, VAT number, billing email...",
+            companyInfoHelp:
+              "Paste useful quote information here: legal name, address, company ID, VAT number, billing email, etc.",
+            deal: "Deal",
+            client: "Client",
+            contact: "Contact",
+            missing: "To fill in",
+            previous: "Previous",
+            completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% complete`,
+            creating: "Creating...",
+            create: "Create deal",
+            next: "Next",
+          }
+        : {
+            guided: "Création guidée",
+            newDeal: "Nouveau dossier",
+            unnamedDeal: "Dossier à nommer",
+            clientMissing: "Client à préciser",
+            stepOf: `Étape ${stepIndex + 1} sur ${onboardingSteps.length}`,
+            dealTitle: "Intitulé du dossier",
+            dealPlaceholder: "Réponse appel d’offres — siège régional",
+            dealHelp: "Un nom concret, compréhensible par toute l’équipe.",
+            clientCompany: "Entreprise cliente",
+            clientPlaceholder: "Cabinet, promoteur, direction...",
+            budget: "Enveloppe budgétaire",
+            budgetHelp:
+              "Optionnel, seulement si le client a partagé une enveloppe.",
+            closeDate: "Échéance cible",
+            closeDateHelp:
+              "Optionnel, utile si le dossier doit être prêt avant une date précise.",
+            contactName: "Contact principal",
+            workEmail: "Email professionnel",
+            phone: "Téléphone",
+            phoneHelp: "Optionnel, conservé dans le contexte du dossier.",
+            transcript: "Transcript ou notes d’appel",
+            transcriptPlaceholder:
+              "Collez ici les notes de découverte, objectifs, contraintes, objections, délais, critères de décision et prochaines étapes...",
+            transcriptHelp:
+              "Plus les notes sont précises, plus le compte-rendu et la proposition seront exploitables.",
+            context: "Contexte complémentaire",
+            contextPlaceholder:
+              "Références à privilégier, points sensibles, contraintes politiques, angle commercial...",
+            emailInstructions: "Instructions email",
+            emailPlaceholder:
+              "Ton du message, points à mentionner, proposition de prochaine étape...",
+            companyInfo: "Informations société pour le devis",
+            importing: "Import en cours…",
+            importPappers: "Importer depuis Pappers",
+            searchPappers: "Rechercher sur Pappers",
+            companyInfoPlaceholder:
+              "Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation...",
+            companyInfoHelp:
+              "Collez ici les informations utiles pour le devis : raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation, etc.",
+            deal: "Dossier",
+            client: "Client",
+            contact: "Contact",
+            missing: "À renseigner",
+            previous: "Précédent",
+            completed: `${Math.round(((stepIndex + 1) / onboardingSteps.length) * 100)}% complété`,
+            creating: "Création...",
+            create: "Créer le dossier",
+            next: "Suivant",
+          };
 
   React.useEffect(() => {
     try {
@@ -288,9 +342,9 @@ export function NewDealForm({
       setAskExpectedCloseDate(
         Boolean(
           parsedValue &&
-            typeof parsedValue === "object" &&
-            "askExpectedCloseDate" in parsedValue &&
-            parsedValue.askExpectedCloseDate === true,
+          typeof parsedValue === "object" &&
+          "askExpectedCloseDate" in parsedValue &&
+          parsedValue.askExpectedCloseDate === true,
         ),
       );
     } catch {
@@ -312,33 +366,56 @@ export function NewDealForm({
   );
   const currentStep = effectiveOnboardingSteps[stepIndex];
   const localizedSteps =
-    language === "en"
+    language === "es"
       ? [
           {
-            title: "Deal frame",
+            title: "Marco del expediente",
             description:
-              "Set the deal name, client company, and budget envelope if there is one.",
+              "Define el nombre del expediente, la empresa cliente y el presupuesto estimado si existe.",
           },
           {
-            title: "Client contact",
+            title: "Contacto cliente",
             description:
-              "Identify the person who will receive exchanges and documents.",
+              "Identifica a la persona que recibirá los intercambios y documentos.",
           },
           {
-            title: "Call notes",
+            title: "Notas de llamada",
             description:
-              "Add the raw material: transcript, brief, constraints, and client expectations.",
+              "Añade la materia prima: transcripción, briefing, restricciones y expectativas del cliente.",
           },
           {
-            title: "Output instructions",
+            title: "Instrucciones de salida",
             description:
-              "Specify important angles, email instructions, and quote information.",
+              "Precisa los ángulos importantes, las instrucciones de email y la información para el presupuesto.",
           },
         ]
-      : onboardingSteps.map((step) => ({
-          title: step.title,
-          description: step.description,
-        }));
+      : language === "en"
+        ? [
+            {
+              title: "Deal frame",
+              description:
+                "Set the deal name, client company, and budget envelope if there is one.",
+            },
+            {
+              title: "Client contact",
+              description:
+                "Identify the person who will receive exchanges and documents.",
+            },
+            {
+              title: "Call notes",
+              description:
+                "Add the raw material: transcript, brief, constraints, and client expectations.",
+            },
+            {
+              title: "Output instructions",
+              description:
+                "Specify important angles, email instructions, and quote information.",
+            },
+          ]
+        : onboardingSteps.map((step) => ({
+            title: step.title,
+            description: step.description,
+          }));
   const isLastStep = stepIndex === effectiveOnboardingSteps.length - 1;
   const progress = ((stepIndex + 1) / effectiveOnboardingSteps.length) * 100;
   const values = useWatch({ control: form.control });
@@ -364,23 +441,44 @@ export function NewDealForm({
       if (transcriptSourceMode === "paste") {
         const text = form.getValues("transcript")?.trim() ?? "";
         if (text.length < 20) {
-          form.setError("transcript", { message: "Ajoutez au moins quelques notes d'échange." });
+          form.setError("transcript", {
+            message: getLocalizedCopy(language, {
+              fr: "Ajoutez au moins quelques notes d'échange.",
+              en: "Add at least a few exchange notes.",
+              es: "Añade al menos algunas notas del intercambio.",
+            }),
+          });
           return;
         }
       } else if (transcriptSourceMode === "audio") {
         if (!audioFile) {
-          toast.error(language === "en" ? "Select an audio file." : "Sélectionnez un fichier audio.");
+          toast.error(
+            getLocalizedCopy(language, {
+              fr: "Sélectionnez un fichier audio.",
+              en: "Select an audio file.",
+              es: "Selecciona un archivo de audio.",
+            }),
+          );
           return;
         }
       } else if (transcriptSourceMode === "recall") {
-        const meetingUrlRegex = /^https:\/\/(meet\.google\.com\/|zoom\.us\/j\/|teams\.microsoft\.com\/l\/meetup-join\/)/;
+        const meetingUrlRegex =
+          /^https:\/\/([a-z0-9-]+\.)?(meet\.google\.com\/|zoom\.us\/(j|wc\/join)\/|teams\.(microsoft|live)\.com\/l\/(meetup-join|meet)\/)/;
         if (!meetingUrlRegex.test(meetingUrl.trim())) {
-          toast.error(language === "en" ? "Enter a valid meeting URL (Google Meet, Zoom, or Teams)." : "Entrez un lien de réunion valide (Google Meet, Zoom ou Teams).");
+          toast.error(
+            getLocalizedCopy(language, {
+              fr: "Entrez un lien de réunion valide (Google Meet, Zoom ou Teams).",
+              en: "Enter a valid meeting URL (Google Meet, Zoom, or Teams).",
+              es: "Introduce un enlace de reunión válido (Google Meet, Zoom o Teams).",
+            }),
+          );
           return;
         }
       }
       setDirection(1);
-      setStepIndex((current) => Math.min(current + 1, onboardingSteps.length - 1));
+      setStepIndex((current) =>
+        Math.min(current + 1, onboardingSteps.length - 1),
+      );
       return;
     }
 
@@ -471,7 +569,10 @@ export function NewDealForm({
       },
       body: JSON.stringify({
         ...valuesToSubmit,
-        transcript: transcriptSourceMode === "paste" ? valuesToSubmit.transcript : undefined,
+        transcript:
+          transcriptSourceMode === "paste"
+            ? valuesToSubmit.transcript
+            : undefined,
         amountEstimate,
         expectedCloseDate: valuesToSubmit.expectedCloseDate || undefined,
         ...(selectedTranscriptId && selectedTranscriptId !== "none"
@@ -505,7 +606,8 @@ export function NewDealForm({
     if (!dealId) {
       setIsSubmitting(false);
       toast.error("Création impossible", {
-        description: "Le dossier a été créé, mais son identifiant est manquant.",
+        description:
+          "Le dossier a été créé, mais son identifiant est manquant.",
       });
       return;
     }
@@ -522,7 +624,13 @@ export function NewDealForm({
       }).catch(() => null);
 
       if (!uploadRes?.ok) {
-        toast.warning(language === "en" ? "Deal created but audio upload failed. You can retry from the deal page." : "Dossier créé mais l'upload audio a échoué. Vous pouvez réessayer depuis le dossier.");
+        toast.warning(
+          getLocalizedCopy(language, {
+            fr: "Dossier créé mais l'upload audio a échoué. Vous pouvez réessayer depuis le dossier.",
+            en: "Deal created but audio upload failed. You can retry from the deal page.",
+            es: "Expediente creado, pero la subida del audio ha fallado. Puedes reintentarlo desde el expediente.",
+          }),
+        );
       }
     }
 
@@ -539,7 +647,13 @@ export function NewDealForm({
       }).catch(() => null);
 
       if (!recallRes?.ok) {
-        toast.warning(language === "en" ? "Deal created but recording bot could not be started. You can retry from Transcripts." : "Dossier créé mais le bot d'enregistrement n'a pas pu démarrer. Vous pouvez réessayer depuis Transcripts.");
+        toast.warning(
+          getLocalizedCopy(language, {
+            fr: "Dossier créé mais le bot d'enregistrement n'a pas pu démarrer. Vous pouvez réessayer depuis Transcripts.",
+            en: "Deal created but recording bot could not be started. You can retry from Transcripts.",
+            es: "Expediente creado, pero no se ha podido iniciar la grabación. Puedes reintentarlo desde Transcripciones.",
+          }),
+        );
       }
     }
 
@@ -561,7 +675,7 @@ export function NewDealForm({
           void form.handleSubmit(onSubmit)(event);
         }}
       >
-        <section className="overflow-hidden border bg-[#f1eadf] shadow-[0_24px_70px_-48px_rgba(22,31,48,0.62)] dark:bg-card/90">
+        <section className="dark:bg-card/90 overflow-hidden border bg-[#f1eadf] shadow-[0_24px_70px_-48px_rgba(22,31,48,0.62)]">
           <div className="grid lg:min-h-[36rem] lg:grid-cols-[19rem_1fr]">
             <aside className="border-b border-[#26344d] bg-[#142033] px-5 py-5 text-[#f7f1e8] lg:border-r lg:border-b-0">
               <div className="flex items-start gap-3">
@@ -634,12 +748,15 @@ export function NewDealForm({
                   {getPreviewValue(values.name, copy.unnamedDeal)}
                 </p>
                 <p className="mt-1">
-                  {getPreviewValue(values.clientCompanyName, copy.clientMissing)}
+                  {getPreviewValue(
+                    values.clientCompanyName,
+                    copy.clientMissing,
+                  )}
                 </p>
               </div>
             </aside>
 
-            <div className="flex min-h-[32rem] flex-col bg-card/92">
+            <div className="bg-card/92 flex min-h-[32rem] flex-col">
               <div className="border-b px-5 py-5 sm:px-6">
                 <p className="text-muted-foreground text-xs font-medium tracking-[0.12em] uppercase">
                   {copy.stepOf}
@@ -685,9 +802,7 @@ export function NewDealForm({
                                   {...field}
                                 />
                               </FormControl>
-                              <FormDescription>
-                                {copy.dealHelp}
-                              </FormDescription>
+                              <FormDescription>{copy.dealHelp}</FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -805,7 +920,11 @@ export function NewDealForm({
                         {existingTranscripts.length > 0 && (
                           <div className="space-y-2">
                             <label className="text-sm font-medium">
-                              {language === "en" ? "Use an existing transcript" : "Utiliser un transcript existant"}
+                              {getLocalizedCopy(language, {
+                                fr: "Utiliser un transcript existant",
+                                en: "Use an existing transcript",
+                                es: "Usar una transcripción existente",
+                              })}
                             </label>
                             <Select
                               value={selectedTranscriptId}
@@ -816,12 +935,24 @@ export function NewDealForm({
                                   fetch(`/api/transcripts/${value}`)
                                     .then((r) => r.json())
                                     .then((data: unknown) => {
-                                      if (data && typeof data === "object" && "transcriptText" in data && typeof (data as { transcriptText: unknown }).transcriptText === "string") {
-                                        form.setValue("transcript", (data as { transcriptText: string }).transcriptText, {
-                                          shouldDirty: true,
-                                          shouldTouch: true,
-                                          shouldValidate: true,
-                                        });
+                                      if (
+                                        data &&
+                                        typeof data === "object" &&
+                                        "transcriptText" in data &&
+                                        typeof (
+                                          data as { transcriptText: unknown }
+                                        ).transcriptText === "string"
+                                      ) {
+                                        form.setValue(
+                                          "transcript",
+                                          (data as { transcriptText: string })
+                                            .transcriptText,
+                                          {
+                                            shouldDirty: true,
+                                            shouldTouch: true,
+                                            shouldValidate: true,
+                                          },
+                                        );
                                       }
                                     })
                                     .catch(() => {});
@@ -829,11 +960,21 @@ export function NewDealForm({
                               }}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder={language === "en" ? "Select a transcript..." : "Sélectionner un transcript..."} />
+                                <SelectValue
+                                  placeholder={getLocalizedCopy(language, {
+                                    fr: "Sélectionner un transcript...",
+                                    en: "Select a transcript...",
+                                    es: "Seleccionar una transcripción...",
+                                  })}
+                                />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">
-                                  {language === "en" ? "None — paste manually" : "Aucun — coller manuellement"}
+                                  {getLocalizedCopy(language, {
+                                    fr: "Aucun — coller manuellement",
+                                    en: "None — paste manually",
+                                    es: "Ninguna — pegar manualmente",
+                                  })}
                                 </SelectItem>
                                 {existingTranscripts.map((t) => (
                                   <SelectItem key={t.id} value={t.id}>
@@ -842,12 +983,17 @@ export function NewDealForm({
                                 ))}
                               </SelectContent>
                             </Select>
-                            {selectedTranscriptId && selectedTranscriptId !== "none" && (
-                              <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                <MessageSquareText className="size-3.5" />
-                                {language === "en" ? "Transcript linked — content imported below" : "Transcript lié — contenu importé ci-dessous"}
-                              </div>
-                            )}
+                            {selectedTranscriptId &&
+                              selectedTranscriptId !== "none" && (
+                                <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                  <MessageSquareText className="size-3.5" />
+                                  {getLocalizedCopy(language, {
+                                    fr: "Transcript lié — contenu importé ci-dessous",
+                                    en: "Transcript linked — content imported below",
+                                    es: "Transcripción asociada — contenido importado abajo",
+                                  })}
+                                </div>
+                              )}
                           </div>
                         )}
 
@@ -863,7 +1009,11 @@ export function NewDealForm({
                             )}
                           >
                             <FileText className="size-4" />
-                            {language === "en" ? "Paste text" : "Coller le texte"}
+                            {getLocalizedCopy(language, {
+                              fr: "Coller le texte",
+                              en: "Paste text",
+                              es: "Pegar texto",
+                            })}
                           </button>
                           <button
                             type="button"
@@ -876,7 +1026,11 @@ export function NewDealForm({
                             )}
                           >
                             <Mic className="size-4" />
-                            {language === "en" ? "Upload audio" : "Téléverser un audio"}
+                            {getLocalizedCopy(language, {
+                              fr: "Téléverser un audio",
+                              en: "Upload audio",
+                              es: "Subir audio",
+                            })}
                           </button>
                           <button
                             type="button"
@@ -889,7 +1043,11 @@ export function NewDealForm({
                             )}
                           >
                             <Radio className="size-4" />
-                            {language === "en" ? "Record a meeting" : "Enregistrer une réunion"}
+                            {getLocalizedCopy(language, {
+                              fr: "Enregistrer une réunion",
+                              en: "Record a meeting",
+                              es: "Grabar una reunión",
+                            })}
                           </button>
                         </div>
 
@@ -921,17 +1079,25 @@ export function NewDealForm({
                             {!audioFile ? (
                               <label
                                 htmlFor="deal-audio-file-input"
-                                className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-10 transition-colors hover:border-primary/50 hover:bg-muted/30"
+                                className="hover:border-primary/50 hover:bg-muted/30 flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-10 transition-colors"
                               >
-                                <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                                <div className="bg-muted flex size-12 items-center justify-center rounded-full">
                                   <Upload className="text-muted-foreground size-5" />
                                 </div>
                                 <div className="text-center">
                                   <p className="text-sm font-medium">
-                                    {language === "en" ? "Click or drag an audio file here" : "Cliquez ou déposez un fichier audio ici"}
+                                    {getLocalizedCopy(language, {
+                                      fr: "Cliquez ou déposez un fichier audio ici",
+                                      en: "Click or drag an audio file here",
+                                      es: "Haz clic o arrastra un archivo de audio aquí",
+                                    })}
                                   </p>
                                   <p className="text-muted-foreground mt-1 text-xs">
-                                    {language === "en" ? "Accepted: MP3, WAV, M4A, WebM — max 100 MB" : "Formats acceptés : MP3, WAV, M4A, WebM — max 100 Mo"}
+                                    {getLocalizedCopy(language, {
+                                      fr: "Formats acceptés : MP3, WAV, M4A, WebM — max 100 Mo",
+                                      en: "Accepted: MP3, WAV, M4A, WebM — max 100 MB",
+                                      es: "Formatos aceptados: MP3, WAV, M4A, WebM — máx. 100 MB",
+                                    })}
                                   </p>
                                 </div>
                                 <input
@@ -944,7 +1110,13 @@ export function NewDealForm({
                                     const file = e.target.files?.[0];
                                     if (!file) return;
                                     if (file.size > 100 * 1024 * 1024) {
-                                      toast.error(language === "en" ? "File exceeds 100 MB limit." : "Le fichier dépasse la limite de 100 Mo.");
+                                      toast.error(
+                                        getLocalizedCopy(language, {
+                                          fr: "Le fichier dépasse la limite de 100 Mo.",
+                                          en: "File exceeds 100 MB limit.",
+                                          es: "El archivo supera el límite de 100 MB.",
+                                        }),
+                                      );
                                       return;
                                     }
                                     setAudioFile(file);
@@ -952,13 +1124,15 @@ export function NewDealForm({
                                 />
                               </label>
                             ) : (
-                              <div className="max-w-md rounded-lg border bg-card p-4">
+                              <div className="bg-card max-w-md rounded-lg border p-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                                  <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md">
                                     <FileAudio className="text-muted-foreground size-5" />
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-medium">{audioFile.name}</p>
+                                    <p className="truncate text-sm font-medium">
+                                      {audioFile.name}
+                                    </p>
                                     <p className="text-muted-foreground text-xs">
                                       {audioFile.size < 1024 * 1024
                                         ? `${(audioFile.size / 1024).toFixed(0)} Ko`
@@ -971,9 +1145,10 @@ export function NewDealForm({
                                     size="icon"
                                     onClick={() => {
                                       setAudioFile(null);
-                                      if (audioFileInputRef.current) audioFileInputRef.current.value = "";
+                                      if (audioFileInputRef.current)
+                                        audioFileInputRef.current.value = "";
                                     }}
-                                    className="text-muted-foreground hover:text-destructive shrink-0 size-8"
+                                    className="text-muted-foreground hover:text-destructive size-8 shrink-0"
                                   >
                                     <X className="size-4" />
                                   </Button>
@@ -981,9 +1156,11 @@ export function NewDealForm({
                               </div>
                             )}
                             <p className="text-muted-foreground text-xs">
-                              {language === "en"
-                                ? "The audio will be transcribed automatically after the deal is created."
-                                : "L'audio sera transcrit automatiquement après la création du dossier."}
+                              {getLocalizedCopy(language, {
+                                fr: "L'audio sera transcrit automatiquement après la création du dossier.",
+                                en: "The audio will be transcribed automatically after the deal is created.",
+                                es: "El audio se transcribirá automáticamente después de crear el expediente.",
+                              })}
                             </p>
                           </div>
                         )}
@@ -993,14 +1170,23 @@ export function NewDealForm({
                             <div className="flex items-center gap-3 rounded-md border border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
                               <Radio className="size-5 shrink-0 text-blue-600 dark:text-blue-400" />
                               <p className="text-sm text-blue-800 dark:text-blue-200">
-                                {language === "en"
-                                  ? "A recording bot will join your meeting and transcribe the call automatically."
-                                  : "Un bot d'enregistrement rejoindra votre réunion et transcrira l'appel automatiquement."}
+                                {getLocalizedCopy(language, {
+                                  fr: "Un bot d'enregistrement rejoindra votre réunion et transcrira l'appel automatiquement.",
+                                  en: "A recording bot will join your meeting and transcribe the call automatically.",
+                                  es: "La reunión se grabará y la llamada se transcribirá automáticamente.",
+                                })}
                               </p>
                             </div>
                             <div className="space-y-2">
-                              <label htmlFor="deal-meeting-url" className="text-sm font-medium">
-                                {language === "en" ? "Meeting URL" : "Lien de réunion"}
+                              <label
+                                htmlFor="deal-meeting-url"
+                                className="text-sm font-medium"
+                              >
+                                {getLocalizedCopy(language, {
+                                  fr: "Lien de réunion",
+                                  en: "Meeting URL",
+                                  es: "Enlace de reunión",
+                                })}
                               </label>
                               <Input
                                 id="deal-meeting-url"
@@ -1010,38 +1196,68 @@ export function NewDealForm({
                                 onChange={(e) => setMeetingUrl(e.target.value)}
                               />
                               <p className="text-muted-foreground text-xs">
-                                {language === "en"
-                                  ? "Google Meet, Zoom, or Microsoft Teams links are supported."
-                                  : "Liens Google Meet, Zoom ou Microsoft Teams acceptés."}
+                                {getLocalizedCopy(language, {
+                                  fr: "Liens Google Meet, Zoom ou Microsoft Teams acceptés.",
+                                  en: "Google Meet, Zoom, or Microsoft Teams links are supported.",
+                                  es: "Se admiten enlaces de Google Meet, Zoom o Microsoft Teams.",
+                                })}
                               </p>
                             </div>
                             <div className="space-y-2">
-                              <label htmlFor="deal-recall-language" className="text-sm font-medium">
-                                {language === "en" ? "Transcript language" : "Langue du transcript"}
+                              <label
+                                htmlFor="deal-recall-language"
+                                className="text-sm font-medium"
+                              >
+                                {getLocalizedCopy(language, {
+                                  fr: "Langue du transcript",
+                                  en: "Transcript language",
+                                  es: "Idioma de la transcripción",
+                                })}
                               </label>
-                              <Select value={recallLanguage} onValueChange={setRecallLanguage}>
+                              <Select
+                                value={recallLanguage}
+                                onValueChange={setRecallLanguage}
+                              >
                                 <SelectTrigger id="deal-recall-language">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="auto">
-                                    {language === "en" ? "Auto-detect" : "Détection automatique"}
+                                    {getLocalizedCopy(language, {
+                                      fr: "Détection automatique",
+                                      en: "Auto-detect",
+                                      es: "Detección automática",
+                                    })}
                                   </SelectItem>
                                   <SelectItem value="fr">
-                                    {language === "en" ? "French" : "Français"}
+                                    {getLocalizedCopy(language, {
+                                      fr: "Français",
+                                      en: "French",
+                                      es: "Francés",
+                                    })}
                                   </SelectItem>
                                   <SelectItem value="en">
-                                    {language === "en" ? "English" : "Anglais"}
+                                    {getLocalizedCopy(language, {
+                                      fr: "Anglais",
+                                      en: "English",
+                                      es: "Inglés",
+                                    })}
                                   </SelectItem>
                                   <SelectItem value="es">
-                                    {language === "en" ? "Spanish" : "Espagnol"}
+                                    {getLocalizedCopy(language, {
+                                      fr: "Espagnol",
+                                      en: "Spanish",
+                                      es: "Español",
+                                    })}
                                   </SelectItem>
                                 </SelectContent>
                               </Select>
                               <p className="text-muted-foreground text-xs">
-                                {language === "en"
-                                  ? "Select the spoken language to improve transcription quality."
-                                  : "Sélectionnez la langue parlée pour améliorer la qualité de la transcription."}
+                                {getLocalizedCopy(language, {
+                                  fr: "Sélectionnez la langue parlée pour améliorer la qualité de la transcription.",
+                                  en: "Select the spoken language to improve transcription quality.",
+                                  es: "Selecciona el idioma hablado para mejorar la calidad de la transcripción.",
+                                })}
                               </p>
                             </div>
                           </div>
@@ -1091,9 +1307,7 @@ export function NewDealForm({
                           render={({ field }) => (
                             <FormItem>
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <FormLabel>
-                                  {copy.companyInfo}
-                                </FormLabel>
+                                <FormLabel>{copy.companyInfo}</FormLabel>
                                 <Button
                                   type="button"
                                   variant="secondary"
@@ -1110,11 +1324,7 @@ export function NewDealForm({
                                     ? copy.importing
                                     : copy.importPappers}
                                 </Button>
-                                <Button
-                                  asChild
-                                  variant="outline"
-                                  size="sm"
-                                >
+                                <Button asChild variant="outline" size="sm">
                                   <a
                                     href="https://www.pappers.fr/"
                                     target="_blank"
@@ -1177,7 +1387,7 @@ export function NewDealForm({
                 </AnimatePresence>
               </div>
 
-              <div className="flex flex-col-reverse gap-3 border-t bg-muted/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="bg-muted/35 flex flex-col-reverse gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <Button
                   type="button"
                   variant="outline"

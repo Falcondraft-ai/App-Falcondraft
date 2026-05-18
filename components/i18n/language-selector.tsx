@@ -10,6 +10,15 @@ import {
 import { useI18n } from "@/components/i18n/language-provider";
 import { languages, type Language } from "@/lib/i18n/translations";
 
+const languageLabels: Record<
+  Language,
+  { flag: string; tx: "language.fr" | "language.en" | "language.es" }
+> = {
+  fr: { flag: "🇫🇷", tx: "language.fr" },
+  en: { flag: "🇬🇧", tx: "language.en" },
+  es: { flag: "🇪🇸", tx: "language.es" },
+};
+
 export function LanguageSelector({
   id,
   triggerClassName,
@@ -34,7 +43,12 @@ export function LanguageSelector({
       <SelectContent>
         {languages.map((availableLanguage) => (
           <SelectItem key={availableLanguage} value={availableLanguage}>
-            {t(availableLanguage === "fr" ? "language.fr" : "language.en")}
+            <span className="inline-flex items-center gap-2">
+              <span aria-hidden="true">
+                {languageLabels[availableLanguage].flag}
+              </span>
+              <span>{t(languageLabels[availableLanguage].tx)}</span>
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, ExternalLink, FileText, Pencil, Trash2, User } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  ExternalLink,
+  FileText,
+  Pencil,
+  Trash2,
+  User,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/language-provider";
@@ -21,10 +29,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  getLocalizedCopy,
+  languageIntlLocales,
+  type Language,
+} from "@/lib/i18n/translations";
 import type { Transcript } from "@/types/transcript";
 
-function formatDate(dateString: string, language: string) {
-  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "fr-FR", {
+function formatDate(dateString: string, language: Language) {
+  return new Intl.DateTimeFormat(languageIntlLocales[language], {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -46,9 +59,12 @@ export function TranscriptDetailContent({
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [editTitle, setEditTitle] = React.useState(transcript.title);
-  const [editContent, setEditContent] = React.useState(transcript.transcriptText ?? "");
+  const [editContent, setEditContent] = React.useState(
+    transcript.transcriptText ?? "",
+  );
 
-  const isPending = transcript.status === "processing" || transcript.status === "waiting";
+  const isPending =
+    transcript.status === "processing" || transcript.status === "waiting";
 
   React.useEffect(() => {
     if (!isPending) return;
@@ -125,7 +141,11 @@ export function TranscriptDetailContent({
         </Button>
         <div className="flex items-center gap-2">
           {canEdit && !editing && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(true)}
+            >
               <Pencil className="mr-2 size-3.5" />
               {t("transcripts.edit")}
             </Button>
@@ -133,26 +153,36 @@ export function TranscriptDetailContent({
           {canDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10"
+                >
                   <Trash2 className="mr-2 size-3.5" />
                   {t("transcripts.delete")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>{t("transcripts.delete.title")}</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {t("transcripts.delete.title")}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
                     {t("transcripts.delete.description")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{t("transcripts.cancel")}</AlertDialogCancel>
+                  <AlertDialogCancel>
+                    {t("transcripts.cancel")}
+                  </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => void handleDelete()}
                     disabled={deleting}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    {deleting ? t("transcripts.delete.deleting") : t("transcripts.delete.confirm")}
+                    {deleting
+                      ? t("transcripts.delete.deleting")
+                      : t("transcripts.delete.confirm")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -162,19 +192,43 @@ export function TranscriptDetailContent({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <InfoCard icon={<FileText className="size-4" />} label={t("transcripts.detail.source")} value={sourceLabel} />
-        <InfoCard icon={<Clock className="size-4" />} label={t("transcripts.detail.createdAt")} value={formatDate(transcript.createdAt, language)} />
+        <InfoCard
+          icon={<FileText className="size-4" />}
+          label={t("transcripts.detail.source")}
+          value={sourceLabel}
+        />
+        <InfoCard
+          icon={<Clock className="size-4" />}
+          label={t("transcripts.detail.createdAt")}
+          value={formatDate(transcript.createdAt, language)}
+        />
         {transcript.createdByName && (
-          <InfoCard icon={<User className="size-4" />} label={t("transcripts.detail.createdBy")} value={transcript.createdByName} />
+          <InfoCard
+            icon={<User className="size-4" />}
+            label={t("transcripts.detail.createdBy")}
+            value={transcript.createdByName}
+          />
         )}
         {transcript.durationSeconds && (
-          <InfoCard icon={<Clock className="size-4" />} label={t("transcripts.detail.duration")} value={`${Math.round(transcript.durationSeconds / 60)} min`} />
+          <InfoCard
+            icon={<Clock className="size-4" />}
+            label={t("transcripts.detail.duration")}
+            value={`${Math.round(transcript.durationSeconds / 60)} min`}
+          />
         )}
         {transcript.dealName && (
-          <InfoCard icon={<FileText className="size-4" />} label={t("transcripts.detail.deal")} value={transcript.dealName} />
+          <InfoCard
+            icon={<FileText className="size-4" />}
+            label={t("transcripts.detail.deal")}
+            value={transcript.dealName}
+          />
         )}
         {transcript.language && (
-          <InfoCard icon={<FileText className="size-4" />} label={t("transcripts.detail.language")} value={transcript.language} />
+          <InfoCard
+            icon={<FileText className="size-4" />}
+            label={t("transcripts.detail.language")}
+            value={transcript.language}
+          />
         )}
       </div>
 
@@ -183,7 +237,8 @@ export function TranscriptDetailContent({
           <div className="flex items-center gap-2">
             <FileText className="text-muted-foreground size-4" />
             <span className="text-sm">
-              {t("transcripts.detail.deal")} : <span className="font-medium">{transcript.dealName}</span>
+              {t("transcripts.detail.deal")} :{" "}
+              <span className="font-medium">{transcript.dealName}</span>
             </span>
           </div>
           <Button variant="outline" size="sm" asChild>
@@ -197,14 +252,27 @@ export function TranscriptDetailContent({
 
       <div className="bg-card rounded-lg border">
         <div className="flex items-center justify-between border-b px-5 py-3">
-          <h3 className="text-sm font-medium">{t("transcripts.detail.content")}</h3>
+          <h3 className="text-sm font-medium">
+            {t("transcripts.detail.content")}
+          </h3>
           {editing && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleCancelEdit} disabled={saving}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelEdit}
+                disabled={saving}
+              >
                 {t("transcripts.edit.cancel")}
               </Button>
-              <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
-                {saving ? t("transcripts.edit.saving") : t("transcripts.edit.save")}
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={saving}
+              >
+                {saving
+                  ? t("transcripts.edit.saving")
+                  : t("transcripts.edit.save")}
               </Button>
             </div>
           )}
@@ -214,7 +282,11 @@ export function TranscriptDetailContent({
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-muted-foreground text-xs font-medium">
-                  {language === "en" ? "Title" : "Titre"}
+                  {getLocalizedCopy(language, {
+                    fr: "Titre",
+                    en: "Title",
+                    es: "Título",
+                  })}
                 </label>
                 <Input
                   value={editTitle}
@@ -236,33 +308,40 @@ export function TranscriptDetailContent({
           ) : (
             <div className="max-h-[60vh] overflow-y-auto">
               {transcript.transcriptText ? (
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                <pre className="font-sans text-sm leading-relaxed whitespace-pre-wrap">
                   {transcript.transcriptText}
                 </pre>
               ) : (
-                <p className="text-muted-foreground text-sm italic">{t("transcripts.detail.noContent")}</p>
+                <p className="text-muted-foreground text-sm italic">
+                  {t("transcripts.detail.noContent")}
+                </p>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {transcript.participants && (transcript.participants as unknown[]).length > 0 && (
-        <div className="bg-card rounded-lg border">
-          <div className="border-b px-5 py-3">
-            <h3 className="text-sm font-medium">{t("transcripts.detail.participants")}</h3>
-          </div>
-          <div className="px-5 py-4">
-            <div className="flex flex-wrap gap-2">
-              {(transcript.participants as Array<{ name?: string }>).map((p, i) => (
-                <Badge key={i} variant="secondary">
-                  {p.name ?? `Participant ${i + 1}`}
-                </Badge>
-              ))}
+      {transcript.participants &&
+        (transcript.participants as unknown[]).length > 0 && (
+          <div className="bg-card rounded-lg border">
+            <div className="border-b px-5 py-3">
+              <h3 className="text-sm font-medium">
+                {t("transcripts.detail.participants")}
+              </h3>
+            </div>
+            <div className="px-5 py-4">
+              <div className="flex flex-wrap gap-2">
+                {(transcript.participants as Array<{ name?: string }>).map(
+                  (p, i) => (
+                    <Badge key={i} variant="secondary">
+                      {p.name ?? `Participant ${i + 1}`}
+                    </Badge>
+                  ),
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

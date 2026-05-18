@@ -1,4 +1,4 @@
-export const languages = ["fr", "en"] as const;
+export const languages = ["fr", "en", "es"] as const;
 
 export type Language = (typeof languages)[number];
 
@@ -32,6 +32,7 @@ export type TranslationKey =
   | "language.label"
   | "language.fr"
   | "language.en"
+  | "language.es"
   | "auth.login.eyebrow"
   | "auth.login.title"
   | "auth.login.cardTitle"
@@ -665,6 +666,7 @@ export const translations: Record<Language, Dictionary> = {
     "language.label": "Langue",
     "language.fr": "Français",
     "language.en": "English",
+    "language.es": "Español",
     "auth.login.eyebrow": "Espace client",
     "auth.login.title": "Connexion à FalconDraft",
     "auth.login.cardTitle": "Accès sécurisé",
@@ -792,29 +794,38 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internalAdmin": "Admin interne",
     "nav.internalBadge": "Interne",
     "transcripts.empty.title": "Aucun transcript",
-    "transcripts.empty.description": "Les transcripts d'appels commerciaux apparaîtront ici. Vous pouvez en ajouter un en collant du texte.",
+    "transcripts.empty.description":
+      "Les transcripts d'appels commerciaux apparaîtront ici. Vous pouvez en ajouter un en collant du texte.",
     "transcripts.new": "Nouveau transcript",
     "transcripts.count": "transcript",
     "transcripts.status.ready": "Prêt",
     "transcripts.status.processing": "Transcription en cours",
     "transcripts.status.waiting": "En attente de l'appel",
     "transcripts.status.error": "Erreur",
-    "transcripts.status.ready.hint": "Le transcript est disponible et peut être utilisé pour un dossier.",
-    "transcripts.status.processing.hint": "L'appel est terminé, le transcript est en cours de préparation.",
-    "transcripts.status.waiting.hint": "FalconDraft attend que la réunion commence ou que le bot termine l'enregistrement.",
-    "transcripts.status.error.hint": "La transcription a échoué. Vous pouvez réessayer ou créer un nouveau transcript.",
+    "transcripts.status.ready.hint":
+      "Le transcript est disponible et peut être utilisé pour un dossier.",
+    "transcripts.status.processing.hint":
+      "L'appel est terminé, le transcript est en cours de préparation.",
+    "transcripts.status.waiting.hint":
+      "FalconDraft attend que la réunion commence ou que le bot termine l'enregistrement.",
+    "transcripts.status.error.hint":
+      "La transcription a échoué. Vous pouvez réessayer ou créer un nouveau transcript.",
     "transcripts.source.paste": "Texte collé",
     "transcripts.source.audio": "Téléversement audio",
     "transcripts.source.recording": "Enregistrement automatique",
-    "transcripts.source.paste.description": "Collez un transcript existant pour le centraliser et le lier à un dossier.",
-    "transcripts.source.audio.description": "Importez un enregistrement pour transcription automatique.",
-    "transcripts.source.recording.description": "Connectez un outil d'enregistrement pour recevoir les transcripts directement.",
+    "transcripts.source.paste.description":
+      "Collez un transcript existant pour le centraliser et le lier à un dossier.",
+    "transcripts.source.audio.description":
+      "Importez un enregistrement pour transcription automatique.",
+    "transcripts.source.recording.description":
+      "Connectez un outil d'enregistrement pour recevoir les transcripts directement.",
     "transcripts.soon": "Bientôt",
     "transcripts.deal": "Dossier",
     "transcripts.by": "par",
     "transcripts.delete": "Supprimer",
     "transcripts.delete.title": "Supprimer ce transcript ?",
-    "transcripts.delete.description": "Le transcript sera définitivement supprimé. Cette action est irréversible.",
+    "transcripts.delete.description":
+      "Le transcript sera définitivement supprimé. Cette action est irréversible.",
     "transcripts.delete.confirm": "Supprimer",
     "transcripts.delete.deleting": "Suppression...",
     "transcripts.delete.success": "Transcript supprimé.",
@@ -839,22 +850,30 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.form.creating": "Création...",
     "transcripts.form.create": "Créer le transcript",
     "transcripts.form.step1.title": "Identification",
-    "transcripts.form.step1.description": "Donnez un titre explicite au transcript pour le retrouver facilement.",
+    "transcripts.form.step1.description":
+      "Donnez un titre explicite au transcript pour le retrouver facilement.",
     "transcripts.form.step1.label": "Titre du transcript",
     "transcripts.form.step1.placeholder": "Ex. Appel découverte — Société X",
-    "transcripts.form.step1.help": "Un titre concret pour identifier cet échange.",
+    "transcripts.form.step1.help":
+      "Un titre concret pour identifier cet échange.",
     "transcripts.form.step2.title": "Contenu",
-    "transcripts.form.step2.description": "Collez le transcript complet de l'appel ou de la réunion.",
+    "transcripts.form.step2.description":
+      "Collez le transcript complet de l'appel ou de la réunion.",
     "transcripts.form.step2.label": "Contenu du transcript",
-    "transcripts.form.step2.placeholder": "Collez ici le transcript de l'appel ou de la réunion...",
-    "transcripts.form.step2.help": "Plus le contenu est complet, plus les analyses seront pertinentes.",
+    "transcripts.form.step2.placeholder":
+      "Collez ici le transcript de l'appel ou de la réunion...",
+    "transcripts.form.step2.help":
+      "Plus le contenu est complet, plus les analyses seront pertinentes.",
     "transcripts.form.step3.title": "Liaison",
-    "transcripts.form.step3.description": "Associez ce transcript à un dossier commercial existant si pertinent.",
+    "transcripts.form.step3.description":
+      "Associez ce transcript à un dossier commercial existant si pertinent.",
     "transcripts.form.step3.dealLabel": "Lier à un dossier (optionnel)",
     "transcripts.form.step3.noDeal": "Aucun dossier",
-    "transcripts.form.step3.dealHelp": "Le transcript sera associé au dossier sélectionné pour enrichir les générations.",
+    "transcripts.form.step3.dealHelp":
+      "Le transcript sera associé au dossier sélectionné pour enrichir les générations.",
     "transcripts.form.step3.noDealsTitle": "Aucun dossier disponible",
-    "transcripts.form.step3.noDealsDescription": "Le transcript sera créé sans liaison. Vous pourrez le lier plus tard.",
+    "transcripts.form.step3.noDealsDescription":
+      "Le transcript sera créé sans liaison. Vous pourrez le lier plus tard.",
     "transcripts.form.step3.summary": "Récapitulatif",
     "transcripts.form.step3.summaryTitle": "Titre :",
     "transcripts.form.step3.summaryLength": "Longueur :",
@@ -873,17 +892,21 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.view": "Voir",
     "transcripts.recall.button": "Récupérer un appel",
     "transcripts.recall.title": "Récupérer un appel",
-    "transcripts.recall.description": "Collez le lien de votre réunion Google Meet, Zoom ou Teams pour récupérer automatiquement le transcript.",
+    "transcripts.recall.description":
+      "Collez le lien de votre réunion Google Meet, Zoom ou Teams pour récupérer automatiquement le transcript.",
     "transcripts.recall.meetingUrl": "Lien de la réunion",
-    "transcripts.recall.meetingUrl.placeholder": "https://meet.google.com/abc-defg-hij",
-    "transcripts.recall.meetingUrl.help": "Google Meet, Zoom ou Microsoft Teams.",
+    "transcripts.recall.meetingUrl.placeholder":
+      "https://meet.google.com/abc-defg-hij",
+    "transcripts.recall.meetingUrl.help":
+      "Google Meet, Zoom ou Microsoft Teams.",
     "transcripts.recall.titleLabel": "Titre du transcript",
     "transcripts.recall.titlePlaceholder": "Ex. Appel découverte — Société X",
     "transcripts.recall.dealLabel": "Lier à un dossier (optionnel)",
     "transcripts.recall.noDeal": "Aucun dossier",
     "transcripts.recall.submit": "Lancer la capture",
     "transcripts.recall.submitting": "Envoi...",
-    "transcripts.recall.success": "Capture lancée. Le transcript apparaîtra une fois l'appel terminé.",
+    "transcripts.recall.success":
+      "Capture lancée. Le transcript apparaîtra une fois l'appel terminé.",
     "transcripts.recall.error": "Impossible de lancer la capture.",
     "transcripts.recall.invalidUrl": "URL de réunion non supportée.",
     "admin.restricted": "Accès réservé",
@@ -1153,7 +1176,8 @@ export const translations: Record<Language, Dictionary> = {
     "integrations.gmail.disconnecting": "Déconnexion…",
     "integrations.gmail.disconnect": "Déconnecter",
     "integrations.gmail.connect": "Connecter Gmail",
-    "integrations.microsoft.subtitle": "Compte Microsoft personnel ou professionnel",
+    "integrations.microsoft.subtitle":
+      "Compte Microsoft personnel ou professionnel",
     "integrations.microsoft.comingSoon": "Bientôt",
     "integrations.microsoft.body1":
       "Connectez votre compte Outlook ou Microsoft 365 pour préparer vos brouillons commerciaux directement depuis FalconDraft.",
@@ -1166,11 +1190,13 @@ export const translations: Record<Language, Dictionary> = {
     "integrations.microsoft.connected": "Connecté",
     "integrations.microsoft.disconnected": "Non connecté",
     "integrations.microsoft.connectedAccount": "Compte connecté",
-    "integrations.microsoft.connectedToast": "Outlook est connecté à FalconDraft.",
+    "integrations.microsoft.connectedToast":
+      "Outlook est connecté à FalconDraft.",
     "integrations.microsoft.disconnectedToast": "Outlook déconnecté.",
     "integrations.microsoft.disconnectError": "Déconnexion impossible.",
     "integrations.microsoft.denied": "Connexion Outlook annulée.",
-    "integrations.microsoft.refused": "Connexion Outlook refusée pour ce workspace.",
+    "integrations.microsoft.refused":
+      "Connexion Outlook refusée pour ce workspace.",
     "integrations.microsoft.unavailable": "Configuration Outlook indisponible.",
     "integrations.microsoft.error":
       "Une erreur s'est produite lors de la connexion Outlook. Veuillez réessayer.",
@@ -1224,12 +1250,14 @@ export const translations: Record<Language, Dictionary> = {
     "settings.photo.errorDescription": "La photo n'a pas pu être enregistrée.",
     "settings.photo.errorSize": "La photo doit rester sous 2 Mo.",
     "settings.photo.errorSizeTitle": "Image trop lourde",
-    "settings.photo.errorFormat": "Choisissez une image au format PNG, JPG ou WebP.",
+    "settings.photo.errorFormat":
+      "Choisissez une image au format PNG, JPG ou WebP.",
     "settings.photo.errorFormatTitle": "Format non pris en charge",
     "settings.photo.successUpdated": "Photo de profil mise à jour.",
     "settings.photo.successRemoved": "Photo de profil retirée.",
     "settings.photo.removeErrorTitle": "Photo non retirée",
-    "settings.photo.removeErrorDescription": "La photo n'a pas pu être supprimée.",
+    "settings.photo.removeErrorDescription":
+      "La photo n'a pas pu être supprimée.",
     "settings.preferences.title": "Préférences",
     "settings.preferences.description":
       "Réglages utiles pour adapter l’espace à votre usage quotidien.",
@@ -1405,6 +1433,7 @@ export const translations: Record<Language, Dictionary> = {
     "language.label": "Language",
     "language.fr": "Français",
     "language.en": "English",
+    "language.es": "Español",
     "auth.login.eyebrow": "Client workspace",
     "auth.login.title": "Sign in to FalconDraft",
     "auth.login.cardTitle": "Secure access",
@@ -1526,29 +1555,38 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internalAdmin": "Internal admin",
     "nav.internalBadge": "Internal",
     "transcripts.empty.title": "No transcripts",
-    "transcripts.empty.description": "Call transcripts will appear here. You can add one by pasting text.",
+    "transcripts.empty.description":
+      "Call transcripts will appear here. You can add one by pasting text.",
     "transcripts.new": "New transcript",
     "transcripts.count": "transcript",
     "transcripts.status.ready": "Ready",
     "transcripts.status.processing": "Transcribing",
     "transcripts.status.waiting": "Waiting for call",
     "transcripts.status.error": "Error",
-    "transcripts.status.ready.hint": "The transcript is available and can be used for a deal.",
-    "transcripts.status.processing.hint": "The call has ended and the transcript is being prepared.",
-    "transcripts.status.waiting.hint": "FalconDraft is waiting for the meeting to start or the bot to finish recording.",
-    "transcripts.status.error.hint": "Transcription failed. You can retry or create a new transcript.",
+    "transcripts.status.ready.hint":
+      "The transcript is available and can be used for a deal.",
+    "transcripts.status.processing.hint":
+      "The call has ended and the transcript is being prepared.",
+    "transcripts.status.waiting.hint":
+      "FalconDraft is waiting for the meeting to start or the bot to finish recording.",
+    "transcripts.status.error.hint":
+      "Transcription failed. You can retry or create a new transcript.",
     "transcripts.source.paste": "Pasted text",
     "transcripts.source.audio": "Audio upload",
     "transcripts.source.recording": "Auto-recording",
-    "transcripts.source.paste.description": "Paste an existing transcript to centralize it and link it to a deal.",
-    "transcripts.source.audio.description": "Upload a recording for automatic transcription.",
-    "transcripts.source.recording.description": "Connect a recording tool to receive transcripts directly.",
+    "transcripts.source.paste.description":
+      "Paste an existing transcript to centralize it and link it to a deal.",
+    "transcripts.source.audio.description":
+      "Upload a recording for automatic transcription.",
+    "transcripts.source.recording.description":
+      "Connect a recording tool to receive transcripts directly.",
     "transcripts.soon": "Soon",
     "transcripts.deal": "Deal",
     "transcripts.by": "by",
     "transcripts.delete": "Delete",
     "transcripts.delete.title": "Delete this transcript?",
-    "transcripts.delete.description": "The transcript will be permanently deleted. This action cannot be undone.",
+    "transcripts.delete.description":
+      "The transcript will be permanently deleted. This action cannot be undone.",
     "transcripts.delete.confirm": "Delete",
     "transcripts.delete.deleting": "Deleting...",
     "transcripts.delete.success": "Transcript deleted.",
@@ -1573,22 +1611,30 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.form.creating": "Creating...",
     "transcripts.form.create": "Create transcript",
     "transcripts.form.step1.title": "Identification",
-    "transcripts.form.step1.description": "Give the transcript a clear title so you can find it easily.",
+    "transcripts.form.step1.description":
+      "Give the transcript a clear title so you can find it easily.",
     "transcripts.form.step1.label": "Transcript title",
     "transcripts.form.step1.placeholder": "E.g. Discovery call — Company X",
-    "transcripts.form.step1.help": "A concrete title to identify this exchange.",
+    "transcripts.form.step1.help":
+      "A concrete title to identify this exchange.",
     "transcripts.form.step2.title": "Content",
-    "transcripts.form.step2.description": "Paste the full transcript of the call or meeting.",
+    "transcripts.form.step2.description":
+      "Paste the full transcript of the call or meeting.",
     "transcripts.form.step2.label": "Transcript content",
-    "transcripts.form.step2.placeholder": "Paste the call or meeting transcript here...",
-    "transcripts.form.step2.help": "The more complete the content, the more relevant the analysis will be.",
+    "transcripts.form.step2.placeholder":
+      "Paste the call or meeting transcript here...",
+    "transcripts.form.step2.help":
+      "The more complete the content, the more relevant the analysis will be.",
     "transcripts.form.step3.title": "Linking",
-    "transcripts.form.step3.description": "Associate this transcript with an existing deal if relevant.",
+    "transcripts.form.step3.description":
+      "Associate this transcript with an existing deal if relevant.",
     "transcripts.form.step3.dealLabel": "Link to a deal (optional)",
     "transcripts.form.step3.noDeal": "No deal",
-    "transcripts.form.step3.dealHelp": "The transcript will be linked to the selected deal to enrich outputs.",
+    "transcripts.form.step3.dealHelp":
+      "The transcript will be linked to the selected deal to enrich outputs.",
     "transcripts.form.step3.noDealsTitle": "No deals available",
-    "transcripts.form.step3.noDealsDescription": "The transcript will be created without linking. You can link it later.",
+    "transcripts.form.step3.noDealsDescription":
+      "The transcript will be created without linking. You can link it later.",
     "transcripts.form.step3.summary": "Summary",
     "transcripts.form.step3.summaryTitle": "Title:",
     "transcripts.form.step3.summaryLength": "Length:",
@@ -1607,17 +1653,21 @@ export const translations: Record<Language, Dictionary> = {
     "transcripts.view": "View",
     "transcripts.recall.button": "Capture a call",
     "transcripts.recall.title": "Capture a call",
-    "transcripts.recall.description": "Paste your Google Meet, Zoom or Teams meeting link to automatically capture the transcript.",
+    "transcripts.recall.description":
+      "Paste your Google Meet, Zoom or Teams meeting link to automatically capture the transcript.",
     "transcripts.recall.meetingUrl": "Meeting link",
-    "transcripts.recall.meetingUrl.placeholder": "https://meet.google.com/abc-defg-hij",
-    "transcripts.recall.meetingUrl.help": "Google Meet, Zoom or Microsoft Teams.",
+    "transcripts.recall.meetingUrl.placeholder":
+      "https://meet.google.com/abc-defg-hij",
+    "transcripts.recall.meetingUrl.help":
+      "Google Meet, Zoom or Microsoft Teams.",
     "transcripts.recall.titleLabel": "Transcript title",
     "transcripts.recall.titlePlaceholder": "E.g. Discovery call — Company X",
     "transcripts.recall.dealLabel": "Link to a deal (optional)",
     "transcripts.recall.noDeal": "No deal",
     "transcripts.recall.submit": "Start capture",
     "transcripts.recall.submitting": "Sending...",
-    "transcripts.recall.success": "Capture started. The transcript will appear once the call ends.",
+    "transcripts.recall.success":
+      "Capture started. The transcript will appear once the call ends.",
     "transcripts.recall.error": "Unable to start capture.",
     "transcripts.recall.invalidUrl": "Unsupported meeting URL.",
     "admin.restricted": "Restricted access",
@@ -1879,7 +1929,8 @@ export const translations: Record<Language, Dictionary> = {
     "integrations.gmail.disconnecting": "Disconnecting…",
     "integrations.gmail.disconnect": "Disconnect",
     "integrations.gmail.connect": "Connect Gmail",
-    "integrations.microsoft.subtitle": "Personal or professional Microsoft account",
+    "integrations.microsoft.subtitle":
+      "Personal or professional Microsoft account",
     "integrations.microsoft.comingSoon": "Soon",
     "integrations.microsoft.body1":
       "Connect your Outlook or Microsoft 365 account to prepare your commercial drafts directly from FalconDraft.",
@@ -1892,11 +1943,13 @@ export const translations: Record<Language, Dictionary> = {
     "integrations.microsoft.connected": "Connected",
     "integrations.microsoft.disconnected": "Not connected",
     "integrations.microsoft.connectedAccount": "Connected account",
-    "integrations.microsoft.connectedToast": "Outlook is connected to FalconDraft.",
+    "integrations.microsoft.connectedToast":
+      "Outlook is connected to FalconDraft.",
     "integrations.microsoft.disconnectedToast": "Outlook disconnected.",
     "integrations.microsoft.disconnectError": "Disconnect failed.",
     "integrations.microsoft.denied": "Outlook connection cancelled.",
-    "integrations.microsoft.refused": "Outlook connection refused for this workspace.",
+    "integrations.microsoft.refused":
+      "Outlook connection refused for this workspace.",
     "integrations.microsoft.unavailable": "Outlook configuration unavailable.",
     "integrations.microsoft.error":
       "An error occurred during Outlook connection. Please try again.",
@@ -2096,12 +2149,803 @@ export const translations: Record<Language, Dictionary> = {
     "activity.actor.team": "Team",
     "activity.actor.system": "FalconDraft",
   },
+  es: {
+    "common.actions.createDeal": "Crear un expediente comercial",
+    "common.actions.newDeal": "Nuevo expediente comercial",
+    "common.actions.viewAll": "Ver todo",
+    "common.actions.save": "Guardar",
+    "common.actions.saving": "Guardando...",
+    "common.actions.cancel": "Cancelar",
+    "common.actions.open": "Abrir",
+    "common.actions.download": "Descargar",
+    "common.actions.downloadQuote": "Descargar presupuesto",
+    "common.actions.downloadFinalDocument": "Descargar documento final",
+    "common.actions.editInstructions": "Editar instrucciones",
+    "common.empty.deals.title": "Ningún expediente comercial",
+    "common.empty.deals.description":
+      "Crea un primer expediente comercial para seguir el pipeline y los documentos asociados.",
+    "common.empty.documents.title": "Ningún documento",
+    "common.empty.documents.description":
+      "Los documentos aparecerán aquí en cuanto estén preparados para un expediente comercial.",
+    "common.empty.archives.title": "Ningún expediente archivado",
+    "common.empty.archives.description":
+      "Los expedientes archivados aparecerán aquí sin entrar en el pipeline comercial.",
+    "common.empty.activity":
+      "No hay actividad reciente para este expediente comercial.",
+    "common.status.done": "Hecho",
+    "common.status.active": "Activo",
+    "common.status.failed": "A revisar",
+    "common.status.pending": "Pendiente",
+    "common.status.ready": "Listo",
+    "common.status.draft": "Borrador",
+    "common.status.generating": "En curso",
+    "common.status.sent": "Enviado",
+    "language.label": "Idioma",
+    "language.fr": "Français",
+    "language.en": "English",
+    "language.es": "Español",
+    "auth.login.eyebrow": "Espacio de trabajo del cliente",
+    "auth.login.title": "Iniciar sesión en FalconDraft",
+    "auth.login.cardTitle": "Acceso seguro",
+    "auth.login.cardDescription":
+      "Inicia sesión con la dirección de email vinculada a tu invitación.",
+    "auth.login.email": "email de trabajo",
+    "auth.login.password": "Contraseña",
+    "auth.login.forgotPassword": "¿Has olvidado tu contraseña?",
+    "auth.login.submit": "Iniciar sesión",
+    "auth.login.submitting": "Iniciando sesión...",
+    "auth.login.unavailable": "Iniciar sesión no disponible",
+    "auth.login.unavailableDescription":
+      "La configuración de acceso no está disponible.",
+    "auth.login.refused": "Inicio de sesión rechazado",
+    "auth.login.refusedDescription": "Revisa tu email y contraseña.",
+    "auth.login.success": "Iniciado sesión",
+    "auth.login.successDescription":
+      "Abriendo su espacio de trabajo FalconDraft.",
+    "auth.forgot.eyebrow": "Has olvidado tu contraseña",
+    "auth.forgot.title": "Obtenga un enlace seguro",
+    "auth.forgot.cardTitle": "Restablecer contraseña",
+    "auth.forgot.cardDescription":
+      "Introduce la dirección de email vinculada a tu cuenta FalconDraft.",
+    "auth.forgot.footer": "El enlace es válido por tiempo limitado.",
+    "auth.forgot.unavailable": "Restablecimiento de contraseña no disponible",
+    "auth.forgot.error": "Solicitud fallida",
+    "auth.forgot.errorDescription":
+      "La solicitud de restablecimiento no se ha podido enviar por ahora.",
+    "auth.forgot.sent": "Email enviado",
+    "auth.forgot.sentDescription":
+      "Si existe una cuenta para este email, se ha enviado un enlace de restablecimiento.",
+    "auth.forgot.submit": "Enviar enlace de restablecimiento",
+    "auth.forgot.submitting": "Envío...",
+    "auth.forgot.back": "Volver para iniciar sesión",
+    "auth.update.eyebrow": "Nueva contraseña",
+    "auth.update.title": "Asegure su acceso",
+    "auth.update.cardTitle": "Establecer una nueva contraseña",
+    "auth.update.cardDescription":
+      "Elige una contraseña segura para tu cuenta.",
+    "auth.update.footer": "Sesión de restablecimiento segura.",
+    "auth.update.password": "Nueva contraseña",
+    "auth.update.confirmPassword": "Confirmar Contraseña",
+    "auth.update.tooShort": "Contraseña demasiado corta",
+    "auth.update.tooShortDescription": "Usa al menos 8 caracteres.",
+    "auth.update.mismatch": "Las contraseñas no coinciden",
+    "auth.update.mismatchDescription": "Ambas contraseñas deben ser idénticas.",
+    "auth.update.unavailable": "Actualización no disponible",
+    "auth.update.invalid": "Enlace no válido o caducado",
+    "auth.update.invalidDescription":
+      "Solicita un nuevo enlace de restablecimiento.",
+    "auth.update.error": "La actualización falló",
+    "auth.update.errorDescription":
+      "Es posible que el enlace haya caducado. Solicite uno nuevo.",
+    "auth.update.success": "Contraseña actualizada",
+    "auth.update.successDescription":
+      "Ahora puede acceder a su espacio de trabajo FalconDraft.",
+    "auth.update.submit": "Guardar contraseña",
+    "auth.update.submitting": "Actualizando...",
+    "auth.update.invalidPanel":
+      "El enlace de restablecimiento no es válido o ha caducado. Solicita un nuevo enlace para definir tu contraseña.",
+    "auth.update.newLink": "Solicitar un nuevo enlace",
+    "auth.shell.clientWorkspace": "Espacio de trabajo del cliente",
+    "auth.shell.privateAccess": "Acceso privado",
+    "auth.shell.privateTitle":
+      "Inicia sesión en tu espacio de trabajo FalconDraft.",
+    "auth.shell.privateDescription":
+      "Acceso seguro para realizar un seguimiento de expedientes, documentos y aprobaciones en el espacio de trabajo de su cliente.",
+    "auth.shell.home": "Hogar",
+    "auth.shell.invitedOnly": "Acceso reservado para usuarios invitados.",
+    "invite.invalid.expired.title": "Invitación caducada",
+    "invite.invalid.expired.description":
+      "Este enlace ya no está activo. Pídale a un administrador del espacio de trabajo que le envíe una nueva invitación.",
+    "invite.invalid.revoked.title": "Invitación revocada",
+    "invite.invalid.revoked.description":
+      "Esta invitación ha sido cancelada. Comuníquese con su contacto de FalconDraft si esto parece incorrecto.",
+    "invite.invalid.accepted.title": "Invitación ya aceptada",
+    "invite.invalid.accepted.description":
+      "Este enlace ya ha sido utilizado. Inicia sesión con la cuenta asociada para acceder a tu espacio de trabajo.",
+    "invite.invalid.default.title": "Invitación no válida",
+    "invite.invalid.default.description":
+      "Este enlace de invitación falta o está incompleto. Consulta el email que recibiste o solicita una nueva invitación.",
+    "invite.goLogin": "Ir a iniciar sesión",
+    "invite.guestSpace": "Espacio de trabajo para invitados",
+    "invite.invitedEmail": "Email invitado",
+    "invite.role": "Role",
+    "invite.actionImpossible": "Acción no disponible",
+    "invite.acceptFallback": "Esta invitación no pudo ser aceptada.",
+    "invite.acceptError": "Invitación no aceptada",
+    "invite.accepted": "Invitación aceptada",
+    "invite.acceptedDescription":
+      "Su acceso al espacio de trabajo de FalconDraft está listo.",
+    "invite.createFallback":
+      "Error al crear la cuenta. Inicia sesión si tu cuenta ya existe.",
+    "invite.accountNotCreated": "Cuenta no creada",
+    "invite.signInUnavailable":
+      "Inicio de sesión no disponible. La configuración de acceso no está lista.",
+    "invite.createdSignIn":
+      "Cuenta creada. Inicia sesión con tu email y contraseña para aceptar la invitación.",
+    "invite.fullName": "nombre completo",
+    "invite.fullNamePlaceholder": "Su nombre",
+    "invite.password": "Contraseña",
+    "invite.preparing": "Preparando acceso...",
+    "invite.createAndJoin": "Crear mi cuenta y unirme",
+    "invite.existingAccount": "¿Ya tienes una cuenta FalconDraft?",
+    "invite.loginToAccept": "Inicia sesión para aceptar la invitación.",
+    "invite.accountRecognized": "Cuenta reconocida",
+    "invite.accountRecognizedDescription":
+      "Has iniciado sesión como {email}. Ahora puedes unirte a {organization}.",
+    "invite.accept": "Aceptar invitación",
+    "invite.accepting": "Aceptando...",
+    "invite.emailDifferent": "email diferente",
+    "invite.emailDifferentDescription":
+      "Esta invitación es para {invitedEmail}. Has iniciado sesión como {currentEmail}. Cierra sesión para usar la cuenta correcta.",
+    "invite.switching": "Cerrando sesión...",
+    "invite.switchAccount": "Cambiar de cuenta",
+    "nav.primaryLabel": "Navegación primaria",
+    "nav.dashboard": "Panel",
+    "nav.deals": "Expedientes",
+    "nav.documents": "Documentos",
+    "nav.transcripts": "Transcripciones",
+    "nav.archives": "Archivos",
+    "nav.settings": "Ajustes",
+    "nav.support": "Soporte",
+    "nav.internal": "Interno",
+    "nav.internalAdmin": "Administrador interno",
+    "nav.internalBadge": "Interno",
+    "transcripts.empty.title": "Sin transcripciones",
+    "transcripts.empty.description":
+      "Las transcripciones de las llamadas aparecerán aquí. Puedes agregar uno pegando texto.",
+    "transcripts.new": "Nueva transcripción",
+    "transcripts.count": "transcripción",
+    "transcripts.status.ready": "Listo",
+    "transcripts.status.processing": "Transcribiendo",
+    "transcripts.status.waiting": "esperando llamada",
+    "transcripts.status.error": "Error",
+    "transcripts.status.ready.hint":
+      "La transcripción está disponible y se puede utilizar para cerrar un expediente.",
+    "transcripts.status.processing.hint":
+      "La llamada ha finalizado y se está preparando la transcripción.",
+    "transcripts.status.waiting.hint":
+      "FalconDraft está esperando a que comience la reunión o que el bot termine de grabar.",
+    "transcripts.status.error.hint":
+      "La transcripción falló. Puede volver a intentarlo o crear una nueva transcripción.",
+    "transcripts.source.paste": "Texto pegado",
+    "transcripts.source.audio": "Carga de audio",
+    "transcripts.source.recording": "Grabación automática",
+    "transcripts.source.paste.description":
+      "Pegue una transcripción existente para centralizarla y vincularla a un expediente.",
+    "transcripts.source.audio.description":
+      "Sube una grabación para su transcripción automática.",
+    "transcripts.source.recording.description":
+      "Conecte una herramienta de grabación para recibir transcripciones directamente.",
+    "transcripts.soon": "Pronto",
+    "transcripts.deal": "Expediente",
+    "transcripts.by": "por",
+    "transcripts.delete": "Borrar",
+    "transcripts.delete.title": "¿Eliminar esta transcripción?",
+    "transcripts.delete.description":
+      "La transcripción se eliminará permanentemente. Esta acción no se puede deshacer.",
+    "transcripts.delete.confirm": "Borrar",
+    "transcripts.delete.deleting": "Eliminando...",
+    "transcripts.delete.success": "Transcripción eliminada.",
+    "transcripts.delete.error": "No se puede eliminar.",
+    "transcripts.cancel": "Cancelar",
+    "transcripts.detail.back": "Atrás",
+    "transcripts.detail.source": "Fuente",
+    "transcripts.detail.createdAt": "Creado",
+    "transcripts.detail.createdBy": "Por",
+    "transcripts.detail.duration": "Duración",
+    "transcripts.detail.deal": "Expediente",
+    "transcripts.detail.language": "Idioma",
+    "transcripts.detail.content": "Contenido de la transcripción",
+    "transcripts.detail.noContent": "No hay contenido disponible.",
+    "transcripts.detail.participants": "Participantes",
+    "transcripts.form.guided": "Creación guiada",
+    "transcripts.form.title": "Nueva transcripción",
+    "transcripts.form.step": "Paso {current} de {total}",
+    "transcripts.form.completed": "{percent}% completo",
+    "transcripts.form.previous": "Anterior",
+    "transcripts.form.next": "Próximo",
+    "transcripts.form.creating": "Creando...",
+    "transcripts.form.create": "Crear transcripción",
+    "transcripts.form.step1.title": "Identificación",
+    "transcripts.form.step1.description":
+      "Asigne un título claro a la transcripción para que pueda encontrarla fácilmente.",
+    "transcripts.form.step1.label": "Título de la transcripción",
+    "transcripts.form.step1.placeholder":
+      "P.ej. Llamada de descubrimiento: Empresa X",
+    "transcripts.form.step1.help":
+      "Un título concreto para identificar este intercambio.",
+    "transcripts.form.step2.title": "Contenido",
+    "transcripts.form.step2.description":
+      "Pegue la transcripción completa de la llamada o reunión.",
+    "transcripts.form.step2.label": "Contenido de la transcripción",
+    "transcripts.form.step2.placeholder":
+      "Pegue aquí la transcripción de la llamada o reunión...",
+    "transcripts.form.step2.help":
+      "Cuanto más completo sea el contenido, más relevante será el análisis.",
+    "transcripts.form.step3.title": "Enlace",
+    "transcripts.form.step3.description":
+      "Asocie esta transcripción con un expediente existente si es relevante.",
+    "transcripts.form.step3.dealLabel":
+      "Enlace a una propuesta comercial (opcional)",
+    "transcripts.form.step3.noDeal": "No hay expediente",
+    "transcripts.form.step3.dealHelp":
+      "La transcripción se vinculará al expediente seleccionado para enriquecer los resultados.",
+    "transcripts.form.step3.noDealsTitle":
+      "No hay propuesta comercials disponibles",
+    "transcripts.form.step3.noDealsDescription":
+      "La transcripción se creará sin vinculación. Puedes vincularlo más tarde.",
+    "transcripts.form.step3.summary": "Resumen",
+    "transcripts.form.step3.summaryTitle": "Título:",
+    "transcripts.form.step3.summaryLength": "Longitud:",
+    "transcripts.form.success": "Transcripción creada.",
+    "transcripts.edit": "Editar",
+    "transcripts.edit.save": "Guardar",
+    "transcripts.edit.saving": "Guardando...",
+    "transcripts.edit.cancel": "Cancelar",
+    "transcripts.edit.success": "Transcripción actualizada.",
+    "transcripts.edit.error": "No se puede actualizar.",
+    "transcripts.archive": "Archivo",
+    "transcripts.archive.success": "Transcripción archivada.",
+    "transcripts.archive.error": "No se puede archivar.",
+    "transcripts.unarchive": "Desarchivar",
+    "transcripts.unarchive.success": "Transcripción desarchivada.",
+    "transcripts.view": "Vista",
+    "transcripts.recall.button": "Capturar una llamada",
+    "transcripts.recall.title": "Capturar una llamada",
+    "transcripts.recall.description":
+      "Pegue el enlace de su reunión de Google Meet, Zoom o Teams para capturar automáticamente la transcripción.",
+    "transcripts.recall.meetingUrl": "Enlace de reunión",
+    "transcripts.recall.meetingUrl.placeholder":
+      "https://meet.google.com/abc-defg-hij",
+    "transcripts.recall.meetingUrl.help":
+      "Google Meet, Zoom o Microsoft Teams.",
+    "transcripts.recall.titleLabel": "Título de la transcripción",
+    "transcripts.recall.titlePlaceholder":
+      "P.ej. Llamada de descubrimiento: Empresa X",
+    "transcripts.recall.dealLabel":
+      "Enlace a una propuesta comercial (opcional)",
+    "transcripts.recall.noDeal": "No hay expediente",
+    "transcripts.recall.submit": "Iniciar captura",
+    "transcripts.recall.submitting": "Envío...",
+    "transcripts.recall.success":
+      "Se inició la captura. La transcripción aparecerá una vez finalizada la llamada.",
+    "transcripts.recall.error": "No se puede iniciar la captura.",
+    "transcripts.recall.invalidUrl": "URL de reunión no admitida.",
+    "admin.restricted": "Acceso restringido",
+    "admin.restrictedTitle": "Página interna de FalconDraft",
+    "admin.restrictedDescription":
+      "Esta ruta está reservada para la verificación de roles internos y no debe aparecer en el espacio de trabajo estándar del cliente.",
+    "admin.console": "Consola interna",
+    "admin.access": "Acceso interno",
+    "admin.title": "FalconSupervisión del borrador",
+    "admin.description":
+      "Una consola para que el equipo de FalconDraft monitoree organizaciones, usuarios y ciclos de generación.",
+    "admin.empty": "No hay filas disponibles.",
+    "admin.deals": "Propuesta comercials",
+    "admin.failedRuns": "Generaciones fallidas",
+    "nav.open": "Abrir navegación",
+    "nav.sheetTitle": "Navegación en borrador Falcon",
+    "nav.sheetDescription":
+      "Accede a las principales secciones del espacio de trabajo del cliente.",
+    "shell.workspaceTitle": "Producción de ventas",
+    "shell.workspaceFallback": "Propuesta comercials, documentos y seguimiento",
+    "shell.pipeline": "Propuesta comercial → propuesta → aprobación → enviar",
+    "shell.footer": "FalconDraft · Propuestas de venta",
+    "shell.userMenu": "Menú de usuario",
+    "shell.profile": "Perfil",
+    "shell.help": "Ayuda",
+    "shell.helpTitle": "Ayuda FalconDraft",
+    "shell.helpDescription": "Abra el centro de ayuda y soporte.",
+    "shell.signOut": "desconectar",
+    "shell.signOutSuccess": "Sesión cerrada",
+    "support.eyebrow": "Apoyo",
+    "support.title": "Ayuda y soporte técnico de FalconDraft",
+    "support.description":
+      "Encuentre una respuesta rápidamente, informe un error o sugiera una mejora al equipo de FalconDraft.",
+    "support.hero.badge": "Apoyo humano",
+    "support.hero.kicker": "Centro de ayuda",
+    "support.hero.title":
+      "Todo lo que necesitas para utilizar FalconDraft con confianza.",
+    "support.hero.description":
+      "Esta página cubre preguntas frecuentes sobre su espacio de trabajo, expedientes, documentos, aprobaciones y gestión de equipos.",
+    "support.guides.start.title": "iniciar un expediente",
+    "support.guides.start.description":
+      "Cree un expediente, agregue contexto de ventas y siga cada paso hasta el documento final.",
+    "support.guides.team.title": "Equipo y roles",
+    "support.guides.team.description":
+      "Comprenda qué puede hacer cada rol y cómo colaborar dentro del espacio de trabajo.",
+    "support.guides.validation.title": "Revisar y enviar",
+    "support.guides.validation.description":
+      "Revisar propuestas, preparar documentos finales y llevar un seguimiento claro de cada acción.",
+    "support.faq.title": "Preguntas frecuentes",
+    "support.faq.description":
+      "Respuestas esenciales para el uso diario de la aplicación.",
+    "support.faq.invite.question": "¿Cómo me uno a un espacio de trabajo?",
+    "support.faq.invite.answer":
+      "FalconDraft es sólo por invitación. Abra el enlace recibido por email, cree su contraseña si es necesario y luego inicie sesión con la dirección de email invitada.",
+    "support.faq.deal.question": "¿Para qué sirve un expediente?",
+    "support.faq.deal.answer":
+      "Un expediente centraliza el cliente, el contexto de ventas, el presupuesto, los pasos de generación y los documentos vinculados a una oportunidad.",
+    "support.faq.documents.question": "¿Dónde puedo encontrar mis documentos?",
+    "support.faq.documents.answer":
+      "Los documentos están disponibles en la pestaña Documentos y en cada expediente. El contenido generado y los datos del cliente nunca se traducen cuando cambia el idioma de la interfaz.",
+    "support.faq.validation.question": "¿Cómo funciona la aprobación?",
+    "support.faq.validation.answer":
+      "Los pasos de aprobación muestran qué está listo, qué necesita revisión y qué se puede enviar. Los rastros permanecen visibles en cada feed de actividad de la transacción.",
+    "support.faq.roles.question": "¿Qué pueden hacer los roles de equipo?",
+    "support.faq.roles.answer":
+      "Los gestores controlan la configuración del equipo y del espacio de trabajo. Los colaboradores trabajan en expedientes autorizados. Los lectores pueden revisar la información sin modificar elementos sensibles.",
+    "support.faq.visibility.question":
+      "¿Cómo funcionan las configuraciones de visibilidad?",
+    "support.faq.visibility.answer":
+      "Dependiendo de la configuración de su espacio de trabajo, es posible que vea vistas de toda la empresa o solo los expedientes y documentos que sean relevantes para usted.",
+    "support.faq.language.question": "¿Cómo cambio de idioma?",
+    "support.faq.language.answer":
+      "El idioma se gestiona en Configuración. El francés sigue siendo el predeterminado y el inglés solo traduce la interfaz de la aplicación.",
+    "support.faq.issue.question": "¿Qué debo hacer si veo un error?",
+    "support.faq.issue.answer":
+      "Tenga en cuenta la acción que realizó, la propuesta comercial relacionada, el mensaje mostrado y el tiempo aproximado. Envíe esos datos al soporte para acelerar el diagnóstico.",
+    "support.contact.title": "Contactar con soporte",
+    "support.contact.description":
+      "Envíe una solicitud al equipo de FalconDraft. El mensaje se envía desde la aplicación, luego recibes un email de confirmación.",
+    "support.contact.typeLabel": "Tipo de solicitud",
+    "support.contact.type.question": "pregunta de uso",
+    "support.contact.type.bug": "Informar un error",
+    "support.contact.type.feature": "Sugerir una característica",
+    "support.contact.subject.question": "Pregunta sobre FalconDraft",
+    "support.contact.subject.bug": "Error a corregir en FalconDraft",
+    "support.contact.subject.feature": "Sugerencia de función FalconDraft",
+    "support.contact.subjectLabel": "Sujeto",
+    "support.contact.subjectPlaceholder": "P.ej. Emitir con un documento final",
+    "support.contact.messageLabel": "Mensaje",
+    "support.contact.messagePlaceholder":
+      "Describe tu pregunta, el error que observaste o la mejora que te gustaría.",
+    "support.contact.submit": "Enviar a soporte",
+    "support.contact.sending": "Envío...",
+    "support.contact.sent": "Mensaje enviado",
+    "support.contact.sentDescription":
+      "El soporte de FalconDraft recibió su solicitud. Se le ha enviado un email de confirmación.",
+    "support.contact.sentNoConfirmation":
+      "El soporte de FalconDraft recibió su solicitud. El email de confirmación no se pudo enviar automáticamente.",
+    "support.contact.error": "No se pudo enviar",
+    "support.contact.errorDescription":
+      "Su mensaje no pudo ser enviado al soporte en este momento.",
+    "support.contact.messageTooShort":
+      "Agregue algunos detalles más para que el soporte pueda entender su solicitud.",
+    "support.quick.bug.title": "Bicho",
+    "support.quick.bug.description":
+      "Incluya los pasos de reproducción, el navegador y la propuesta comercial relacionada.",
+    "support.quick.idea.title": "Sugerencia",
+    "support.quick.idea.description":
+      "Explica el resultado esperado y el impacto en tu proceso comercial.",
+    "support.quick.question.title": "Pregunta",
+    "support.quick.question.description":
+      "Solicite ayuda con el uso, una función, un paso o la configuración del espacio de trabajo.",
+    "dashboard.eyebrow": "Panel",
+    "dashboard.title": "Vista de conjunto comercial",
+    "dashboard.description":
+      "Sigue tus expedientes, propuestas comerciales y documentos listos en un sistema claro de automatización comercial.",
+    "dashboard.stats.activeDeals": "Expedientes activos",
+    "dashboard.stats.activeDealsDetail": "Excluyendo expedientes completados",
+    "dashboard.stats.readyDocuments": "Documentos listos",
+    "dashboard.stats.readyDocumentsDetail": "Para revisar o enviar",
+    "dashboard.stats.pipelineValue": "Valor en pipeline",
+    "dashboard.stats.pipelineValueDetail": "Tubería actual",
+    "dashboard.stats.attention": "Puntos a revisar",
+    "dashboard.stats.attentionDetail": "Aprobación, documento o error",
+    "dashboard.recentDeals.title": "Expedientes recientes",
+    "dashboard.recentDeals.description":
+      "Propuesta comercials que necesitan atención de ventas.",
+    "dashboard.featured.title": "Siguiente acción recomendada",
+    "dashboard.featured.description": "El siguiente paso de ventas a seguir.",
+    "dashboard.featured.empty":
+      "No hay expediente prioritario en este momento.",
+    "dashboard.chart.title": "Evolución comercial",
+    "dashboard.chart.description":
+      "Volumen mensual de propuestas y documentos finales.",
+    "dashboard.activity.title": "Actividad reciente",
+    "dashboard.activity.description": "Últimos cambios significativos.",
+    "table.deal": "Expediente",
+    "table.status": "Estado",
+    "table.budget": "Presupuesto",
+    "table.updated": "Actualizado",
+    "deals.eyebrow": "Expedientes comerciales",
+    "deals.title": "Pilotar los expedientes comerciales",
+    "deals.description":
+      "Centraliza el contexto, prepara propuestas comerciales y controla cada etapa hasta el envío.",
+    "deals.tabs.mine": "Mis expedientes",
+    "deals.tabs.organization": "Empresa",
+    "deals.searchPlaceholder": "Buscar un expediente o cliente...",
+    "deals.statusPlaceholder": "Filtrar por estado",
+    "deals.allStatuses": "Todos los estados",
+    "deals.client": "Cliente",
+    "deals.actions": "Comportamiento",
+    "deals.open": "Abrir",
+    "deals.archive": "Archivar",
+    "deals.restore": "Restaurar",
+    "deals.updating": "Actualizando...",
+    "deals.delete": "Eliminar",
+    "deals.deleting": "Eliminando...",
+    "deals.emptyFiltered": "Ningún expediente coincide con estos filtros.",
+    "dealDetail.eyebrow": "Expediente",
+    "dealDetail.created": "Creado",
+    "dealDetail.updated": "Actualizado",
+    "dealDetail.owner": "Dueño",
+    "dealDetail.clientCompany": "Empresa cliente",
+    "dealDetail.organization": "Organización",
+    "dealDetail.source": "Fuente",
+    "dealDetail.contact": "Contacto",
+    "dealDetail.name": "Nombre",
+    "dealDetail.phone": "Teléfono",
+    "dealDetail.transcriptTitle": "Transcripción y contexto",
+    "dealDetail.transcriptDescription":
+      "Material de trabajo conservado para preservar el contexto de ventas.",
+    "dealDetail.productionTitle": "Producción comercial",
+    "dealDetail.productionDescription":
+      "Prepara, valida y finaliza la propuesta comercial con control.",
+    "dealDetail.callSummary": "Resumen de llamada",
+    "dealDetail.proposal": "Propuesta comercial",
+    "dealDetail.finalDocument": "Documento final",
+    "dealDetail.finalDocumentReady": "Documento final listo para descargar.",
+    "dealDetail.finalDocumentWaiting":
+      "Documento final listo para compartir una vez aprobada la propuesta.",
+    "dealDetail.signature": "Firma",
+    "dealDetail.signaturePrepared": "Enlace de firma preparado",
+    "dealDetail.generatedDocuments": "Documentos generados",
+    "dealDetail.generatedDocumentsDescription":
+      "Archivos y enlaces producidos para este expediente.",
+    "dealDetail.emailDraft": "Borrador de email",
+    "dealDetail.instructions": "Instrucción: {instructions}",
+    "dealDetail.activity": "Registro de actividad",
+    "dealDetail.actions": "Comportamiento",
+    "dealDetail.actionsDescription":
+      "Comandos principales para el ciclo de propuesta.",
+    "dealDetail.progress": "Progreso",
+    "dealDetail.lastUpdated": "Última actualización",
+    "dealDetail.extraSections":
+      "Secciones adicionales {count} en la vista completa.",
+    "dealDetail.summaryReady": "Resumen de llamada listo",
+    "dealDetail.summaryReadyDescription":
+      "El resumen de la llamada está disponible en el expediente.",
+    "dealDetail.summaryDeleteConfirm":
+      "¿Eliminar el resumen de la llamada? Puede editar el expediente y generarlo nuevamente después.",
+    "dealDetail.summaryDeleteFallback":
+      "No se pudo eliminar el resumen de la llamada.",
+    "dealDetail.summaryDeleted": "Resumen de llamada eliminado",
+    "dealDetail.summaryDeletedDescription":
+      "Puede editar el expediente y ejecutar la generación nuevamente.",
+    "dealDetail.summaryGenerating":
+      "Generación de resumen de llamadas en curso",
+    "dealDetail.summaryWaiting": "Resumen de llamada pendiente",
+    "dealDetail.summaryPolling":
+      "La página se actualizará automáticamente tan pronto como el resumen de la llamada esté disponible.",
+    "dealDetail.summaryStart":
+      "Inicia la generación desde el panel de acciones para preparar esta sección.",
+    "dealDetail.summaryStructured": "Resumen de llamada estructurada",
+    "dealDetail.summaryStructuredDescription":
+      "Una lectura sintética de los puntos clave extraídos del expediente.",
+    "dealDetail.summaryFull": "Resumen completo de la convocatoria",
+    "dealDetail.summaryFullDescription":
+      "Versión estructurada completa del resumen de la llamada de ventas.",
+    "dealDetail.proposalReady": "Propuesta comercial lista",
+    "dealDetail.proposalReadyDescription":
+      "La propuesta comercial está preparada para revisión.",
+    "dealDetail.proposalDeleteConfirm":
+      "¿Eliminar la propuesta? Puede editar el expediente y generarlo nuevamente después.",
+    "dealDetail.proposalDeleteFallback": "La propuesta no pudo eliminarse.",
+    "dealDetail.proposalDeleted": "Propuesta eliminada",
+    "dealDetail.proposalDeletedDescription":
+      "Puede editar el expediente y ejecutar la generación nuevamente.",
+    "dealDetail.proposalGenerating": "Preparando la propuesta comercial...",
+    "dealDetail.proposalWaiting": "La propuesta comercial está en cola.",
+    "dealDetail.proposalPolling":
+      "La página se actualizará automáticamente tan pronto como la propuesta esté disponible.",
+    "dealDetail.proposalStart": "Generar la propuesta comercial",
+    "dealDetail.editLink": "Enlace de edición",
+    "dealDetail.editLinkDescription":
+      "Acceso al espacio de trabajo externo para ajustar la propuesta.",
+    "dealDetail.edit": "Editar",
+    "dealDetail.editUnavailable": "Edición no disponible",
+    "dealDetail.proposalContent": "Contenido de la propuesta",
+    "dealDetail.openContent": "Abrir contenido",
+    "dealDetail.proposalFullDescription":
+      "Versión estructurada completa de la propuesta de venta.",
+    "dealDetail.deleteImpossible": "Error al eliminar",
+    "dealDetail.newEyebrow": "Nuevo expediente comercial",
+    "dealDetail.newTitle": "Crear un expediente comercial",
+    "dealDetail.newDescription":
+      "Avance paso a paso a través del encuadre, el contacto, las notas de llamada y las instrucciones de salida.",
+    "integrations.description":
+      "Conecta las herramientas compatibles para preparar borradores de email y documentos sin exponer la complejidad técnica.",
+    "integrations.gmail.personal": "Cuenta Gmail profesional",
+    "integrations.gmail.connected": "Gmail conectado",
+    "integrations.gmail.disconnected": "Gmail desconectado",
+    "integrations.gmail.connectedToast": "Gmail está conectado a FalconDraft.",
+    "integrations.gmail.denied": "Conexión de Gmail cancelada.",
+    "integrations.gmail.refused":
+      "Conexión de Gmail rechazada para este espacio de trabajo.",
+    "integrations.gmail.unavailable":
+      "La configuración de Gmail no está disponible.",
+    "integrations.gmail.error":
+      "La conexión de Gmail falló. Inténtalo de nuevo desde la configuración.",
+    "integrations.gmail.disconnectError": "No se pudo desconectar.",
+    "integrations.gmail.disconnectedToast": "Gmail está desconectado.",
+    "integrations.gmail.body1":
+      "FalconDraft prepara borradores de email en tu cuenta conectada.",
+    "integrations.gmail.body2":
+      "Siempre conservas el control final: revisar, ajustar y enviar desde tu mensajería.",
+    "integrations.gmail.connectedAccount": "Cuenta conectada",
+    "integrations.gmail.disconnecting": "Desconectando…",
+    "integrations.gmail.disconnect": "Desconectar",
+    "integrations.gmail.connect": "Conectar Gmail",
+    "integrations.microsoft.subtitle": "Outlook profesional",
+    "integrations.microsoft.comingSoon": "Disponible próximamente",
+    "integrations.microsoft.body1":
+      "La conexión Outlook permitirá preparar borradores de email desde el entorno Microsoft.",
+    "integrations.microsoft.body2":
+      "FalconDraft no enviará emails automáticamente.",
+    "integrations.microsoft.cta": "Conectar Outlook",
+    "integrations.microsoft.connect": "Conectar Outlook",
+    "integrations.microsoft.disconnect": "Desconectar",
+    "integrations.microsoft.disconnecting": "Desconectando...",
+    "integrations.microsoft.connected": "Conectado",
+    "integrations.microsoft.disconnected": "No conectado",
+    "integrations.microsoft.connectedAccount": "Cuenta conectada",
+    "integrations.microsoft.connectedToast":
+      "Outlook está conectado a FalconDraft.",
+    "integrations.microsoft.disconnectedToast": "Outlook desconectado.",
+    "integrations.microsoft.disconnectError": "Falló la desconexión.",
+    "integrations.microsoft.denied": "Conexión de Outlook cancelada.",
+    "integrations.microsoft.refused":
+      "Conexión de Outlook rechazada para este espacio de trabajo.",
+    "integrations.microsoft.unavailable":
+      "La configuración de Outlook no está disponible.",
+    "integrations.microsoft.error":
+      "Se produjo un error durante la conexión de Outlook. Por favor inténtalo de nuevo.",
+    "billing.current": "Suscripción actual",
+    "billing.details":
+      "{price} · Estado {status} · Próxima fecha de vencimiento: {nextInvoice}",
+    "billing.statusDetail": "Estado {status}",
+    "billing.nextInvoiceDetail": "Próxima fecha de vencimiento: {nextInvoice}",
+    "billing.manage": "Administrar suscripción",
+    "billing.emptyInvoices": "No hay historial de facturas disponible.",
+    "billing.notesTitle": "notas de facturación",
+    "billing.notesDescription":
+      "La información de suscripción, las fechas de vencimiento y las facturas se agrupan aquí para facilitar el seguimiento del administrador.",
+    "documents.eyebrow": "Documentos",
+    "documents.title": "Biblioteca de documentos",
+    "documents.description":
+      "Encuentra las propuestas comerciales, presupuestos y documentos finales preparados para tus expedientes.",
+    "documents.libraryTitle": "Documentos preparados",
+    "documents.libraryMine": "Últimos activos preparados para sus negocios.",
+    "documents.libraryOrganization":
+      "Últimos activos preparados para todas las propuesta comercials activas.",
+    "documents.tabs.mine": "Mis documentos",
+    "documents.tabs.organization": "En toda la empresa",
+    "documents.dealLabel": "Expediente",
+    "archives.eyebrow": "Archivos",
+    "archives.title": "Expedientes archivados",
+    "archives.description":
+      "Consulta los expedientes retirados del pipeline comercial activo.",
+    "settings.eyebrow": "Ajustes",
+    "settings.title": "Ajustes del espacio de trabajo",
+    "settings.description":
+      "Configura el perfil, el equipo, las herramientas compatibles y la facturación.",
+    "settings.nav.general": "General",
+    "settings.nav.team": "Equipo",
+    "settings.nav.integrations": "Integraciones",
+    "settings.nav.billing": "Facturación",
+    "settings.profile.title": "Perfil",
+    "settings.profile.description":
+      "Foto e identidad mostradas en el espacio de trabajo de su cliente.",
+    "settings.photo.choose": "Elige una foto",
+    "settings.photo.remove": "Eliminar",
+    "settings.photo.dialogTitle": "Foto de perfil",
+    "settings.photo.dialogDescription":
+      "Elige una foto profesional, clara y centrada en tu rostro.",
+    "settings.photo.formats": "Formatos aceptados",
+    "settings.photo.formatsDetail": "PNG, JPG o WebP. Tamaño máximo: 2 MB.",
+    "settings.photo.select": "Seleccione una imagen",
+    "settings.photo.saving": "Guardando...",
+    "settings.photo.updating": "Actualizando...",
+    "settings.photo.errorTitle": "Foto no guardada",
+    "settings.photo.errorDescription": "La foto no se pudo guardar.",
+    "settings.photo.errorSize": "La foto debe tener menos de 2 MB.",
+    "settings.photo.errorSizeTitle": "Imagen demasiado grande",
+    "settings.photo.errorFormat": "Elige una imagen PNG, JPG o WebP.",
+    "settings.photo.errorFormatTitle": "Formato no compatible",
+    "settings.photo.successUpdated": "Foto de perfil actualizada.",
+    "settings.photo.successRemoved": "Foto de perfil eliminada.",
+    "settings.photo.removeErrorTitle": "Foto no eliminada",
+    "settings.photo.removeErrorDescription": "La foto no se pudo eliminar.",
+    "settings.preferences.title": "Preferencias",
+    "settings.preferences.description":
+      "Ajustes que adaptan el espacio de trabajo a tu uso diario.",
+    "settings.organizationName": "Nombre del espacio de trabajo",
+    "settings.defaultLanguage": "Idioma de la interfaz",
+    "settings.defaultLanguagePlaceholder": "Seleccionar un idioma",
+    "settings.appearance": "Modo de visualización",
+    "settings.appearancePlaceholder": "Elige un tema",
+    "settings.appearance.light": "Luz",
+    "settings.appearance.dark": "Oscuro",
+    "settings.appearance.system": "Sistema",
+    "settings.askCloseDate": "Preguntar por la fecha de cierre objetivo",
+    "settings.askCloseDateDescription":
+      "Agrega un campo opcional al crear o editar un expediente.",
+    "settings.saved": "Configuración guardada.",
+    "visibility.title": "Visibilidad del equipo",
+    "visibility.description":
+      "Controle el acceso de los colaboradores a las vistas de documentos y expedientes de toda la empresa.",
+    "visibility.option": 'Permitir vistas de "toda la empresa"',
+    "visibility.optionDescription":
+      "Cuando esta opción está deshabilitada, los colaboradores ya no ven la pestaña de la empresa y solo pueden acceder a sus propios expedientes y documentos. Los directivos mantienen la visión global.",
+    "visibility.saveError": "La actualización falló.",
+    "visibility.notSaved": "Preferencia no guardada",
+    "visibility.saved": "Visibilidad actualizada",
+    "visibility.savedOpen":
+      "Los colaboradores pueden abrir vistas de toda la empresa.",
+    "visibility.savedRestricted":
+      "Los colaboradores solo ven sus propios expedientes y documentos.",
+    "team.title": "Colaboradores",
+    "team.description":
+      "Miembros activos, roles y acceso al espacio de trabajo.",
+    "team.columns.name": "Nombre",
+    "team.columns.email": "Email",
+    "team.columns.role": "Role",
+    "team.columns.status": "Estado",
+    "team.columns.lastActive": "Último activo",
+    "team.columns.actions": "Comportamiento",
+    "team.you": "Tú",
+    "team.remove": "Quitar del espacio de trabajo",
+    "team.removing": "Eliminando...",
+    "team.confirmRemove":
+      "¿Eliminar {name} del espacio de trabajo? Su acceso quedará inhabilitado.",
+    "team.errorRemove": "La eliminación falló.",
+    "team.kept": "Miembro mantenido",
+    "team.removed": "Miembro eliminado",
+    "team.removedDescription":
+      "{name} ya no tiene acceso al espacio de trabajo.",
+    "team.roleUpdateSuccess": "Rol actualizado",
+    "team.roleUpdateError": "Rol no actualizado",
+    "team.emptyTitle": "Sin miembros",
+    "team.emptyDescription":
+      "Los miembros adjuntos a este espacio de trabajo de cliente aparecerán aquí.",
+    "team.invite.title": "Invitar a un colaborador",
+    "team.invite.description":
+      "Se envía un enlace privado por email. La creación de cuentas públicas permanece cerrada.",
+    "team.invite.email": "email de trabajo",
+    "team.invite.role": "Role",
+    "team.invite.placeholder": "colaborador@empresa.com",
+    "team.invite.submit": "Enviar invitación",
+    "team.invite.submitting": "Envío...",
+    "team.invite.sent": "Invitación enviada",
+    "team.invite.sentDescription": "{email} recibió su enlace FalconDraft.",
+    "team.invite.error": "Invitación no enviada",
+    "team.invitations.title": "Invitaciones pendientes",
+    "team.invitations.description":
+      "Enlaces activos que aún no han sido aceptados.",
+    "team.invitations.expires": "Vence",
+    "team.invitations.action": "Acción",
+    "team.invitations.revoke": "Revocar",
+    "team.invitations.revoking": "Revocando...",
+    "team.invitations.revoked": "Invitación revocada",
+    "team.invitations.emptyTitle": "No hay invitaciones pendientes",
+    "team.invitations.emptyDescription":
+      "Aquí aparecerán las invitaciones enviadas que no hayan sido aceptadas.",
+    "team.status.active": "Activo",
+    "team.status.invited": "Invitación enviada",
+    "roles.manager": "Gestor",
+    "roles.member": "Colaborador",
+    "roles.viewer": "Lector",
+    "dealStatus.draft": "Borrador",
+    "dealStatus.call_summary_ready": "Resumen de llamada listo",
+    "dealStatus.proposal_generating": "Propuesta comercial en curso",
+    "dealStatus.proposal_ready": "Propuesta comercial lista",
+    "dealStatus.validation_pending": "Pendiente de validación",
+    "dealStatus.final_document_generating": "Documento final en curso",
+    "dealStatus.final_document_ready": "Documento final listo",
+    "dealStatus.signature_ready": "Firma lista",
+    "dealStatus.email_draft_ready": "Borrador de email listo",
+    "dealStatus.completed": "Completado",
+    "dealStatus.failed": "Error",
+    "documentType.proposal": "Propuesta comercial",
+    "documentType.proposal_gamma": "Propuesta editable",
+    "documentType.proposal_pdf": "PDF de propuesta comercial",
+    "documentType.proposal_pdf_initial": "PDF de propuesta comercial",
+    "documentType.quote": "Presupuesto",
+    "documentType.quote_pdf": "PDF de presupuesto",
+    "documentType.final_document": "Documento final",
+    "documentType.final_document_pdf": "Documento final listo para firma",
+    "documentType.signature_link": "Enlace de firma",
+    "workflow.opportunity.label": "Expediente",
+    "workflow.opportunity.description":
+      "Información del cliente y contexto inicial.",
+    "workflow.summary.label": "Resumen de llamada",
+    "workflow.summary.description":
+      "Resumen estructurado de las notas del intercambio.",
+    "workflow.proposal.label": "Propuesta comercial",
+    "workflow.proposal.description": "Versión profesional lista para revisión.",
+    "workflow.validation.label": "Validación",
+    "workflow.validation.description":
+      "Revisión interna antes del documento final.",
+    "workflow.final_document.label": "Documento final",
+    "workflow.final_document.description": "PDF final listo para compartir.",
+    "workflow.signature.label": "Firma",
+    "workflow.signature.description": "Enlace de firma preparado.",
+    "workflow.email.label": "Borrador de email",
+    "workflow.email.description": "Mensaje de envío listo para personalizar.",
+    "activity.workflow.failed": "Generación fallida",
+    "activity.workflow.completed": "Generación completada",
+    "activity.workflow.running": "Generación en curso",
+    "activity.workflow.description": "Flujo {type} · {status}",
+    "activity.audit.invitation_created": "Invitación enviada",
+    "activity.audit.invitation_accepted": "Invitación aceptada",
+    "activity.audit.invitation_revoked": "Invitación revocada",
+    "activity.audit.member_deactivated": "Colaborador eliminado",
+    "activity.audit.organization_member_role_updated":
+      "Rol de colaborador actualizado",
+    "activity.audit.organization_visibility_updated":
+      "Visibilidad del espacio de trabajo actualizada",
+    "activity.audit.email_provider_connected": "Proveedor de email conectado",
+    "activity.audit.email_provider_disconnected":
+      "Proveedor de email desconectado",
+    "activity.audit.email_draft_workflow_started":
+      "Se inició la creación del borrador de Gmail",
+    "activity.audit.organization_created":
+      "Espacio de trabajo del cliente creado",
+    "activity.audit.workflow_config_created":
+      "Configuración del flujo de trabajo creada",
+    "activity.audit.workflow_config_updated":
+      "Configuración del flujo de trabajo actualizada",
+    "activity.audit.first_manager_invited": "Primer gestor invitado",
+    "activity.audit.deal_updated": "Propuesta comercial actualizada",
+    "activity.audit.proposal_deleted": "Propuesta eliminada",
+    "activity.audit.summary_deleted": "Resumen de llamada eliminado",
+    "activity.audit.deal_archived": "Propuesta comercial archivada",
+    "activity.audit.deal_restored": "Expediente restaurado",
+    "activity.audit.generic": "Cambio registrado",
+    "activity.actor.team": "Equipo",
+    "activity.actor.system": "FalconDraft",
+  },
 };
 
 export function isLanguage(
   value: string | null | undefined,
 ): value is Language {
-  return value === "fr" || value === "en";
+  return value === "fr" || value === "en" || value === "es";
+}
+
+export const languageIntlLocales: Record<Language, string> = {
+  fr: "fr-FR",
+  en: "en-US",
+  es: "es-ES",
+};
+
+export function getLocalizedCopy(
+  language: Language,
+  copy: Record<Language, string>,
+) {
+  return copy[language];
 }
 
 export function interpolate(

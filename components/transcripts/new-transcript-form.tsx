@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getLocalizedCopy } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
 
 type DealOption = { id: string; name: string; clientCompanyName: string };
@@ -102,9 +103,11 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
 
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       toast.error(
-        language === "en"
-          ? `File exceeds ${MAX_FILE_SIZE_MB} MB limit.`
-          : `Le fichier dépasse la limite de ${MAX_FILE_SIZE_MB} Mo.`,
+        getLocalizedCopy(language, {
+          fr: `Le fichier dépasse la limite de ${MAX_FILE_SIZE_MB} Mo.`,
+          en: `File exceeds ${MAX_FILE_SIZE_MB} MB limit.`,
+          es: `El archivo supera el límite de ${MAX_FILE_SIZE_MB} MB.`,
+        }),
       );
       return;
     }
@@ -169,28 +172,46 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
     }
   }
 
-  const copy = language === "en"
-    ? {
-        sourceLabel: "Content source",
-        pasteOption: "Paste text",
-        audioOption: "Upload audio",
-        audioDropzone: "Click or drag an audio file here",
-        audioFormats: "Accepted: MP3, WAV, M4A, WebM — max 100 MB",
-        audioSelected: "Selected file",
-        audioProcessingNote: "The transcript will be marked as \"Processing\" until transcription is complete.",
-      }
-    : {
-        sourceLabel: "Source du contenu",
-        pasteOption: "Coller le texte",
-        audioOption: "Téléverser un audio",
-        audioDropzone: "Cliquez ou déposez un fichier audio ici",
-        audioFormats: "Formats acceptés : MP3, WAV, M4A, WebM — max 100 Mo",
-        audioSelected: "Fichier sélectionné",
-        audioProcessingNote: "Le transcript sera marqué « En traitement » jusqu'à la transcription.",
-      };
+  const copy = {
+    sourceLabel: getLocalizedCopy(language, {
+      fr: "Source du contenu",
+      en: "Content source",
+      es: "Fuente del contenido",
+    }),
+    pasteOption: getLocalizedCopy(language, {
+      fr: "Coller le texte",
+      en: "Paste text",
+      es: "Pegar texto",
+    }),
+    audioOption: getLocalizedCopy(language, {
+      fr: "Téléverser un audio",
+      en: "Upload audio",
+      es: "Subir audio",
+    }),
+    audioDropzone: getLocalizedCopy(language, {
+      fr: "Cliquez ou déposez un fichier audio ici",
+      en: "Click or drag an audio file here",
+      es: "Haz clic o arrastra un archivo de audio aquí",
+    }),
+    audioFormats: getLocalizedCopy(language, {
+      fr: "Formats acceptés : MP3, WAV, M4A, WebM — max 100 Mo",
+      en: "Accepted: MP3, WAV, M4A, WebM — max 100 MB",
+      es: "Formatos aceptados: MP3, WAV, M4A, WebM — máx. 100 MB",
+    }),
+    audioSelected: getLocalizedCopy(language, {
+      fr: "Fichier sélectionné",
+      en: "Selected file",
+      es: "Archivo seleccionado",
+    }),
+    audioProcessingNote: getLocalizedCopy(language, {
+      fr: "Le transcript sera marqué « En traitement » jusqu'à la transcription.",
+      en: 'The transcript will be marked as "Processing" until transcription is complete.',
+      es: 'La transcripción se marcará como "En curso" hasta que finalice.',
+    }),
+  };
 
   return (
-    <section className="border bg-[#f1eadf] shadow-[0_24px_70px_-48px_rgba(22,31,48,0.62)] dark:bg-card/90">
+    <section className="dark:bg-card/90 border bg-[#f1eadf] shadow-[0_24px_70px_-48px_rgba(22,31,48,0.62)]">
       <div className="grid lg:min-h-[30rem] lg:grid-cols-[19rem_1fr]">
         <aside className="border-b border-[#26344d] bg-[#142033] px-5 py-5 text-[#f7f1e8] lg:border-r lg:border-b-0">
           <div className="flex items-start gap-3">
@@ -271,10 +292,12 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
           )}
         </aside>
 
-        <div className="flex min-h-[26rem] flex-col bg-card/92">
+        <div className="bg-card/92 flex min-h-[26rem] flex-col">
           <div className="border-b px-5 py-5 sm:px-6">
             <p className="text-muted-foreground text-xs font-medium tracking-[0.12em] uppercase">
-              {t("transcripts.form.step").replace("{current}", String(stepIndex + 1)).replace("{total}", String(steps.length))}
+              {t("transcripts.form.step")
+                .replace("{current}", String(stepIndex + 1))
+                .replace("{total}", String(steps.length))}
             </p>
             <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
               {currentStep.title}
@@ -305,7 +328,9 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                 {stepIndex === 0 && (
                   <div className="max-w-lg space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="transcript-title">{t("transcripts.form.step1.label")}</Label>
+                      <Label htmlFor="transcript-title">
+                        {t("transcripts.form.step1.label")}
+                      </Label>
                       <Input
                         id="transcript-title"
                         placeholder={t("transcripts.form.step1.placeholder")}
@@ -353,7 +378,9 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
 
                     {sourceMode === "paste" ? (
                       <div className="space-y-2">
-                        <Label htmlFor="transcript-text">{t("transcripts.form.step2.label")}</Label>
+                        <Label htmlFor="transcript-text">
+                          {t("transcripts.form.step2.label")}
+                        </Label>
                         <Textarea
                           id="transcript-text"
                           placeholder={t("transcripts.form.step2.placeholder")}
@@ -371,14 +398,18 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                         {!audioFile ? (
                           <label
                             htmlFor="audio-file-input"
-                            className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-10 transition-colors hover:border-primary/50 hover:bg-muted/30"
+                            className="hover:border-primary/50 hover:bg-muted/30 flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-6 py-10 transition-colors"
                           >
-                            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                            <div className="bg-muted flex size-12 items-center justify-center rounded-full">
                               <Upload className="text-muted-foreground size-5" />
                             </div>
                             <div className="text-center">
-                              <p className="text-sm font-medium">{copy.audioDropzone}</p>
-                              <p className="text-muted-foreground mt-1 text-xs">{copy.audioFormats}</p>
+                              <p className="text-sm font-medium">
+                                {copy.audioDropzone}
+                              </p>
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                {copy.audioFormats}
+                              </p>
                             </div>
                             <input
                               ref={fileInputRef}
@@ -390,21 +421,25 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                             />
                           </label>
                         ) : (
-                          <div className="max-w-md rounded-lg border bg-card p-4">
+                          <div className="bg-card max-w-md rounded-lg border p-4">
                             <div className="flex items-center gap-3">
-                              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                              <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md">
                                 <FileAudio className="text-muted-foreground size-5" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium">{audioFile.name}</p>
-                                <p className="text-muted-foreground text-xs">{formatFileSize(audioFile.size)}</p>
+                                <p className="truncate text-sm font-medium">
+                                  {audioFile.name}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {formatFileSize(audioFile.size)}
+                                </p>
                               </div>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 onClick={removeFile}
-                                className="text-muted-foreground hover:text-destructive shrink-0 size-8"
+                                className="text-muted-foreground hover:text-destructive size-8 shrink-0"
                               >
                                 <X className="size-4" />
                               </Button>
@@ -423,13 +458,19 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                   <div className="max-w-lg space-y-4">
                     {deals.length > 0 ? (
                       <div className="space-y-2">
-                        <Label htmlFor="transcript-deal">{t("transcripts.form.step3.dealLabel")}</Label>
+                        <Label htmlFor="transcript-deal">
+                          {t("transcripts.form.step3.dealLabel")}
+                        </Label>
                         <Select value={dealId} onValueChange={setDealId}>
                           <SelectTrigger id="transcript-deal">
-                            <SelectValue placeholder={t("transcripts.form.step3.noDeal")} />
+                            <SelectValue
+                              placeholder={t("transcripts.form.step3.noDeal")}
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">{t("transcripts.form.step3.noDeal")}</SelectItem>
+                            <SelectItem value="none">
+                              {t("transcripts.form.step3.noDeal")}
+                            </SelectItem>
                             {deals.map((deal) => (
                               <SelectItem key={deal.id} value={deal.id}>
                                 {deal.name} — {deal.clientCompanyName}
@@ -446,7 +487,9 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                         <div className="flex items-start gap-3">
                           <FileText className="text-muted-foreground mt-0.5 size-5" />
                           <div>
-                            <p className="text-sm font-medium">{t("transcripts.form.step3.noDealsTitle")}</p>
+                            <p className="text-sm font-medium">
+                              {t("transcripts.form.step3.noDealsTitle")}
+                            </p>
                             <p className="text-muted-foreground mt-1 text-xs">
                               {t("transcripts.form.step3.noDealsDescription")}
                             </p>
@@ -455,11 +498,15 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                       </div>
                     )}
 
-                    <div className="rounded-lg border bg-muted/30 p-4">
-                      <p className="text-sm font-medium">{t("transcripts.form.step3.summary")}</p>
+                    <div className="bg-muted/30 rounded-lg border p-4">
+                      <p className="text-sm font-medium">
+                        {t("transcripts.form.step3.summary")}
+                      </p>
                       <dl className="mt-2 space-y-1 text-xs">
                         <div className="flex gap-2">
-                          <dt className="text-muted-foreground">{t("transcripts.form.step3.summaryTitle")}</dt>
+                          <dt className="text-muted-foreground">
+                            {t("transcripts.form.step3.summaryTitle")}
+                          </dt>
                           <dd className="font-medium">{title.trim()}</dd>
                         </div>
                         <div className="flex gap-2">
@@ -472,16 +519,27 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                         </div>
                         {sourceMode === "paste" && (
                           <div className="flex gap-2">
-                            <dt className="text-muted-foreground">{t("transcripts.form.step3.summaryLength")}</dt>
-                            <dd className="font-medium">{transcriptText.trim().length} car.</dd>
+                            <dt className="text-muted-foreground">
+                              {t("transcripts.form.step3.summaryLength")}
+                            </dt>
+                            <dd className="font-medium">
+                              {transcriptText.trim().length} car.
+                            </dd>
                           </div>
                         )}
                         {sourceMode === "audio" && audioFile && (
                           <div className="flex gap-2">
                             <dt className="text-muted-foreground">
-                              {language === "en" ? "File:" : "Fichier :"}
+                              {getLocalizedCopy(language, {
+                                fr: "Fichier :",
+                                en: "File:",
+                                es: "Archivo:",
+                              })}
                             </dt>
-                            <dd className="font-medium truncate">{audioFile.name} ({formatFileSize(audioFile.size)})</dd>
+                            <dd className="truncate font-medium">
+                              {audioFile.name} ({formatFileSize(audioFile.size)}
+                              )
+                            </dd>
                           </div>
                         )}
                       </dl>
@@ -492,7 +550,7 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
             </AnimatePresence>
           </div>
 
-          <div className="flex flex-col-reverse gap-3 border-t bg-muted/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="bg-muted/35 flex flex-col-reverse gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <Button
               type="button"
               variant="outline"
@@ -504,7 +562,10 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
             </Button>
             <div className="flex items-center justify-end gap-2">
               <span className="text-muted-foreground hidden text-sm sm:inline">
-                {t("transcripts.form.completed").replace("{percent}", String(Math.round(progress)))}
+                {t("transcripts.form.completed").replace(
+                  "{percent}",
+                  String(Math.round(progress)),
+                )}
               </span>
               {isLastStep ? (
                 <Button
@@ -512,14 +573,12 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
                   disabled={isSubmitting || !canAdvance()}
                   onClick={() => void handleSubmit()}
                 >
-                  {isSubmitting ? t("transcripts.form.creating") : t("transcripts.form.create")}
+                  {isSubmitting
+                    ? t("transcripts.form.creating")
+                    : t("transcripts.form.create")}
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  disabled={!canAdvance()}
-                  onClick={goNext}
-                >
+                <Button type="button" disabled={!canAdvance()} onClick={goNext}>
                   {t("transcripts.form.next")}
                   <ArrowRight aria-hidden="true" />
                 </Button>

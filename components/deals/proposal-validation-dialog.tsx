@@ -59,75 +59,109 @@ export function ProposalValidationDialog({
     React.useState<SubmissionPhase>("idle");
   const isSubmitting = submissionPhase !== "idle";
   const copy =
-    language === "en"
+    language === "es"
       ? {
-          triggerFallback: "Validation could not be started.",
-          triggerTitle: "Validation failed",
-          uploadFallback: "The PDF could not be uploaded.",
-          uploadTitle: "Upload failed",
-          pdfRequiredTitle: "PDF required",
+          triggerFallback: "No se ha podido iniciar la validación.",
+          triggerTitle: "Validación imposible",
+          uploadFallback: "No se ha podido subir el PDF.",
+          uploadTitle: "Subida imposible",
+          pdfRequiredTitle: "PDF requerido",
           pdfRequiredDescription:
-            "Add the latest PDF version before approving.",
-          successTitle: "Proposal approved",
+            "Añade la última versión en PDF antes de validar.",
+          successTitle: "Propuesta comercial validada",
           successDescription:
-            "Final document preparation has started. This page will update automatically.",
-          title: "Approve proposal",
-          description:
-            "Choose the version that should be sent for final validation.",
+            "La preparación del documento final ha empezado. Esta página se actualizará automáticamente.",
+          title: "Validar la propuesta comercial",
+          description: "Elige la versión que debe enviarse a validación final.",
           options: {
             initial_export: {
-              title: "Approve the initially generated version",
+              title: "Validar la versión generada inicialmente",
               description:
-                "Use the first PDF export generated for this proposal.",
+                "Usar la primera exportación PDF generada para esta propuesta comercial.",
             },
             uploaded_pdf: {
-              title: "Upload the latest PDF version",
+              title: "Subir la última versión PDF",
               description:
-                "Import the final PDF after your edits in the editing tool.",
+                "Importar el PDF final después de tus ajustes en la herramienta de edición.",
             },
           },
-          cancel: "Cancel",
-          uploading: "Uploading...",
-          validating: "Validating...",
-          submit: "Approve this version",
-          pdfLabel: "Latest version PDF",
+          cancel: "Cancelar",
+          uploading: "Subiendo…",
+          validating: "Validando…",
+          submit: "Validar esta versión",
+          pdfLabel: "PDF de la última versión",
           pdfHelp:
-            "The file can still be changed before approval. PDF format only.",
+            "El archivo aún puede cambiarse antes de la validación. Solo formato PDF.",
         }
-      : {
-          triggerFallback: "La validation n’a pas pu être déclenchée.",
-          triggerTitle: "Validation impossible",
-          uploadFallback: "Le PDF n’a pas pu être importé.",
-          uploadTitle: "Upload impossible",
-          pdfRequiredTitle: "PDF requis",
-          pdfRequiredDescription:
-            "Ajoutez le PDF de la dernière version avant de valider.",
-          successTitle: "Proposition validée",
-          successDescription:
-            "La préparation du document final est lancée. La page se mettra à jour automatiquement.",
-          title: "Valider la proposition",
-          description:
-            "Choisissez la version qui doit être transmise pour validation finale.",
-          options: {
-            initial_export: {
-              title: "Valider avec la version initialement générée",
-              description:
-                "Utiliser le premier export PDF généré pour cette proposition.",
+      : language === "en"
+        ? {
+            triggerFallback: "Validation could not be started.",
+            triggerTitle: "Validation failed",
+            uploadFallback: "The PDF could not be uploaded.",
+            uploadTitle: "Upload failed",
+            pdfRequiredTitle: "PDF required",
+            pdfRequiredDescription:
+              "Add the latest PDF version before approving.",
+            successTitle: "Proposal approved",
+            successDescription:
+              "Final document preparation has started. This page will update automatically.",
+            title: "Approve proposal",
+            description:
+              "Choose the version that should be sent for final validation.",
+            options: {
+              initial_export: {
+                title: "Approve the initially generated version",
+                description:
+                  "Use the first PDF export generated for this proposal.",
+              },
+              uploaded_pdf: {
+                title: "Upload the latest PDF version",
+                description:
+                  "Import the final PDF after your edits in the editing tool.",
+              },
             },
-            uploaded_pdf: {
-              title: "Uploader la dernière version PDF",
-              description:
-                "Importer le PDF final après vos ajustements dans l’outil d’édition.",
+            cancel: "Cancel",
+            uploading: "Uploading...",
+            validating: "Validating...",
+            submit: "Approve this version",
+            pdfLabel: "Latest version PDF",
+            pdfHelp:
+              "The file can still be changed before approval. PDF format only.",
+          }
+        : {
+            triggerFallback: "La validation n’a pas pu être déclenchée.",
+            triggerTitle: "Validation impossible",
+            uploadFallback: "Le PDF n’a pas pu être importé.",
+            uploadTitle: "Upload impossible",
+            pdfRequiredTitle: "PDF requis",
+            pdfRequiredDescription:
+              "Ajoutez le PDF de la dernière version avant de valider.",
+            successTitle: "Proposition validée",
+            successDescription:
+              "La préparation du document final est lancée. La page se mettra à jour automatiquement.",
+            title: "Valider la proposition",
+            description:
+              "Choisissez la version qui doit être transmise pour validation finale.",
+            options: {
+              initial_export: {
+                title: "Valider avec la version initialement générée",
+                description:
+                  "Utiliser le premier export PDF généré pour cette proposition.",
+              },
+              uploaded_pdf: {
+                title: "Uploader la dernière version PDF",
+                description:
+                  "Importer le PDF final après vos ajustements dans l’outil d’édition.",
+              },
             },
-          },
-          cancel: "Annuler",
-          uploading: "Upload en cours…",
-          validating: "Validation en cours…",
-          submit: "Valider cette version",
-          pdfLabel: "PDF de la dernière version",
-          pdfHelp:
-            "Le fichier reste modifiable avant validation. Format PDF uniquement.",
-        };
+            cancel: "Annuler",
+            uploading: "Upload en cours…",
+            validating: "Validation en cours…",
+            submit: "Valider cette version",
+            pdfLabel: "PDF de la dernière version",
+            pdfHelp:
+              "Le fichier reste modifiable avant validation. Format PDF uniquement.",
+          };
 
   React.useEffect(() => {
     if (!open) {

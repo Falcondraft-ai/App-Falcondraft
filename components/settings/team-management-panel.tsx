@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getLocalizedCopy } from "@/lib/i18n/translations";
 import {
   Table,
   TableBody,
@@ -134,7 +135,9 @@ export function TeamManagementPanel({
     initialPendingInvitations,
   );
   const [error, setError] = React.useState<string | null>(null);
-  const [memberToRemove, setMemberToRemove] = React.useState<TeamMember | null>(null);
+  const [memberToRemove, setMemberToRemove] = React.useState<TeamMember | null>(
+    null,
+  );
   const { t, language } = useI18n();
   const currentRole = normalizeWorkspaceRole(currentUserRole);
   const activeManagerCount = members.filter(
@@ -474,18 +477,46 @@ export function TeamManagementPanel({
         <p className="text-destructive text-sm leading-6">{error}</p>
       ) : null}
 
-      <AlertDialog open={memberToRemove !== null} onOpenChange={(open) => { if (!open) setMemberToRemove(null); }}>
+      <AlertDialog
+        open={memberToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setMemberToRemove(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{language === "en" ? "Remove member" : "Retirer le membre"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {getLocalizedCopy(language, {
+                fr: "Retirer le membre",
+                en: "Remove member",
+                es: "Retirar miembro",
+              })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {memberToRemove ? t("team.confirmRemove", { name: memberToRemove.name }) : ""}
+              {memberToRemove
+                ? t("team.confirmRemove", { name: memberToRemove.name })
+                : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{language === "en" ? "Cancel" : "Annuler"}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (memberToRemove) void handleRemoveMember(memberToRemove); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {language === "en" ? "Remove" : "Retirer"}
+            <AlertDialogCancel>
+              {getLocalizedCopy(language, {
+                fr: "Annuler",
+                en: "Cancel",
+                es: "Cancelar",
+              })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (memberToRemove) void handleRemoveMember(memberToRemove);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {getLocalizedCopy(language, {
+                fr: "Retirer",
+                en: "Remove",
+                es: "Retirar",
+              })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

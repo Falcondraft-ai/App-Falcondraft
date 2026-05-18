@@ -30,6 +30,7 @@ import {
   CALL_SUMMARY_GENERATION_EVENT,
   getCallSummaryGenerationStorageKey,
 } from "@/lib/workflow-progress";
+import { getLocalizedCopy } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
 
 type SummarySection = {
@@ -77,7 +78,10 @@ function FormattedSummaryText({ value }: { value: string }) {
 
         if (isBold) {
           return (
-            <strong key={`${part}-${index}`} className="font-semibold text-foreground">
+            <strong
+              key={`${part}-${index}`}
+              className="text-foreground font-semibold"
+            >
               {part.slice(2, -2)}
             </strong>
           );
@@ -152,7 +156,7 @@ function SummarySectionList({
       {sections.map((section) => (
         <section
           key={`${section.number}-${section.title}`}
-          className="border-l-2 border-primary/70 pl-3"
+          className="border-primary/70 border-l-2 pl-3"
         >
           <div className="flex items-baseline gap-2">
             <span className="text-primary font-mono text-xs">
@@ -169,7 +173,7 @@ function SummarySectionList({
                     key={`${section.number}-${itemIndex}`}
                     className="flex gap-2"
                   >
-                    <span className="mt-2 size-1 shrink-0 bg-primary/70" />
+                    <span className="bg-primary/70 mt-2 size-1 shrink-0" />
                     <span>
                       <FormattedSummaryText value={item} />
                     </span>
@@ -309,7 +313,7 @@ export function CallSummaryPanel({
 
   if (!effectiveHasSummary) {
     return (
-      <div className="rounded-md border bg-muted/35 p-3">
+      <div className="bg-muted/35 rounded-md border p-3">
         <p className="text-sm font-medium">
           {isPolling ? (
             <>
@@ -332,13 +336,13 @@ export function CallSummaryPanel({
   return (
     <motion.div
       className={cn(
-        "relative overflow-hidden rounded-md border bg-card p-3",
+        "bg-card relative overflow-hidden rounded-md border p-3",
         justCompleted ? "border-primary/80" : "border-border",
       )}
     >
       {justCompleted && !shouldReduceMotion ? (
         <motion.div
-          className="pointer-events-none absolute inset-0 border-2 border-primary"
+          className="border-primary pointer-events-none absolute inset-0 border-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 1, 0] }}
           transition={{ duration: 1.6, ease: "easeOut" }}
@@ -361,7 +365,10 @@ export function CallSummaryPanel({
                 {t("common.actions.open")}
               </Button>
             </DialogTrigger>
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialog
+              open={deleteDialogOpen}
+              onOpenChange={setDeleteDialogOpen}
+            >
               <Button
                 type="button"
                 variant="ghost"
@@ -376,12 +383,25 @@ export function CallSummaryPanel({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{t("deals.delete")}</AlertDialogTitle>
-                  <AlertDialogDescription>{t("dealDetail.summaryDeleteConfirm")}</AlertDialogDescription>
+                  <AlertDialogDescription>
+                    {t("dealDetail.summaryDeleteConfirm")}
+                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{language === "en" ? "Cancel" : "Annuler"}</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => void deleteCallSummary()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    {isDeletingSummary ? t("deals.deleting") : t("deals.delete")}
+                  <AlertDialogCancel>
+                    {getLocalizedCopy(language, {
+                      fr: "Annuler",
+                      en: "Cancel",
+                      es: "Cancelar",
+                    })}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => void deleteCallSummary()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeletingSummary
+                      ? t("deals.deleting")
+                      : t("deals.delete")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
