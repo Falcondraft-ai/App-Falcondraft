@@ -13,7 +13,6 @@ import {
   Loader2,
   Phone,
   MapPin,
-  Clock,
   History,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -139,10 +138,10 @@ export function SearchesTab({
   /* Active search */
   const [activeSearchId, setActiveSearchId] = React.useState<string | null>(null);
   const [results, setResults] = React.useState<ProspectSearchResultRow[]>([]);
-  const [loadingResults, setLoadingResults] = React.useState(false);
-  const [launchMessage, setLaunchMessage] = React.useState<string | null>(null);
   const [polling, setPolling] = React.useState(false);
   const [showIgnored, setShowIgnored] = React.useState(false);
+  const [detailResult, setDetailResult] =
+    React.useState<ProspectSearchResultRow | null>(null);
 
   /* ---- Inline form state ---- */
   const [formExpanded, setFormExpanded] = React.useState(false);
@@ -182,6 +181,7 @@ export function SearchesTab({
       setActiveSearchId(latest.id);
       fetchResults(latest.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ---- Polling ---- */
@@ -204,22 +204,18 @@ export function SearchesTab({
 
   /* ---- Actions ---- */
   async function fetchResults(searchId: string) {
-    setLoadingResults(true);
     try {
       const res = await fetch(`/api/prospection/searches/${searchId}/results`);
       const data = await res.json();
       if (data.success) setResults(data.results);
     } catch {
       /* ignore */
-    } finally {
-      setLoadingResults(false);
     }
   }
 
   async function handleCreateAndLaunch() {
     if (!formValid || creating) return;
     setCreating(true);
-    setLaunchMessage(null);
     try {
       const res = await fetch("/api/prospection/searches", {
         method: "POST",
@@ -242,10 +238,6 @@ export function SearchesTab({
         setActiveSearchId(data.search.id);
         setResults([]);
         setPolling(true);
-        setLaunchMessage(
-          data.launch?.message ??
-            "Recherche lancée. Les résultats peuvent prendre quelques instants.",
-        );
         setTimeout(() => fetchResults(data.search.id), 3000);
       }
     } catch {
@@ -256,14 +248,12 @@ export function SearchesTab({
   }
 
   async function handleRelaunch(searchId: string) {
-    setLaunchMessage(null);
     try {
       const res = await fetch(`/api/prospection/searches/${searchId}/run`, {
         method: "POST",
       });
       const data = await res.json();
       if (data.success) {
-        setLaunchMessage(data.message);
         setPolling(true);
         setResults([]);
         setTimeout(() => fetchResults(searchId), 3000);
@@ -276,7 +266,6 @@ export function SearchesTab({
   function handleSelectFromHistory(searchId: string) {
     setActiveSearchId(searchId);
     setPolling(false);
-    setLaunchMessage(null);
     setRecentOpen(false);
     fetchResults(searchId);
   }
@@ -558,25 +547,12 @@ export function SearchesTab({
             variant="outline"
             size="sm"
             onClick={() => fetchResults(activeSearch.id)}
-            disabled={loadingResults}
           >
-            {loadingResults ? (
-              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <RefreshCw className="size-3.5 mr-1.5" />
-            )}
+            <RefreshCw className="size-3.5 mr-1.5" />
             Rafraîchir
           </Button>
         )}
       </div>
-
-      {/* Launch message */}
-      {launchMessage && (
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-2.5 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
-          <Clock className="size-4 mt-0.5 shrink-0" />
-          {launchMessage}
-        </div>
-      )}
 
       {/* ================================================================ */}
       {/*  Active search summary                                           */}
@@ -715,14 +691,7 @@ export function SearchesTab({
               </div>
             </div>
 
-            {loadingResults ? (
-              <div className="p-12 text-center">
-                <Loader2 className="size-5 animate-spin mx-auto text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Chargement des résultats...
-                </p>
-              </div>
-            ) : displayedResults.length === 0 ? (
+            {displayedResults.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 {activeSearch.last_run_at
                   ? "Recherche lancée. Les résultats peuvent prendre quelques instants. Cliquez sur Rafraîchir les résultats."
@@ -766,9 +735,12 @@ export function SearchesTab({
                           )}
                         >
                           <td className="px-4 py-3">
-                            <div className="font-medium line-clamp-2">
+                            <button
+                              className="font-medium line-clamp-2 text-left hover:text-primary transition-colors cursor-pointer"
+                              onClick={() => setDetailResult(r)}
+                            >
                               {r.name}
-                            </div>
+                            </button>
                             {r.website_domain && (
                               <div className="text-xs text-muted-foreground truncate mt-0.5">
                                 {r.website_domain}
@@ -914,6 +886,141 @@ export function SearchesTab({
           </div>
         </>
       )}
+      {/* Lead detail modal */}
+      <Dialog
+        open={detailResult !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailResult(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailResult?.name}</DialogTitle>
+          </DialogHeader>
+          {detailResult && (
+            <div className="grid gap-4 sm:grid-cols-2 text-sm pt-2">
+              <div>
+                <span className="text-xs text-muted-foreground">Téléphone</span>
+                <p className="font-medium">{detailResult.phone ?? "\u2013"}</p>
+              </div>
+              {detailResult.website && (
+                <div>
+                  <span className="text-xs text-muted-foreground">Site web</span>
+                  <a
+                    href={
+                      detailResult.website.startsWith("http")
+                        ? detailResult.website
+                        : `https://${detailResult.website}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-primary hover:underline flex items-center gap-1"
+                  >
+                    {detailResult.website_domain ?? detailResult.website}
+                    <ExternalLink className="size-3" />
+                  </a>
+                </div>
+              )}
+              <div>
+                <span className="text-xs text-muted-foreground">Ville</span>
+                <p>{detailResult.city ?? "\u2013"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Région</span>
+                <p>{detailResult.region ?? "\u2013"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Pays</span>
+                <p>{detailResult.country ?? "\u2013"}</p>
+              </div>
+              {detailResult.formatted_address && (
+                <div className="sm:col-span-2">
+                  <span className="text-xs text-muted-foreground">Adresse</span>
+                  <p className="text-sm">{detailResult.formatted_address}</p>
+                </div>
+              )}
+              <div>
+                <span className="text-xs text-muted-foreground">Niche</span>
+                <p>{detailResult.niche ?? "\u2013"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Catégorie</span>
+                <p>{detailResult.category_query ?? "\u2013"}</p>
+              </div>
+              {detailResult.rating != null && (
+                <div>
+                  <span className="text-xs text-muted-foreground">Note Google</span>
+                  <p className="font-medium text-amber-600">
+                    {"\u2605"} {detailResult.rating}
+                    <span className="text-muted-foreground ml-1 text-xs">
+                      ({detailResult.user_rating_count ?? 0} avis)
+                    </span>
+                  </p>
+                </div>
+              )}
+              <div>
+                <span className="text-xs text-muted-foreground">Fit score</span>
+                <p className="font-semibold">
+                  {detailResult.fit_score != null
+                    ? `${detailResult.fit_score}/100`
+                    : "Non scoré"}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Priorité</span>
+                <p>{detailResult.priority ?? "Non définie"}</p>
+              </div>
+              {detailResult.google_primary_type_display_name && (
+                <div>
+                  <span className="text-xs text-muted-foreground">Type Google</span>
+                  <p>{detailResult.google_primary_type_display_name}</p>
+                </div>
+              )}
+              {detailResult.reason_for_fit && (
+                <div className="sm:col-span-2">
+                  <span className="text-xs text-muted-foreground">
+                    Raison du fit
+                  </span>
+                  <p className="text-sm mt-0.5">{detailResult.reason_for_fit}</p>
+                </div>
+              )}
+              {detailResult.recommended_angle && (
+                <div className="sm:col-span-2">
+                  <span className="text-xs text-muted-foreground">
+                    Angle recommandé
+                  </span>
+                  <p className="text-sm mt-0.5">
+                    {detailResult.recommended_angle}
+                  </p>
+                </div>
+              )}
+              {detailResult.lead_summary && (
+                <div className="sm:col-span-2">
+                  <span className="text-xs text-muted-foreground">
+                    Résumé AI
+                  </span>
+                  <p className="text-sm mt-0.5 whitespace-pre-wrap">
+                    {detailResult.lead_summary}
+                  </p>
+                </div>
+              )}
+              <div className="sm:col-span-2">
+                <span className="text-xs text-muted-foreground">Statut</span>
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ml-2",
+                    (reviewBadge[detailResult.review_status] ?? reviewBadge.pending_review)
+                      .className,
+                  )}
+                >
+                  {(reviewBadge[detailResult.review_status] ?? reviewBadge.pending_review)
+                    .label}
+                </span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { T } from "@/components/i18n/translated-text";
 import { Card } from "@/components/ui/card";
 import type { ProspectCompanyRow } from "@/types/database";
 

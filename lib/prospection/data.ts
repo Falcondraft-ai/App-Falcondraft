@@ -35,7 +35,7 @@ export async function getProspectCompanies(
     .from("prospect_companies")
     .select("*")
     .eq(column, value)
-    .order("created_at", { ascending: false });
+    .order("fit_score", { ascending: false, nullsFirst: false });
 
   if (options?.status) {
     query = query.eq("status", options.status);
