@@ -53,6 +53,18 @@ export function isFalconDraftWorkspace(context: CurrentUserContext) {
   );
 }
 
+export function canAccessProspection(context: CurrentUserContext) {
+  if (!isFalconDraftWorkspace(context)) {
+    return false;
+  }
+
+  if (!context.membership) {
+    return false;
+  }
+
+  return true;
+}
+
 export function canViewInternalAdmin(context: CurrentUserContext) {
   if (!isFalconDraftWorkspace(context)) {
     return false;

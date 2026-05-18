@@ -194,6 +194,114 @@ export type TranscriptRow = {
   updated_at: string;
 };
 
+export type ProspectCompanyRow = {
+  id: string;
+  organization_id: string;
+  source: string | null;
+  google_place_id: string | null;
+  name: string;
+  name_normalized: string | null;
+  website: string | null;
+  website_domain: string | null;
+  phone: string | null;
+  formatted_address: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  google_primary_type: string | null;
+  google_primary_type_display_name: string | null;
+  google_types: unknown | null;
+  rating: number | null;
+  user_rating_count: number | null;
+  niche: string | null;
+  category_query: string | null;
+  source_search_id: string | null;
+  fit_score: number | null;
+  priority: string | null;
+  reason_for_fit: string | null;
+  recommended_angle: string | null;
+  status: string;
+  owner_user_id: string | null;
+  last_called_at: string | null;
+  last_contacted_at: string | null;
+  next_action_at: string | null;
+  assigned_closer: string | null;
+  meeting_url: string | null;
+  meeting_platform: string | null;
+  meeting_at: string | null;
+  raw_google_data: unknown | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProspectingSearchRow = {
+  id: string;
+  organization_id: string;
+  created_by: string | null;
+  name: string;
+  niche: string | null;
+  category_query: string | null;
+  scope_type: string | null;
+  location_query: string | null;
+  status: string;
+  max_results: number | null;
+  run_mode: string | null;
+  run_frequency: string | null;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProspectTaskRow = {
+  id: string;
+  organization_id: string;
+  company_id: string | null;
+  contact_id: string | null;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  assigned_to: string | null;
+  due_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProspectContactRow = {
+  id: string;
+  organization_id: string;
+  company_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  job_title: string | null;
+  email: string | null;
+  email_status: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  source: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProspectInteractionRow = {
+  id: string;
+  organization_id: string;
+  company_id: string | null;
+  contact_id: string | null;
+  type: string;
+  channel: string;
+  content: string | null;
+  result: string;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -446,6 +554,129 @@ export type Database = {
           duration_seconds?: number | null;
           error_message?: string | null;
           archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      prospect_companies: TableDefinition<
+        ProspectCompanyRow,
+        {
+          id?: string;
+          organization_id: string;
+          source?: string | null;
+          google_place_id?: string | null;
+          name: string;
+          name_normalized?: string | null;
+          website?: string | null;
+          website_domain?: string | null;
+          phone?: string | null;
+          formatted_address?: string | null;
+          city?: string | null;
+          region?: string | null;
+          country?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          google_primary_type?: string | null;
+          google_primary_type_display_name?: string | null;
+          google_types?: unknown | null;
+          rating?: number | null;
+          user_rating_count?: number | null;
+          niche?: string | null;
+          category_query?: string | null;
+          source_search_id?: string | null;
+          fit_score?: number | null;
+          priority?: string | null;
+          reason_for_fit?: string | null;
+          recommended_angle?: string | null;
+          status?: string;
+          owner_user_id?: string | null;
+          last_called_at?: string | null;
+          last_contacted_at?: string | null;
+          next_action_at?: string | null;
+          assigned_closer?: string | null;
+          meeting_url?: string | null;
+          meeting_platform?: string | null;
+          meeting_at?: string | null;
+          raw_google_data?: unknown | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      prospecting_searches: TableDefinition<
+        ProspectingSearchRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by?: string | null;
+          name: string;
+          niche?: string | null;
+          category_query?: string | null;
+          scope_type?: string | null;
+          location_query?: string | null;
+          status?: string;
+          max_results?: number | null;
+          run_mode?: string | null;
+          run_frequency?: string | null;
+          last_run_at?: string | null;
+          next_run_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      prospect_tasks: TableDefinition<
+        ProspectTaskRow,
+        {
+          id?: string;
+          organization_id: string;
+          company_id?: string | null;
+          contact_id?: string | null;
+          title: string;
+          description?: string | null;
+          type?: string;
+          status?: string;
+          assigned_to?: string | null;
+          due_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      prospect_interactions: TableDefinition<
+        ProspectInteractionRow,
+        {
+          id?: string;
+          organization_id: string;
+          company_id?: string | null;
+          contact_id?: string | null;
+          type: string;
+          channel: string;
+          content?: string | null;
+          result: string;
+          created_by?: string | null;
+          created_at?: string;
+        }
+      >;
+
+      prospect_contacts: TableDefinition<
+        ProspectContactRow,
+        {
+          id?: string;
+          organization_id: string;
+          company_id?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          job_title?: string | null;
+          email?: string | null;
+          email_status?: string | null;
+          phone?: string | null;
+          linkedin_url?: string | null;
+          source?: string | null;
+          status?: string;
           created_at?: string;
           updated_at?: string;
         }

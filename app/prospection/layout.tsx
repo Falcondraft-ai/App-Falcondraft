@@ -1,14 +1,20 @@
+import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { canAccessProspection, canViewInternalAdmin } from "@/lib/internal-access";
 
-export default async function DashboardLayout({
+export default async function ProspectionLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const context = await requireActiveWorkspaceContext();
+
+  if (!canAccessProspection(context)) {
+    notFound();
+  }
+
   const displayName =
     context.profile?.full_name ?? context.user.email ?? "Utilisateur";
 
@@ -16,9 +22,7 @@ export default async function DashboardLayout({
     <DashboardShell
       organization={
         context.organization
-          ? {
-              name: context.organization.name,
-            }
+          ? { name: context.organization.name }
           : null
       }
       user={{
@@ -27,7 +31,7 @@ export default async function DashboardLayout({
         roleKey: normalizeWorkspaceRole(context.membership?.role) ?? "member",
       }}
       showInternalAdmin={canViewInternalAdmin(context)}
-      showProspection={canAccessProspection(context)}
+      showProspection={true}
     >
       {children}
     </DashboardShell>

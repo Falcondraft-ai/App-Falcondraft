@@ -7,7 +7,7 @@ const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const protectedPathPrefixes = ["/dashboard", "/admin"] as const;
+const protectedPathPrefixes = ["/dashboard", "/admin", "/prospection"] as const;
 
 function isProtectedPath(pathname: string) {
   return protectedPathPrefixes.some(

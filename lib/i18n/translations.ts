@@ -136,6 +136,60 @@ export type TranslationKey =
   | "nav.internal"
   | "nav.internalAdmin"
   | "nav.internalBadge"
+  | "nav.prospection"
+  | "prospection.title"
+  | "prospection.subtitle"
+  | "prospection.eyebrow"
+  | "prospection.leads"
+  | "prospection.searches"
+  | "prospection.tasks"
+  | "prospection.status.new"
+  | "prospection.status.toCall"
+  | "prospection.status.called"
+  | "prospection.status.toFollowUp"
+  | "prospection.status.interested"
+  | "prospection.status.meetingBooked"
+  | "prospection.status.notInterested"
+  | "prospection.status.badFit"
+  | "prospection.status.doNotContact"
+  | "prospection.status.client"
+  | "prospection.status.archived"
+  | "prospection.empty.leads"
+  | "prospection.empty.searches"
+  | "prospection.empty.tasks"
+  | "prospection.actions.changeStatus"
+  | "prospection.actions.markCalled"
+  | "prospection.actions.archive"
+  | "prospection.actions.openWebsite"
+  | "prospection.actions.markDone"
+  | "prospection.actions.addNote"
+  | "prospection.actions.launchSearch"
+  | "prospection.actions.launchSearchSoon"
+  | "prospection.filters.status"
+  | "prospection.filters.niche"
+  | "prospection.filters.city"
+  | "prospection.filters.search"
+  | "prospection.filters.showArchived"
+  | "prospection.table.name"
+  | "prospection.table.phone"
+  | "prospection.table.city"
+  | "prospection.table.niche"
+  | "prospection.table.status"
+  | "prospection.table.rating"
+  | "prospection.table.lastCalled"
+  | "prospection.table.nextAction"
+  | "prospection.table.actions"
+  | "prospection.search.name"
+  | "prospection.search.niche"
+  | "prospection.search.location"
+  | "prospection.search.scope"
+  | "prospection.search.lastRun"
+  | "prospection.task.title"
+  | "prospection.task.type"
+  | "prospection.task.company"
+  | "prospection.task.dueAt"
+  | "prospection.unauthorized.title"
+  | "prospection.unauthorized.description"
   | "transcripts.empty.title"
   | "transcripts.empty.description"
   | "transcripts.new"
@@ -793,6 +847,60 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internal": "Interne",
     "nav.internalAdmin": "Admin interne",
     "nav.internalBadge": "Interne",
+    "nav.prospection": "Prospection",
+    "prospection.title": "Prospection",
+    "prospection.subtitle": "Gestion interne des leads FalconDraft",
+    "prospection.eyebrow": "Interne",
+    "prospection.leads": "Leads",
+    "prospection.searches": "Recherches",
+    "prospection.tasks": "Tâches",
+    "prospection.status.new": "Nouveau",
+    "prospection.status.toCall": "À appeler",
+    "prospection.status.called": "Déjà appelé",
+    "prospection.status.toFollowUp": "À relancer",
+    "prospection.status.interested": "Intéressé",
+    "prospection.status.meetingBooked": "RDV pris",
+    "prospection.status.notInterested": "Pas intéressé",
+    "prospection.status.badFit": "Mauvais fit",
+    "prospection.status.doNotContact": "Ne plus contacter",
+    "prospection.status.client": "Client",
+    "prospection.status.archived": "Archivé",
+    "prospection.empty.leads": "Aucun lead trouvé",
+    "prospection.empty.searches": "Aucune recherche configurée",
+    "prospection.empty.tasks": "Aucune tâche en attente",
+    "prospection.actions.changeStatus": "Changer le statut",
+    "prospection.actions.markCalled": "Marquer comme appelé",
+    "prospection.actions.archive": "Archiver",
+    "prospection.actions.openWebsite": "Ouvrir le site",
+    "prospection.actions.markDone": "Marquer comme fait",
+    "prospection.actions.addNote": "Ajouter une note",
+    "prospection.actions.launchSearch": "Lancer la recherche",
+    "prospection.actions.launchSearchSoon": "Bientôt disponible",
+    "prospection.filters.status": "Statut",
+    "prospection.filters.niche": "Niche",
+    "prospection.filters.city": "Ville",
+    "prospection.filters.search": "Rechercher...",
+    "prospection.filters.showArchived": "Afficher les leads archivés",
+    "prospection.table.name": "Nom",
+    "prospection.table.phone": "Téléphone",
+    "prospection.table.city": "Ville",
+    "prospection.table.niche": "Niche",
+    "prospection.table.status": "Statut",
+    "prospection.table.rating": "Note",
+    "prospection.table.lastCalled": "Dernier appel",
+    "prospection.table.nextAction": "Prochaine action",
+    "prospection.table.actions": "Actions",
+    "prospection.search.name": "Nom",
+    "prospection.search.niche": "Niche",
+    "prospection.search.location": "Localisation",
+    "prospection.search.scope": "Périmètre",
+    "prospection.search.lastRun": "Dernière exécution",
+    "prospection.task.title": "Titre",
+    "prospection.task.type": "Type",
+    "prospection.task.company": "Entreprise",
+    "prospection.task.dueAt": "Échéance",
+    "prospection.unauthorized.title": "Accès non autorisé",
+    "prospection.unauthorized.description": "Cette section est réservée à l'équipe interne FalconDraft.",
     "transcripts.empty.title": "Aucun transcript",
     "transcripts.empty.description":
       "Les transcripts d'appels commerciaux apparaîtront ici. Vous pouvez en ajouter un en collant du texte.",
@@ -1554,6 +1662,60 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internal": "Internal",
     "nav.internalAdmin": "Internal admin",
     "nav.internalBadge": "Internal",
+    "nav.prospection": "Prospection",
+    "prospection.title": "Prospection",
+    "prospection.subtitle": "Internal FalconDraft lead management",
+    "prospection.eyebrow": "Internal",
+    "prospection.leads": "Leads",
+    "prospection.searches": "Searches",
+    "prospection.tasks": "Tasks",
+    "prospection.status.new": "New",
+    "prospection.status.toCall": "To call",
+    "prospection.status.called": "Called",
+    "prospection.status.toFollowUp": "To follow up",
+    "prospection.status.interested": "Interested",
+    "prospection.status.meetingBooked": "Meeting booked",
+    "prospection.status.notInterested": "Not interested",
+    "prospection.status.badFit": "Bad fit",
+    "prospection.status.doNotContact": "Do not contact",
+    "prospection.status.client": "Client",
+    "prospection.status.archived": "Archived",
+    "prospection.empty.leads": "No leads found",
+    "prospection.empty.searches": "No searches configured",
+    "prospection.empty.tasks": "No pending tasks",
+    "prospection.actions.changeStatus": "Change status",
+    "prospection.actions.markCalled": "Mark as called",
+    "prospection.actions.archive": "Archive",
+    "prospection.actions.openWebsite": "Open website",
+    "prospection.actions.markDone": "Mark as done",
+    "prospection.actions.addNote": "Add note",
+    "prospection.actions.launchSearch": "Launch search",
+    "prospection.actions.launchSearchSoon": "Coming soon",
+    "prospection.filters.status": "Status",
+    "prospection.filters.niche": "Niche",
+    "prospection.filters.city": "City",
+    "prospection.filters.search": "Search...",
+    "prospection.filters.showArchived": "Show archived leads",
+    "prospection.table.name": "Name",
+    "prospection.table.phone": "Phone",
+    "prospection.table.city": "City",
+    "prospection.table.niche": "Niche",
+    "prospection.table.status": "Status",
+    "prospection.table.rating": "Rating",
+    "prospection.table.lastCalled": "Last called",
+    "prospection.table.nextAction": "Next action",
+    "prospection.table.actions": "Actions",
+    "prospection.search.name": "Name",
+    "prospection.search.niche": "Niche",
+    "prospection.search.location": "Location",
+    "prospection.search.scope": "Scope",
+    "prospection.search.lastRun": "Last run",
+    "prospection.task.title": "Title",
+    "prospection.task.type": "Type",
+    "prospection.task.company": "Company",
+    "prospection.task.dueAt": "Due",
+    "prospection.unauthorized.title": "Unauthorized",
+    "prospection.unauthorized.description": "This section is reserved for the internal FalconDraft team.",
     "transcripts.empty.title": "No transcripts",
     "transcripts.empty.description":
       "Call transcripts will appear here. You can add one by pasting text.",
@@ -2310,6 +2472,60 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internal": "Interno",
     "nav.internalAdmin": "Administrador interno",
     "nav.internalBadge": "Interno",
+    "nav.prospection": "Prospección",
+    "prospection.title": "Prospección",
+    "prospection.subtitle": "Gestión interna de leads FalconDraft",
+    "prospection.eyebrow": "Interno",
+    "prospection.leads": "Leads",
+    "prospection.searches": "Búsquedas",
+    "prospection.tasks": "Tareas",
+    "prospection.status.new": "Nuevo",
+    "prospection.status.toCall": "Por llamar",
+    "prospection.status.called": "Llamado",
+    "prospection.status.toFollowUp": "Por relanzar",
+    "prospection.status.interested": "Interesado",
+    "prospection.status.meetingBooked": "Cita agendada",
+    "prospection.status.notInterested": "No interesado",
+    "prospection.status.badFit": "Mal ajuste",
+    "prospection.status.doNotContact": "No contactar",
+    "prospection.status.client": "Cliente",
+    "prospection.status.archived": "Archivado",
+    "prospection.empty.leads": "Ningún lead encontrado",
+    "prospection.empty.searches": "Ninguna búsqueda configurada",
+    "prospection.empty.tasks": "Ninguna tarea pendiente",
+    "prospection.actions.changeStatus": "Cambiar estado",
+    "prospection.actions.markCalled": "Marcar como llamado",
+    "prospection.actions.archive": "Archivar",
+    "prospection.actions.openWebsite": "Abrir sitio web",
+    "prospection.actions.markDone": "Marcar como hecho",
+    "prospection.actions.addNote": "Añadir nota",
+    "prospection.actions.launchSearch": "Lanzar búsqueda",
+    "prospection.actions.launchSearchSoon": "Próximamente",
+    "prospection.filters.status": "Estado",
+    "prospection.filters.niche": "Nicho",
+    "prospection.filters.city": "Ciudad",
+    "prospection.filters.search": "Buscar...",
+    "prospection.filters.showArchived": "Mostrar leads archivados",
+    "prospection.table.name": "Nombre",
+    "prospection.table.phone": "Teléfono",
+    "prospection.table.city": "Ciudad",
+    "prospection.table.niche": "Nicho",
+    "prospection.table.status": "Estado",
+    "prospection.table.rating": "Nota",
+    "prospection.table.lastCalled": "Última llamada",
+    "prospection.table.nextAction": "Próxima acción",
+    "prospection.table.actions": "Acciones",
+    "prospection.search.name": "Nombre",
+    "prospection.search.niche": "Nicho",
+    "prospection.search.location": "Ubicación",
+    "prospection.search.scope": "Alcance",
+    "prospection.search.lastRun": "Última ejecución",
+    "prospection.task.title": "Título",
+    "prospection.task.type": "Tipo",
+    "prospection.task.company": "Empresa",
+    "prospection.task.dueAt": "Vencimiento",
+    "prospection.unauthorized.title": "Acceso no autorizado",
+    "prospection.unauthorized.description": "Esta sección está reservada para el equipo interno de FalconDraft.",
     "transcripts.empty.title": "Sin transcripciones",
     "transcripts.empty.description":
       "Las transcripciones de las llamadas aparecerán aquí. Puedes agregar uno pegando texto.",

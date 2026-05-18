@@ -11,6 +11,7 @@ import {
   MessageSquareText,
   Settings,
   ShieldCheck,
+  Target,
 } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
@@ -155,10 +156,12 @@ function NavList({
   pathname,
   onNavigate,
   showInternalAdmin,
+  showProspection,
 }: {
   pathname: string;
   onNavigate?: () => void;
   showInternalAdmin: boolean;
+  showProspection: boolean;
 }) {
   const { t } = useI18n();
 
@@ -188,49 +191,81 @@ function NavList({
         })}
       </div>
 
-      {showInternalAdmin ? (
+      {showInternalAdmin || showProspection ? (
         <div className="border-t border-[#c69a61]/55 pt-4">
           <p className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-white/[0.45] uppercase">
             {t("nav.internal")}
           </p>
           <div className="space-y-1">
-            {internalNavItems.map((item) => {
-              const active = isNavItemActive(pathname, item.href);
-              const Icon = item.icon;
+            {showInternalAdmin &&
+              internalNavItems.map((item) => {
+                const active = isNavItemActive(pathname, item.href);
+                const Icon = item.icon;
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "group flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                    active
-                      ? "bg-white/[0.075] text-white shadow-[inset_2px_0_0_#c69a61]"
-                      : "text-white/[0.62] hover:bg-white/[0.055] hover:text-white",
-                  )}
-                >
-                  <span className="flex items-center gap-3">
-                    <Icon
-                      className="size-4"
-                      strokeWidth={1.75}
-                      aria-hidden="true"
-                    />
-                    <span>{t(item.label)}</span>
-                  </span>
-                  <span
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
                     className={cn(
-                      "border px-1.5 py-0.5 text-[10px]",
+                      "group flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                       active
-                        ? "border-white/[0.25] text-white/[0.75]"
-                        : "border-white/[0.15] text-white/[0.50]",
+                        ? "bg-white/[0.075] text-white shadow-[inset_2px_0_0_#c69a61]"
+                        : "text-white/[0.62] hover:bg-white/[0.055] hover:text-white",
                     )}
                   >
-                    {t("nav.internalBadge")}
-                  </span>
-                </Link>
-              );
-            })}
+                    <span className="flex items-center gap-3">
+                      <Icon
+                        className="size-4"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                      <span>{t(item.label)}</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "border px-1.5 py-0.5 text-[10px]",
+                        active
+                          ? "border-white/[0.25] text-white/[0.75]"
+                          : "border-white/[0.15] text-white/[0.50]",
+                      )}
+                    >
+                      {t("nav.internalBadge")}
+                    </span>
+                  </Link>
+                );
+              })}
+            {showProspection && (
+              <Link
+                href="/prospection"
+                onClick={onNavigate}
+                className={cn(
+                  "group flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  isNavItemActive(pathname, "/prospection")
+                    ? "bg-white/[0.075] text-white shadow-[inset_2px_0_0_#c69a61]"
+                    : "text-white/[0.62] hover:bg-white/[0.055] hover:text-white",
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <Target
+                    className="size-4"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                  <span>{t("nav.prospection")}</span>
+                </span>
+                <span
+                  className={cn(
+                    "border px-1.5 py-0.5 text-[10px]",
+                    isNavItemActive(pathname, "/prospection")
+                      ? "border-white/[0.25] text-white/[0.75]"
+                      : "border-white/[0.15] text-white/[0.50]",
+                  )}
+                >
+                  {t("nav.internalBadge")}
+                </span>
+              </Link>
+            )}
           </div>
         </div>
       ) : (
@@ -245,11 +280,13 @@ export function DashboardShell({
   organization,
   user,
   showInternalAdmin,
+  showProspection,
 }: {
   children: React.ReactNode;
   organization: DashboardShellOrganization | null;
   user: DashboardShellUser;
   showInternalAdmin: boolean;
+  showProspection: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -293,7 +330,7 @@ export function DashboardShell({
         <SidebarBrandHeader />
         <WorkspaceContext organization={organization} />
         <div className="flex-1 px-3 py-4">
-          <NavList pathname={pathname} showInternalAdmin={showInternalAdmin} />
+          <NavList pathname={pathname} showInternalAdmin={showInternalAdmin} showProspection={showProspection} />
         </div>
         <div className="border-t border-white/[0.10] px-4 py-3">
           <div className="text-xs leading-5 text-white/[0.54]">
@@ -335,6 +372,7 @@ export function DashboardShell({
                         pathname={pathname}
                         onNavigate={() => setMobileOpen(false)}
                         showInternalAdmin={showInternalAdmin}
+                        showProspection={showProspection}
                       />
                     </div>
                   </div>
