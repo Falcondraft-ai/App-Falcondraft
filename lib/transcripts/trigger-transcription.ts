@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { validateWebhookUrl } from "@/lib/security/validate-webhook-url";
 
 interface TriggerParams {
   transcriptId: string;
@@ -33,6 +34,12 @@ export async function triggerAudioTranscription(params: TriggerParams) {
     .createSignedUrl(audioStoragePath, 3600);
 
   if (!signedUrlData?.signedUrl) return;
+
+  const urlCheck = validateWebhookUrl(workflowConfig.n8n_webhook_url);
+  if (!urlCheck.valid) {
+    console.error("[trigger-transcription] SSRF blocked:", urlCheck.reason);
+    return;
+  }
 
   await fetch(workflowConfig.n8n_webhook_url, {
     method: "POST",

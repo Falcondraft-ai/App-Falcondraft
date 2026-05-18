@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
+import { validateWebhookUrl } from "@/lib/security/validate-webhook-url";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -99,6 +100,15 @@ export async function POST(
     language: transcript.language ?? null,
     callbackUrl: `${callbackBaseUrl}/api/transcripts/callbacks`,
   };
+
+  const urlCheck = validateWebhookUrl(workflowConfig.n8n_webhook_url);
+  if (!urlCheck.valid) {
+    console.error("[start-transcription] SSRF blocked:", urlCheck.reason);
+    return NextResponse.json(
+      { error: "Configuration de transcription invalide." },
+      { status: 500 },
+    );
+  }
 
   const webhookResponse = await fetch(workflowConfig.n8n_webhook_url, {
     method: "POST",

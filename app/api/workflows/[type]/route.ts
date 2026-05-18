@@ -5,6 +5,7 @@ import { canMutateWorkspaceDeal } from "@/lib/auth/workspace-permissions";
 import type { CurrentUserContext } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { validateWebhookUrl } from "@/lib/security/validate-webhook-url";
 
 const workflowRequestSchema = z.object({
   dealId: z.string().uuid("dealId invalide."),
@@ -324,6 +325,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           workflowRunId: workflowRun.id,
           validationSource,
         };
+
+  const urlCheck = validateWebhookUrl(workflowConfig.n8n_webhook_url);
+  if (!urlCheck.valid) {
+    console.error("[workflows] SSRF blocked:", urlCheck.reason);
+    return jsonError("Configuration du workflow invalide.", 500);
+  }
 
   const webhookResponse = await fetch(workflowConfig.n8n_webhook_url, {
     method: "POST",
