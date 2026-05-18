@@ -179,8 +179,8 @@ export async function POST(request: Request) {
       });
 
       if (!res?.ok) {
-        const body = res ? await res.text().catch(() => "") : "(no response)";
-        console.error(`[Recall] create_transcript failed — status=${res?.status ?? "none"} body=${body}`);
+        const status = res?.status ?? "none";
+        console.error(`[Recall] create_transcript failed — status=${status}`);
       }
     }
 
@@ -212,8 +212,8 @@ export async function POST(request: Request) {
       });
 
       if (!recordingRes?.ok) {
-        const body = recordingRes ? await recordingRes.text().catch(() => "") : "(no response)";
-        console.error(`[Recall] fetch recording failed — status=${recordingRes?.status ?? "none"} body=${body.slice(0, 300)}`);
+        const status = recordingRes?.status ?? "none";
+        console.error(`[Recall] fetch recording failed — status=${status}`);
         return NextResponse.json({ ok: true });
       }
 
@@ -238,8 +238,8 @@ export async function POST(request: Request) {
       });
 
       if (!dataRes?.ok) {
-        const body = dataRes ? await dataRes.text().catch(() => "") : "(no response)";
-        console.error(`[Recall] fetch transcript data failed — status=${dataRes?.status ?? "none"} body=${body.slice(0, 300)}`);
+        const status = dataRes?.status ?? "none";
+        console.error(`[Recall] fetch transcript data failed — status=${status}`);
         return NextResponse.json({ ok: true });
       }
 

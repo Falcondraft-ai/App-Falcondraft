@@ -135,10 +135,11 @@ export async function POST(request: NextRequest) {
   );
 
   if (pendingInvitation.error) {
+    console.error("[invitations] pending check failed:", pendingInvitation.error.message);
     return jsonError(
       "La table des invitations est inaccessible. Vérifie que les migrations Supabase sont appliquées.",
       500,
-      pendingInvitation.error.message,
+      "db_error",
     );
   }
 
@@ -182,10 +183,11 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (insertError || !invitation) {
+    console.error("[invitations] insert failed:", insertError?.message);
     return jsonError(
       "Création de l’invitation impossible.",
       500,
-      insertError?.message ?? "insert_failed",
+      "insert_failed",
     );
   }
 

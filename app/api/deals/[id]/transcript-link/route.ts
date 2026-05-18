@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireCurrentUserContext } from "@/lib/auth/session";
-import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
+import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
+import { canMutateWorkspaceDeal, normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -10,11 +10,55 @@ type RouteContext = {
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const { id: dealId } = await params;
-  const context = await requireCurrentUserContext();
+
+  const supabaseServer = await getSupabaseServerClient();
+  if (!supabaseServer) {
+    return NextResponse.json({ error: "Service indisponible." }, { status: 500 });
+  }
+
+  const {
+    data: { user },
+  } = await supabaseServer.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+  }
+
+  const adminSupabase = getSupabaseAdminClient();
+  if (!adminSupabase) {
+    return NextResponse.json({ error: "Service indisponible." }, { status: 500 });
+  }
+
+  const context = await loadUserOrganizationContextWithAdmin(user, adminSupabase);
   const organizationId = context.organization?.id;
   const role = normalizeWorkspaceRole(context.membership?.role);
 
   if (!organizationId || role === "viewer") {
+    return NextResponse.json({ error: "Accès non autorisé." }, { status: 403 });
+  }
+
+  const { data: deal } = await adminSupabase
+    .from("deals")
+    .select("id, created_by")
+    .eq("id", dealId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (!deal) {
+    return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
+  }
+
+  if (
+    !canMutateWorkspaceDeal(
+      {
+        userId: user.id,
+        role: context.membership!.role,
+        allowMemberCompanyVisibility:
+          context.organization!.allow_member_company_visibility,
+        scope: "organization",
+      },
+      deal.created_by,
+    )
+  ) {
     return NextResponse.json({ error: "Accès non autorisé." }, { status: 403 });
   }
 
@@ -48,6 +92,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     .eq("organization_id", organizationId);
 
   if (linkError) {
+    console.error("[transcript-link] link failed:", linkError.message);
     return NextResponse.json({ error: "Liaison impossible." }, { status: 500 });
   }
 
@@ -64,11 +109,55 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   const { id: dealId } = await params;
-  const context = await requireCurrentUserContext();
+
+  const supabaseServer = await getSupabaseServerClient();
+  if (!supabaseServer) {
+    return NextResponse.json({ error: "Service indisponible." }, { status: 500 });
+  }
+
+  const {
+    data: { user },
+  } = await supabaseServer.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+  }
+
+  const adminSupabase = getSupabaseAdminClient();
+  if (!adminSupabase) {
+    return NextResponse.json({ error: "Service indisponible." }, { status: 500 });
+  }
+
+  const context = await loadUserOrganizationContextWithAdmin(user, adminSupabase);
   const organizationId = context.organization?.id;
   const role = normalizeWorkspaceRole(context.membership?.role);
 
   if (!organizationId || role === "viewer") {
+    return NextResponse.json({ error: "Accès non autorisé." }, { status: 403 });
+  }
+
+  const { data: deal } = await adminSupabase
+    .from("deals")
+    .select("id, created_by")
+    .eq("id", dealId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (!deal) {
+    return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
+  }
+
+  if (
+    !canMutateWorkspaceDeal(
+      {
+        userId: user.id,
+        role: context.membership!.role,
+        allowMemberCompanyVisibility:
+          context.organization!.allow_member_company_visibility,
+        scope: "organization",
+      },
+      deal.created_by,
+    )
+  ) {
     return NextResponse.json({ error: "Accès non autorisé." }, { status: 403 });
   }
 
@@ -84,6 +173,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     .eq("organization_id", organizationId);
 
   if (error) {
+    console.error("[transcript-link] unlink failed:", error.message);
     return NextResponse.json({ error: "Dissociation impossible." }, { status: 500 });
   }
 

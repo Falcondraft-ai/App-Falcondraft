@@ -87,11 +87,12 @@ async function loadMember(
       .maybeSingle();
 
   if (memberLookupError) {
+    console.error("[internal-admin] member lookup failed:", memberLookupError.message);
     return {
       error: jsonError(
         "Lecture du compte impossible.",
         500,
-        memberLookupError.message,
+        "db_error",
       ),
     };
   }
@@ -184,10 +185,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .single();
 
   if (updateError || !updatedMember) {
+    console.error("[internal-admin] member update failed:", updateError?.message);
     return jsonError(
       "Mise à jour du rôle impossible.",
       500,
-      updateError?.message ?? "member_role_update_failed",
+      "member_role_update_failed",
     );
   }
 
@@ -197,10 +199,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   );
 
   if (profileError) {
+    console.error("[internal-admin] profile read failed:", profileError.message);
     return jsonError(
       "Rôle modifié, mais relecture du profil impossible.",
       500,
-      profileError.message,
+      "db_error",
     );
   }
 
@@ -277,10 +280,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   );
 
   if (profileError) {
+    console.error("[internal-admin] profile check (delete) failed:", profileError.message);
     return jsonError(
       "Vérification du compte impossible.",
       500,
-      profileError.message,
+      "db_error",
     );
   }
 
@@ -296,10 +300,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const managers = await countActiveManagers(internalAdmin, organizationId);
 
     if (managers.error) {
+      console.error("[internal-admin] manager count (delete) failed:", managers.error.message);
       return jsonError(
         "Vérification des gestionnaires impossible.",
         500,
-        managers.error.message,
+        "db_error",
       );
     }
 
@@ -324,10 +329,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     await internalAdmin.adminSupabase.auth.admin.deleteUser(member.user_id);
 
   if (deleteUserError) {
+    console.error("[internal-admin] user delete failed:", deleteUserError.message);
     return jsonError(
       "Suppression du compte Supabase Auth impossible.",
       500,
-      deleteUserError.message,
+      "db_error",
     );
   }
 
@@ -343,12 +349,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   ]);
 
   if (membershipsDeleteResult.error || profileDeleteResult.error) {
+    console.error(
+      "[internal-admin] cleanup failed:",
+      membershipsDeleteResult.error?.message ?? profileDeleteResult.error?.message,
+    );
     return jsonError(
       "Compte Auth supprimé, mais nettoyage complet impossible.",
       500,
-      membershipsDeleteResult.error?.message ??
-        profileDeleteResult.error?.message ??
-        "profile_or_membership_cleanup_failed",
+      "profile_or_membership_cleanup_failed",
     );
   }
 

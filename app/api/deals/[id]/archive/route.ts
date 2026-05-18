@@ -138,7 +138,8 @@ export async function PATCH(_request: NextRequest, context: RouteContext) {
     .eq("organization_id", archiveContext.organizationId);
 
   if (error) {
-    return jsonError("Archivage impossible.", 500, error.message);
+    console.error("[archive] archive failed:", error.message);
+    return jsonError("Archivage impossible.", 500, "db_error");
   }
 
   await archiveContext.adminSupabase.from("audit_logs").insert({
@@ -170,7 +171,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .eq("organization_id", archiveContext.organizationId);
 
   if (error) {
-    return jsonError("Restauration impossible.", 500, error.message);
+    console.error("[archive] unarchive failed:", error.message);
+    return jsonError("Restauration impossible.", 500, "db_error");
   }
 
   await archiveContext.adminSupabase.from("audit_logs").insert({

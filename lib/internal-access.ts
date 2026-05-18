@@ -18,6 +18,12 @@ function getConfiguredFalconDraftWorkspaceSlugs() {
   const rawValue =
     process.env.FALCONDRAFT_INTERNAL_WORKSPACE_SLUG?.trim() || "falcondraft";
 
+  if (!process.env.FALCONDRAFT_INTERNAL_WORKSPACE_SLUG?.trim()) {
+    console.warn(
+      "[internal-access] FALCONDRAFT_INTERNAL_WORKSPACE_SLUG not set — using default 'falcondraft'.",
+    );
+  }
+
   return rawValue
     .split(",")
     .map((slug) => normalizeWorkspaceIdentifier(slug))

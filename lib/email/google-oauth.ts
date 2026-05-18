@@ -234,5 +234,7 @@ export async function revokeGoogleToken(token: string) {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({ token }),
-  }).catch(() => undefined);
+  }).catch((err) => {
+    console.error("[google-oauth] token revocation failed:", err instanceof Error ? err.message : err);
+  });
 }

@@ -94,10 +94,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .single();
 
   if (organizationError || !organization) {
+    console.error("[internal-admin] org update failed:", organizationError?.message);
     return jsonError(
       "Mise à jour du workspace impossible.",
       organizationError?.code === "PGRST116" ? 404 : 500,
-      organizationError?.message ?? "organization_update_failed",
+      "organization_update_failed",
     );
   }
 
@@ -113,10 +114,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         .maybeSingle();
 
     if (existingConfigError) {
+      console.error("[internal-admin] config read failed:", existingConfigError.message);
       return jsonError(
         "Lecture des webhooks impossible.",
         500,
-        existingConfigError.message,
+        "db_error",
       );
     }
 
@@ -139,10 +141,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         });
 
     if (upsertResult.error) {
+      console.error("[internal-admin] config upsert failed:", upsertResult.error.message);
       return jsonError(
         "Enregistrement des webhooks impossible.",
         500,
-        upsertResult.error.message,
+        "db_error",
       );
     }
   }
@@ -157,10 +160,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq("organization_id", organizationId);
 
     if (workflowStatusError) {
+      console.error("[internal-admin] workflow status failed:", workflowStatusError.message);
       return jsonError(
         "Mise à jour du statut n8n impossible.",
         500,
-        workflowStatusError.message,
+        "db_error",
       );
     }
   }
@@ -173,10 +177,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .order("workflow_type", { ascending: true });
 
   if (workflowConfigsError) {
+    console.error("[internal-admin] configs reload failed:", workflowConfigsError.message);
     return jsonError(
       "Relecture des webhooks impossible.",
       500,
-      workflowConfigsError.message,
+      "db_error",
     );
   }
 
@@ -252,10 +257,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
   if (organizationLookupError) {
+    console.error("[internal-admin] org lookup failed:", organizationLookupError.message);
     return jsonError(
       "Lecture du workspace impossible.",
       500,
-      organizationLookupError.message,
+      "db_error",
     );
   }
 
@@ -277,10 +283,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .eq("id", organizationId);
 
   if (deleteError) {
+    console.error("[internal-admin] org delete failed:", deleteError.message);
     return jsonError(
       "Suppression du workspace impossible.",
       500,
-      deleteError.message,
+      "db_error",
     );
   }
 

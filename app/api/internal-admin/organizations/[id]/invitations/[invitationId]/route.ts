@@ -58,10 +58,11 @@ export async function DELETE(_request: Request, context: RouteContext) {
     .maybeSingle();
 
   if (error) {
+    console.error("[invitations/delete] failed:", error.message);
     return jsonError(
       "Suppression de l’invitation impossible.",
       500,
-      error.message,
+      "db_error",
     );
   }
 

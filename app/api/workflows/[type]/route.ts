@@ -329,6 +329,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-N8N-Secret": process.env.N8N_WEBHOOK_SECRET ?? "",
     },
     body: JSON.stringify(webhookBody),
   }).catch(() => null);

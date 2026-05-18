@@ -112,7 +112,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .eq("organization_id", organizationId);
 
   if (error) {
-    return jsonError("Suppression impossible.", 500, error.message);
+    console.error("[call-summary] delete failed:", error.message);
+    return jsonError("Suppression impossible.", 500, "db_error");
   }
 
   await adminSupabase.from("audit_logs").insert({

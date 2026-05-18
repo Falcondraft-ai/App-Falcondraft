@@ -31,7 +31,7 @@ const createDraftSchema = z
     workflow_run_id: z.string().uuid().nullable().optional(),
     workflowRunId: z.string().uuid().nullable().optional(),
     to: z.string().trim().email(),
-    subject: z.string().trim().min(1),
+    subject: z.string().trim().min(1).max(998),
     body: z.string().refine((value) => value.trim().length > 0),
     attachments: z.array(attachmentSchema).max(1).optional(),
   })
@@ -43,7 +43,7 @@ const auditTargetSchema = z
     user_id: z.string().uuid(),
     deal_id: z.string().uuid().nullable().optional(),
   })
-  .passthrough();
+  .strip();
 
 type ParsedCreateDraftBody = z.infer<typeof createDraftSchema>;
 type ParsedAttachment = NonNullable<

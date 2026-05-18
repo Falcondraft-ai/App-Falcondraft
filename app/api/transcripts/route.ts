@@ -55,10 +55,33 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
+    console.error("[transcripts] create failed:", error.message);
     return NextResponse.json(
-      { error: `La création du transcript a échoué: ${error.message}` },
+      { error: "La création du transcript a échoué." },
       { status: 500 },
     );
+  }
+
+  if (dealId) {
+    const { data: deal } = await supabase
+      .from("deals")
+      .select("id")
+      .eq("id", dealId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!deal) {
+      return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
+    }
+
+    await supabase
+      .from("deals")
+      .update({
+        transcript: transcriptText.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", dealId)
+      .eq("organization_id", organizationId);
   }
 
   if (dealId) {

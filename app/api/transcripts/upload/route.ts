@@ -47,6 +47,19 @@ export async function POST(request: Request) {
     );
   }
 
+  if (dealId) {
+    const { data: deal } = await supabase
+      .from("deals")
+      .select("id")
+      .eq("id", dealId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!deal) {
+      return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
+    }
+  }
+
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       { error: "Le fichier dépasse la taille maximale de 100 Mo." },
@@ -76,8 +89,9 @@ export async function POST(request: Request) {
     });
 
   if (uploadError) {
+    console.error("[transcripts/upload] upload failed:", uploadError.message);
     return NextResponse.json(
-      { error: `Téléversement impossible: ${uploadError.message}` },
+      { error: "Téléversement impossible." },
       { status: 500 },
     );
   }
@@ -100,8 +114,9 @@ export async function POST(request: Request) {
 
   if (insertError) {
     await supabase.storage.from("transcripts-audio").remove([storagePath]);
+    console.error("[transcripts/upload] insert failed:", insertError.message);
     return NextResponse.json(
-      { error: `Création du transcript impossible: ${insertError.message}` },
+      { error: "Création du transcript impossible." },
       { status: 500 },
     );
   }

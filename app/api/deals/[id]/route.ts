@@ -187,7 +187,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     .eq("organization_id", mutationContext.organizationId);
 
   if (error) {
-    return jsonError("Modification impossible.", 500, error.message);
+    console.error("[deals] update failed:", error.message);
+    return jsonError("Modification impossible.", 500, "db_error");
   }
 
   await mutationContext.adminSupabase.from("audit_logs").insert({
@@ -234,10 +235,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   )?.error;
 
   if (relatedDeleteError) {
+    console.error("[deals] related delete failed:", relatedDeleteError.message);
     return jsonError(
       "Suppression impossible.",
       500,
-      relatedDeleteError.message,
+      "db_error",
     );
   }
 
@@ -248,7 +250,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .eq("organization_id", mutationContext.organizationId);
 
   if (error) {
-    return jsonError("Suppression impossible.", 500, error.message);
+    console.error("[deals] delete failed:", error.message);
+    return jsonError("Suppression impossible.", 500, "db_error");
   }
 
   return NextResponse.json({ success: true, dealId: mutationContext.dealId });

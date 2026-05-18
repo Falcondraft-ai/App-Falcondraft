@@ -79,8 +79,7 @@ export async function POST(request: Request) {
 
   if (!recallResponse?.ok) {
     const status = recallResponse?.status ?? "no response";
-    const body = recallResponse ? await recallResponse.text().catch(() => "(unreadable)") : "(no response)";
-    console.error(`[Recall] Bot creation failed — status: ${status}, body: ${body}`);
+    console.error(`[Recall] Bot creation failed — status: ${status}`);
     return NextResponse.json(
       { error: "Impossible de créer le bot Recall.ai." },
       { status: 502 },

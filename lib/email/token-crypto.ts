@@ -31,7 +31,7 @@ function getTokenEncryptionKey() {
       return decodedKey;
     }
   } catch {
-    // Fall through to deterministic derivation for existing string secrets.
+    // Key is not valid base64; falling through to SHA-256 derivation.
   }
 
   if (trimmedKey.length < 32) {

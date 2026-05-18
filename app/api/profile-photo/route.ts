@@ -133,7 +133,8 @@ async function createPhotoResponse(
     .createSignedUrl(path, 60 * 60);
 
   if (error) {
-    return jsonError("Lecture de la photo impossible.", 500, error.message);
+    console.error("[profile-photo] signed url failed:", error.message);
+    return jsonError("Lecture de la photo impossible.", 500, "db_error");
   }
 
   return NextResponse.json(
@@ -165,7 +166,8 @@ export async function GET() {
   const bucketError = await ensureProfilePhotosBucket(adminSupabase);
 
   if (bucketError) {
-    return jsonError("Stockage photo indisponible.", 500, bucketError.message);
+    console.error("[profile-photo] bucket GET failed:", bucketError.message);
+    return jsonError("Stockage photo indisponible.", 500, "db_error");
   }
 
   return createPhotoResponse(adminSupabase, user.id);
@@ -187,7 +189,8 @@ export async function POST(request: Request) {
   const bucketError = await ensureProfilePhotosBucket(adminSupabase);
 
   if (bucketError) {
-    return jsonError("Stockage photo indisponible.", 500, bucketError.message);
+    console.error("[profile-photo] bucket POST failed:", bucketError.message);
+    return jsonError("Stockage photo indisponible.", 500, "db_error");
   }
 
   const formData = await request.formData().catch(() => null);
@@ -223,7 +226,8 @@ export async function POST(request: Request) {
     });
 
   if (uploadError) {
-    return jsonError("Enregistrement de la photo impossible.", 500, uploadError.message);
+    console.error("[profile-photo] upload failed:", uploadError.message);
+    return jsonError("Enregistrement de la photo impossible.", 500, "db_error");
   }
 
   return createPhotoResponse(adminSupabase, user.id);
@@ -245,7 +249,8 @@ export async function DELETE() {
   const bucketError = await ensureProfilePhotosBucket(adminSupabase);
 
   if (bucketError) {
-    return jsonError("Stockage photo indisponible.", 500, bucketError.message);
+    console.error("[profile-photo] bucket DELETE failed:", bucketError.message);
+    return jsonError("Stockage photo indisponible.", 500, "db_error");
   }
 
   const path = await getCurrentPhotoPath(adminSupabase, user.id);
@@ -256,7 +261,8 @@ export async function DELETE() {
       .remove([path]);
 
     if (removeError) {
-      return jsonError("Suppression de la photo impossible.", 500, removeError.message);
+      console.error("[profile-photo] remove failed:", removeError.message);
+      return jsonError("Suppression de la photo impossible.", 500, "db_error");
     }
   }
 

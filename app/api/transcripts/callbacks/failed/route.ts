@@ -1,5 +1,14 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+
+function isValidSecret(requestSecret: string, configuredSecret: string) {
+  if (!requestSecret || !configuredSecret) return false;
+  const a = Buffer.from(requestSecret);
+  const b = Buffer.from(configuredSecret);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 export async function POST(request: Request) {
   const secret = process.env.N8N_TRANSCRIPTION_SECRET;
@@ -8,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   const authHeader = request.headers.get("x-n8n-secret");
-  if (!authHeader || authHeader !== secret) {
+  if (!isValidSecret(authHeader ?? "", secret)) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
   }
 

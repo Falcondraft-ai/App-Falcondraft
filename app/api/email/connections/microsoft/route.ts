@@ -108,7 +108,8 @@ export async function DELETE() {
     .maybeSingle();
 
   if (readError) {
-    return jsonError("Lecture impossible.", 500, readError.message);
+    console.error("[email/microsoft] read failed:", readError.message);
+    return jsonError("Lecture impossible.", 500, "db_error");
   }
 
   if (!connection) {
@@ -130,7 +131,8 @@ export async function DELETE() {
     .eq("user_id", context.userId);
 
   if (error) {
-    return jsonError("Déconnexion impossible.", 500, error.message);
+    console.error("[email/microsoft] delete failed:", error.message);
+    return jsonError("Déconnexion impossible.", 500, "db_error");
   }
 
   await context.adminSupabase.from("audit_logs").insert({

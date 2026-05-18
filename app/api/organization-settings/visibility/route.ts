@@ -75,7 +75,8 @@ export async function PATCH(request: NextRequest) {
     .eq("id", context.organization.id);
 
   if (error) {
-    return jsonError("Mise à jour impossible.", 500, error.message);
+    console.error("[visibility] update failed:", error.message);
+    return jsonError("Mise à jour impossible.", 500, "db_error");
   }
 
   await adminSupabase.from("audit_logs").insert({

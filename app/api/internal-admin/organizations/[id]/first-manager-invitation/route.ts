@@ -99,10 +99,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
   if (organizationError) {
+    console.error("[first-manager-invitation] org lookup failed:", organizationError.message);
     return jsonError(
       "Lecture du workspace impossible.",
       500,
-      organizationError.message,
+      "db_error",
     );
   }
 
@@ -118,10 +119,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq("status", "active");
 
   if (activeMembersError) {
+    console.error("[first-manager-invitation] members check failed:", activeMembersError.message);
     return jsonError(
       "Vérification des membres impossible.",
       500,
-      activeMembersError.message,
+      "db_error",
     );
   }
 
@@ -168,10 +170,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   );
 
   if (pendingInvitation.error) {
+    console.error("[first-manager-invitation] pending check failed:", pendingInvitation.error.message);
     return jsonError(
       "Lecture des invitations impossible.",
       500,
-      pendingInvitation.error.message,
+      "db_error",
     );
   }
 
@@ -216,10 +219,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single();
 
   if (insertError || !invitation) {
+    console.error("[first-manager-invitation] insert failed:", insertError?.message);
     return jsonError(
       "Création de l’invitation manager impossible.",
       500,
-      insertError?.message ?? "insert_failed",
+      "insert_failed",
     );
   }
 
