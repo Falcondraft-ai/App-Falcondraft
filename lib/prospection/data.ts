@@ -8,6 +8,7 @@ import type {
   ProspectTaskRow,
   ProspectInteractionRow,
   ProspectDocumentRow,
+  ProspectSearchResultRow,
 } from "@/types/database";
 
 function orgFilter(organizationId: string) {
@@ -291,6 +292,8 @@ export async function createProspectingSearch(
     location_query?: string;
     max_results?: number;
     notes?: string;
+    include_keywords?: string | null;
+    exclude_keywords?: string | null;
   },
 ): Promise<ProspectingSearchRow | null> {
   const supabase = await getSupabaseServerClient();
@@ -302,13 +305,15 @@ export async function createProspectingSearch(
       organization_id: organizationId,
       name: search.name,
       niche: search.niche ?? null,
-      category_query: search.category_query ?? null,
+      category_query: search.category_query ?? "Tout",
       scope_type: search.scope_type ?? null,
       location_query: search.location_query ?? null,
       max_results: search.max_results ?? null,
       run_mode: "manual",
       status: "active",
       notes: search.notes ?? null,
+      include_keywords: search.include_keywords ?? null,
+      exclude_keywords: search.exclude_keywords ?? null,
     })
     .select("*")
     .single();
@@ -513,4 +518,236 @@ export async function getProspectDocumentSignedUrl(
   }
 
   return data.signedUrl;
+}
+
+// --- Search Results functions ---
+
+export async function getProspectingSearchById(
+  searchId: string,
+  organizationId: string,
+): Promise<ProspectingSearchRow | null> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("prospecting_searches")
+    .select("*")
+    .eq("id", searchId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as ProspectingSearchRow;
+}
+
+export async function getProspectSearchResults(
+  searchId: string,
+  organizationId: string,
+): Promise<ProspectSearchResultRow[]> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("prospect_search_results")
+    .select("*")
+    .eq("search_id", searchId)
+    .eq("organization_id", organizationId)
+    .order("fit_score", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[prospection] Failed to fetch search results:", error.message);
+    return [];
+  }
+
+  return data as ProspectSearchResultRow[];
+}
+
+export async function updateSearchResultReviewStatus(
+  resultId: string,
+  organizationId: string,
+  reviewStatus: "pending_review" | "selected" | "ignored",
+): Promise<boolean> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from("prospect_search_results")
+    .update({ review_status: reviewStatus })
+    .eq("id", resultId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("[prospection] Failed to update review status:", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function updateSearchLastRunAt(
+  searchId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from("prospecting_searches")
+    .update({ last_run_at: new Date().toISOString() })
+    .eq("id", searchId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("[prospection] Failed to update last_run_at:", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function importSingleSearchResult(
+  resultId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const { data: result, error: fetchError } = await supabase
+    .from("prospect_search_results")
+    .select("*")
+    .eq("id", resultId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (fetchError || !result) return false;
+
+  const r = result as ProspectSearchResultRow;
+
+  if (r.review_status === "ignored") return false;
+
+  const { error: importError } = await supabase.from("prospect_companies").upsert(
+    {
+      organization_id: organizationId,
+      source: r.source ?? null,
+      google_place_id: r.google_place_id ?? null,
+      name: r.name,
+      name_normalized: r.name_normalized ?? null,
+      website: r.website ?? null,
+      website_domain: r.website_domain ?? null,
+      phone: r.phone ?? null,
+      formatted_address: r.formatted_address ?? null,
+      city: r.city ?? null,
+      region: r.region ?? null,
+      country: r.country ?? null,
+      latitude: r.latitude ?? null,
+      longitude: r.longitude ?? null,
+      google_primary_type: r.google_primary_type ?? null,
+      google_primary_type_display_name: r.google_primary_type_display_name ?? null,
+      google_types: r.google_types ?? null,
+      rating: r.rating ?? null,
+      user_rating_count: r.user_rating_count ?? null,
+      niche: r.niche ?? null,
+      category_query: r.category_query ?? null,
+      source_search_id: r.search_id ?? null,
+      fit_score: r.fit_score ?? null,
+      priority: r.priority ?? null,
+      reason_for_fit: r.reason_for_fit ?? null,
+      recommended_angle: r.recommended_angle ?? null,
+      status: "to_call",
+      raw_google_data: r.raw_google_data ?? null,
+    },
+    {
+      onConflict: "organization_id, google_place_id",
+      ignoreDuplicates: false,
+    },
+  );
+
+  if (importError) {
+    console.error("[prospection] Failed to import company:", importError.message);
+    return false;
+  }
+
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  await supabase.from("prospect_tasks").insert({
+    organization_id: organizationId,
+    company_id: null,
+    title: `Appeler ${r.name}`,
+    type: "call",
+    status: "todo",
+    due_at: tomorrow,
+  });
+
+  await supabase.from("prospect_interactions").insert({
+    organization_id: organizationId,
+    company_id: null,
+    type: "note",
+    channel: "system",
+    result: "imported_from_search_preview",
+    content: "Lead importé depuis les résultats de recherche FalconDraft.",
+  });
+
+  await supabase
+    .from("prospect_search_results")
+    .delete()
+    .eq("id", resultId);
+
+  return true;
+}
+
+export async function importSelectedSearchResults(
+  searchId: string,
+  organizationId: string,
+): Promise<{ imported: number; failed: number }> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return { imported: 0, failed: 0 };
+
+  const { data, error } = await supabase
+    .from("prospect_search_results")
+    .select("id")
+    .eq("search_id", searchId)
+    .eq("organization_id", organizationId)
+    .eq("review_status", "selected");
+
+  if (error || !data) return { imported: 0, failed: 0 };
+
+  let imported = 0;
+  let failed = 0;
+
+  for (const row of data) {
+    const ok = await importSingleSearchResult(row.id, organizationId);
+    if (ok) imported++;
+    else failed++;
+  }
+
+  return { imported, failed };
+}
+
+export async function importAllValidSearchResults(
+  searchId: string,
+  organizationId: string,
+): Promise<{ imported: number; failed: number }> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return { imported: 0, failed: 0 };
+
+  const { data, error } = await supabase
+    .from("prospect_search_results")
+    .select("id")
+    .eq("search_id", searchId)
+    .eq("organization_id", organizationId)
+    .not("review_status", "in", '("ignored")');
+
+  if (error || !data) return { imported: 0, failed: 0 };
+
+  let imported = 0;
+  let failed = 0;
+
+  for (const row of data) {
+    const ok = await importSingleSearchResult(row.id, organizationId);
+    if (ok) imported++;
+    else failed++;
+  }
+
+  return { imported, failed };
 }

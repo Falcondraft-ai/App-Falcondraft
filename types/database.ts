@@ -252,6 +252,45 @@ export type ProspectingSearchRow = {
   last_run_at: string | null;
   next_run_at: string | null;
   notes: string | null;
+  include_keywords: string | null;
+  exclude_keywords: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProspectSearchResultRow = {
+  id: string;
+  organization_id: string;
+  search_id: string;
+  source: string | null;
+  google_place_id: string | null;
+  name: string;
+  name_normalized: string | null;
+  website: string | null;
+  website_domain: string | null;
+  phone: string | null;
+  formatted_address: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  google_primary_type: string | null;
+  google_primary_type_display_name: string | null;
+  google_types: unknown | null;
+  rating: number | null;
+  user_rating_count: number | null;
+  niche: string | null;
+  category_query: string | null;
+  fit_score: number | null;
+  priority: string | null;
+  reason_for_fit: string | null;
+  recommended_angle: string | null;
+  lead_summary: string | null;
+  review_status: string;
+  include_keywords: string | null;
+  exclude_keywords: string | null;
+  raw_google_data: unknown | null;
   created_at: string;
   updated_at: string;
 };
@@ -638,6 +677,48 @@ export type Database = {
           last_run_at?: string | null;
           next_run_at?: string | null;
           notes?: string | null;
+          include_keywords?: string | null;
+          exclude_keywords?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      prospect_search_results: TableDefinition<
+        ProspectSearchResultRow,
+        {
+          id?: string;
+          organization_id: string;
+          search_id: string;
+          source?: string | null;
+          google_place_id?: string | null;
+          name: string;
+          name_normalized?: string | null;
+          website?: string | null;
+          website_domain?: string | null;
+          phone?: string | null;
+          formatted_address?: string | null;
+          city?: string | null;
+          region?: string | null;
+          country?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          google_primary_type?: string | null;
+          google_primary_type_display_name?: string | null;
+          google_types?: unknown | null;
+          rating?: number | null;
+          user_rating_count?: number | null;
+          niche?: string | null;
+          category_query?: string | null;
+          fit_score?: number | null;
+          priority?: string | null;
+          reason_for_fit?: string | null;
+          recommended_angle?: string | null;
+          lead_summary?: string | null;
+          review_status?: string;
+          include_keywords?: string | null;
+          exclude_keywords?: string | null;
+          raw_google_data?: unknown | null;
           created_at?: string;
           updated_at?: string;
         }

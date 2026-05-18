@@ -24,6 +24,8 @@ export function ProspectionPage({
   initialAllDocuments: ProspectDocumentRow[];
   isManager: boolean;
 }) {
+  const [unimportedCount, setUnimportedCount] = React.useState(0);
+
   return (
     <div className="space-y-6">
       <div className="border border-slate-900/15 bg-slate-950 p-5 text-white">
@@ -52,7 +54,8 @@ export function ProspectionPage({
             <T tx="prospection.leads" /> ({initialCompanies.length})
           </TabsTrigger>
           <TabsTrigger value="searches">
-            <T tx="prospection.searches" /> ({initialSearches.length})
+            <T tx="prospection.searches" />
+            {unimportedCount > 0 && ` (${unimportedCount})`}
           </TabsTrigger>
           {isManager && (
             <TabsTrigger value="admin">
@@ -70,7 +73,10 @@ export function ProspectionPage({
         </TabsContent>
 
         <TabsContent value="searches">
-          <SearchesTab searches={initialSearches} />
+          <SearchesTab
+            searches={initialSearches}
+            onUnimportedCountChange={setUnimportedCount}
+          />
         </TabsContent>
 
         {isManager && (
