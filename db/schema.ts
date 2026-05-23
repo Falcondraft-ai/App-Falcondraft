@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -21,10 +22,18 @@ export const organizations = pgTable("organizations", {
   monthlySubscriptionAmount: numeric("monthly_subscription_amount", {
     mode: "number",
   }),
-  allowMemberCompanyVisibility: boolean("allow_member_company_visibility")
-    .default(true)
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    allowMemberCompanyVisibility: boolean("allow_member_company_visibility")
+      .default(true)
+      .notNull(),
+    defaultQuoteClientType: text("default_quote_client_type")
+      .default("company")
+      .notNull(),
+    defaultQuoteTaxRate: numeric("default_quote_tax_rate", {
+      mode: "number",
+    })
+      .default(20)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const profiles = pgTable(
@@ -86,6 +95,9 @@ export const deals = pgTable(
     proposalContent: text("proposal_content"),
     quoteContext: text("quote_context"),
     amountEstimate: numeric("amount_estimate", { mode: "number" }),
+    quoteClientType: text("quote_client_type"),
+    quotePriceHt: numeric("quote_price_ht", { mode: "number" }),
+    quoteTaxRate: numeric("quote_tax_rate", { mode: "number" }),
     expectedCloseDate: date("expected_close_date"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdBy: uuid("created_by"),
@@ -288,6 +300,84 @@ export const systemWorkflowConfigs = pgTable("system_workflow_configs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const billingConnections = pgTable(
+  "billing_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    authType: text("auth_type").notNull(),
+    status: text("status").default("connected").notNull(),
+    encryptedCredentials: jsonb("encrypted_credentials").notNull(),
+    providerAccountId: text("provider_account_id"),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("billing_connections_organization_id_idx").on(
+      table.organizationId,
+    ),
+    providerIdx: index("billing_connections_provider_idx").on(table.provider),
+    statusIdx: index("billing_connections_status_idx").on(table.status),
+    orgProviderUnique: uniqueIndex(
+      "billing_connections_org_provider_unique",
+    ).on(table.organizationId, table.provider),
+  }),
+);
+
+export const billingDocuments = pgTable(
+  "billing_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    workflowRunId: uuid("workflow_run_id").references(() => workflowRuns.id, {
+      onDelete: "set null",
+    }),
+    provider: text("provider").notNull(),
+    documentType: text("document_type").default("quote").notNull(),
+    providerClientId: text("provider_client_id"),
+    providerQuoteId: text("provider_quote_id"),
+    providerQuoteNumber: text("provider_quote_number"),
+    providerQuoteUrl: text("provider_quote_url"),
+    providerStatus: text("provider_status"),
+    amountHt: numeric("amount_ht", { mode: "number" }),
+    amountTva: numeric("amount_tva", { mode: "number" }),
+    amountTtc: numeric("amount_ttc", { mode: "number" }),
+    currency: text("currency").default("EUR").notNull(),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("billing_documents_organization_id_idx").on(
+      table.organizationId,
+    ),
+    dealIdx: index("billing_documents_deal_id_idx").on(table.dealId),
+    workflowRunIdx: index("billing_documents_workflow_run_id_idx").on(
+      table.workflowRunId,
+    ),
+    providerIdx: index("billing_documents_provider_idx").on(table.provider),
+    providerQuoteIdIdx: index("billing_documents_provider_quote_id_idx").on(
+      table.providerQuoteId,
+    ),
+    documentTypeIdx: index("billing_documents_document_type_idx").on(
+      table.documentType,
+    ),
+    createdAtIdx: index("billing_documents_created_at_idx").on(table.createdAt),
+    providerQuoteIdUnique: uniqueIndex(
+      "billing_documents_provider_quote_id_unique",
+    )
+      .on(table.provider, table.providerQuoteId)
+      .where(sql`${table.providerQuoteId} IS NOT NULL`),
+  }),
+);
 
 export const auditLogs = pgTable(
   "audit_logs",

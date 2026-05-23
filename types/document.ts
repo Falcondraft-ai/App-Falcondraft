@@ -57,4 +57,6 @@ export type GeneratedDealDocument = {
   createdAt: string;
   url?: string;
   hasStoragePath: boolean;
+  source?: "documents" | "billing_documents";
+  downloadUrl?: string;
 };

@@ -45,49 +45,64 @@ import { cn } from "@/lib/utils";
 
 const SETTINGS_PREFERENCES_STORAGE_KEY = "falcondraft:settings-preferences";
 
-const newDealSchema = z.object({
-  name: z.string().trim().min(3, "Indiquez un intitulé de dossier."),
-  clientCompanyName: z.string().trim().min(2, "Indiquez l’entreprise cliente."),
-  amountEstimate: z
-    .string()
-    .trim()
-    .refine(
-      (value) =>
-        value.length === 0 ||
-        Number.isFinite(Number(value.replace(/\s/g, "").replace(",", "."))),
-      {
-        message: "Indiquez un montant valide.",
-      },
-    ),
-  expectedCloseDate: z.string().trim().optional(),
-  clientContactName: z.string().trim().min(2, "Indiquez le contact principal."),
-  clientEmail: z
-    .string()
-    .trim()
-    .email("Indiquez un email professionnel valide."),
-  phone: z.string().trim().optional(),
-  transcript: z.string().trim().optional(),
-  additionalContext: z.string().trim().optional(),
-  emailInstructions: z.string().trim().optional(),
-  clientCompanyInfo: z.string().trim().optional(),
-});
+const newDealSchema = z
+  .object({
+    name: z.string().trim().min(3, "Indiquez un intitulé de dossier."),
+    clientCompanyName: z.string().trim().min(2, "Indiquez l’entreprise cliente."),
+    quotePriceHt: z
+      .string()
+      .trim()
+      .refine(
+        (value) =>
+          Number.isFinite(Number(value.replace(/\s/g, "").replace(",", "."))) &&
+          Number(value.replace(/\s/g, "").replace(",", ".")) > 0,
+        {
+          message: "Indiquez un prix HT valide.",
+        },
+      ),
+    expectedCloseDate: z.string().trim().optional(),
+    clientContactName: z.string().trim().min(2, "Indiquez le contact principal."),
+    clientEmail: z
+      .string()
+      .trim()
+      .email("Indiquez un email professionnel valide."),
+    phone: z.string().trim().optional(),
+    transcript: z.string().trim().optional(),
+    additionalContext: z.string().trim().optional(),
+    emailInstructions: z.string().trim().optional(),
+    quoteClientType: z.enum(["company", "individual"]),
+    quoteTaxRate: z
+      .string()
+      .trim()
+      .refine(
+        (value) => ["0", "5.5", "10", "20"].includes(value),
+        { message: "Sélectionnez un taux de TVA valide." },
+      ),
+    clientCompanyInfo: z.string().trim().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const info = data.clientCompanyInfo?.trim();
+    if (!info || info.length === 0) {
+      if (data.quoteClientType === "company") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Indiquez les informations société : adresse de facturation et SIRET/SIREN.",
+          path: ["clientCompanyInfo"],
+        });
+      } else {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Indiquez l'adresse de facturation du particulier.",
+          path: ["clientCompanyInfo"],
+        });
+      }
+    }
+  });
 
 type NewDealFormValues = z.infer<typeof newDealSchema>;
 type NewDealField = keyof NewDealFormValues;
-
-const defaultValues: NewDealFormValues = {
-  name: "",
-  clientCompanyName: "",
-  amountEstimate: "",
-  expectedCloseDate: "",
-  clientContactName: "",
-  clientEmail: "",
-  phone: "",
-  transcript: "",
-  additionalContext: "",
-  emailInstructions: "",
-  clientCompanyInfo: "",
-};
 
 const onboardingSteps: Array<{
   title: string;
@@ -99,8 +114,8 @@ const onboardingSteps: Array<{
     eyebrow: "01",
     title: "Cadre du dossier",
     description:
-      "Posez le nom du dossier, l’entreprise cliente et, si elle existe, l’enveloppe budgétaire.",
-    fields: ["name", "clientCompanyName", "amountEstimate"],
+      "Posez le nom du dossier, l’entreprise cliente et le prix HT à facturer.",
+    fields: ["name", "clientCompanyName", "quotePriceHt"],
   },
   {
     eyebrow: "02",
@@ -114,14 +129,14 @@ const onboardingSteps: Array<{
     title: "Notes d’échange",
     description:
       "Ajoutez la matière brute : transcript, brief, contraintes et attentes du client.",
-    fields: ["transcript"],
+    fields: ["transcript", "additionalContext"],
   },
   {
     eyebrow: "04",
     title: "Consignes de sortie",
     description:
-      "Précisez les angles importants, les consignes email et les informations utiles au devis.",
-    fields: ["additionalContext", "emailInstructions", "clientCompanyInfo"],
+      "Précisez le type de client, les consignes email et les informations de facturation (obligatoire).",
+    fields: ["quoteClientType", "quoteTaxRate", "emailInstructions", "clientCompanyInfo"],
   },
 ];
 
@@ -143,6 +158,10 @@ function toAmountPayload(value: string) {
   return trimmedValue.length > 0 ? Number(trimmedValue) : undefined;
 }
 
+function toTaxRatePayload(value: string) {
+  return Number(value);
+}
+
 function getPreviewValue(value: string | undefined, fallback: string) {
   const trimmedValue = value?.trim();
   return trimmedValue ? trimmedValue : fallback;
@@ -152,9 +171,32 @@ type ExistingTranscript = { id: string; title: string; createdAt: string };
 
 export function NewDealForm({
   existingTranscripts = [],
+  defaultQuoteClientType = "company",
+  defaultQuoteTaxRate = 20,
 }: {
   existingTranscripts?: ExistingTranscript[];
+  defaultQuoteClientType?: string;
+  defaultQuoteTaxRate?: number;
 }) {
+  const defaultValues = React.useMemo<NewDealFormValues>(
+    () => ({
+      name: "",
+      clientCompanyName: "",
+      quotePriceHt: "",
+      expectedCloseDate: "",
+      clientContactName: "",
+      clientEmail: "",
+      phone: "",
+      transcript: "",
+      additionalContext: "",
+      emailInstructions: "",
+      quoteClientType: defaultQuoteClientType as "company" | "individual",
+      quoteTaxRate: String(defaultQuoteTaxRate),
+      clientCompanyInfo: "",
+    }),
+    [defaultQuoteClientType, defaultQuoteTaxRate],
+  );
+
   const router = useRouter();
   const { language } = useI18n();
   const shouldReduceMotion = useReducedMotion();
@@ -195,6 +237,15 @@ export function NewDealForm({
           budget: "Presupuesto estimado",
           budgetHelp:
             "Opcional, solo si el cliente ha compartido un presupuesto.",
+          quotePrice: "Precio sin IVA a facturar",
+          quotePriceHelp:
+            "Importe sin IVA del presupuesto. Es la fuente de verdad para la facturación.",
+          clientType: "Tipo de cliente para el presupuesto",
+          clientTypeCompany: "Empresa",
+          clientTypeIndividual: "Particular",
+          taxRate: "Tasa de IVA del presupuesto",
+          taxRateHelp:
+            "Tasa de IVA aplicable al presupuesto. El valor por defecto se toma de la configuración de la organización.",
           closeDate: "Fecha objetivo",
           closeDateHelp:
             "Opcional, útil si el expediente debe estar listo antes de una fecha concreta.",
@@ -221,6 +272,16 @@ export function NewDealForm({
             "Razón social, dirección, identificador de empresa, IVA, email de facturación...",
           companyInfoHelp:
             "Pega aquí la información útil para el presupuesto: razón social, dirección, identificador de empresa, IVA, email de facturación, etc.",
+          companyBillingLabel: "Información de empresa para el presupuesto",
+          companyBillingPlaceholder:
+            "Razón social, dirección, identificador de empresa, IVA, email de facturación...",
+          companyBillingHelp:
+            "Pega aquí la información útil para el presupuesto: razón social, dirección, identificador de empresa, IVA, email de facturación, etc.",
+          individualBillingLabel: "Información de facturación del particular",
+          individualBillingPlaceholder:
+            "Dirección de facturación, código postal, ciudad, país, email de facturación si diferente...",
+          individualBillingHelp:
+            "Pega aquí la información útil para el presupuesto del particular: dirección de facturación, código postal, ciudad, país, email de facturación si diferente del contacto.",
           deal: "Expediente",
           client: "Cliente",
           contact: "Contacto",
@@ -243,8 +304,17 @@ export function NewDealForm({
             dealHelp: "A concrete name the whole team can understand.",
             clientCompany: "Client company",
             clientPlaceholder: "Firm, developer, department...",
-            budget: "Budget envelope",
-            budgetHelp: "Optional, only if the client shared a budget.",
+          budget: "Budget envelope",
+          budgetHelp: "Optional, only if the client shared a budget.",
+          quotePrice: "Excl. tax price to invoice",
+          quotePriceHelp:
+            "Excl. tax amount for the quote. This is the source of truth for billing.",
+          clientType: "Client type for the quote",
+          clientTypeCompany: "Company",
+          clientTypeIndividual: "Individual",
+          taxRate: "Quote VAT rate",
+          taxRateHelp:
+            "VAT rate applicable to the quote. Default value is taken from organization settings.",
             closeDate: "Target close date",
             closeDateHelp:
               "Optional, useful if the deal must be ready before a specific date.",
@@ -263,15 +333,25 @@ export function NewDealForm({
             emailInstructions: "Email instructions",
             emailPlaceholder:
               "Message tone, points to mention, proposed next step...",
-            companyInfo: "Company information for the quote",
-            importing: "Importing…",
-            importPappers: "Import from Pappers",
-            searchPappers: "Search on Pappers",
-            companyInfoPlaceholder:
-              "Legal name, address, company ID, VAT number, billing email...",
-            companyInfoHelp:
-              "Paste useful quote information here: legal name, address, company ID, VAT number, billing email, etc.",
-            deal: "Deal",
+          companyInfo: "Company information for the quote",
+          importing: "Importing…",
+          importPappers: "Import from Pappers",
+          searchPappers: "Search on Pappers",
+          companyInfoPlaceholder:
+            "Legal name, address, company ID, VAT number, billing email...",
+          companyInfoHelp:
+            "Paste useful quote information here: legal name, address, company ID, VAT number, billing email, etc.",
+          companyBillingLabel: "Company information for the quote",
+          companyBillingPlaceholder:
+            "Legal name, address, company ID, VAT number, billing email...",
+          companyBillingHelp:
+            "Paste useful quote information here: legal name, address, company ID, VAT number, billing email, etc.",
+          individualBillingLabel: "Individual billing information",
+          individualBillingPlaceholder:
+            "Billing address, postal code, city, country, billing email if different...",
+          individualBillingHelp:
+            "Paste useful quote information for the individual: billing address, postal code, city, country, billing email if different from contact.",
+          deal: "Deal",
             client: "Client",
             contact: "Contact",
             missing: "To fill in",
@@ -292,9 +372,18 @@ export function NewDealForm({
             dealHelp: "Un nom concret, compréhensible par toute l’équipe.",
             clientCompany: "Entreprise cliente",
             clientPlaceholder: "Cabinet, promoteur, direction...",
-            budget: "Enveloppe budgétaire",
-            budgetHelp:
-              "Optionnel, seulement si le client a partagé une enveloppe.",
+          budget: "Enveloppe budgétaire",
+          budgetHelp:
+            "Optionnel, seulement si le client a partagé une enveloppe.",
+          quotePrice: "Prix HT à facturer",
+          quotePriceHelp:
+            "Montant HT du devis. C'est la source de vérité pour la facturation.",
+          clientType: "Type de client pour le devis",
+          clientTypeCompany: "Entreprise",
+          clientTypeIndividual: "Particulier",
+          taxRate: "Taux de TVA du devis",
+          taxRateHelp:
+            "Taux de TVA applicable au devis. La valeur par défaut provient des paramètres de l'organisation.",
             closeDate: "Échéance cible",
             closeDateHelp:
               "Optionnel, utile si le dossier doit être prêt avant une date précise.",
@@ -313,15 +402,25 @@ export function NewDealForm({
             emailInstructions: "Instructions email",
             emailPlaceholder:
               "Ton du message, points à mentionner, proposition de prochaine étape...",
-            companyInfo: "Informations société pour le devis",
-            importing: "Import en cours…",
-            importPappers: "Importer depuis Pappers",
-            searchPappers: "Rechercher sur Pappers",
-            companyInfoPlaceholder:
-              "Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation...",
-            companyInfoHelp:
-              "Collez ici les informations utiles pour le devis : raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation, etc.",
-            deal: "Dossier",
+          companyInfo: "Informations société pour le devis",
+          importing: "Import en cours…",
+          importPappers: "Importer depuis Pappers",
+          searchPappers: "Rechercher sur Pappers",
+          companyInfoPlaceholder:
+            "Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation...",
+          companyInfoHelp:
+            "Collez ici les informations utiles pour le devis : raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation, etc.",
+          companyBillingLabel: "Informations société pour le devis",
+          companyBillingPlaceholder:
+            "Raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation...",
+          companyBillingHelp:
+            "Collez ici les informations utiles pour le devis : raison sociale, adresse, SIRET/SIREN, TVA intracommunautaire, email de facturation, etc.",
+          individualBillingLabel: "Informations de facturation du particulier",
+          individualBillingPlaceholder:
+            "Adresse de facturation, code postal, ville, pays, email de facturation si différent...",
+          individualBillingHelp:
+            "Collez ici les informations utiles pour le devis du particulier : adresse de facturation, code postal, ville, pays, et email de facturation si différent du contact.",
+          deal: "Dossier",
             client: "Client",
             contact: "Contact",
             missing: "À renseigner",
@@ -371,7 +470,7 @@ export function NewDealForm({
           {
             title: "Marco del expediente",
             description:
-              "Define el nombre del expediente, la empresa cliente y el presupuesto estimado si existe.",
+              "Define el nombre del expediente, la empresa cliente y el precio sin IVA a facturar.",
           },
           {
             title: "Contacto cliente",
@@ -381,12 +480,12 @@ export function NewDealForm({
           {
             title: "Notas de llamada",
             description:
-              "Añade la materia prima: transcripción, briefing, restricciones y expectativas del cliente.",
+              "Añade la materia prima: transcripción, briefing, restricciones, expectativas del cliente y contexto adicional.",
           },
           {
             title: "Instrucciones de salida",
             description:
-              "Precisa los ángulos importantes, las instrucciones de email y la información para el presupuesto.",
+              "Precisa el tipo de cliente, las instrucciones de email y la información de facturación (obligatorio).",
           },
         ]
       : language === "en"
@@ -394,7 +493,7 @@ export function NewDealForm({
             {
               title: "Deal frame",
               description:
-                "Set the deal name, client company, and budget envelope if there is one.",
+                "Set the deal name, client company, and the excl. tax price to invoice.",
             },
             {
               title: "Client contact",
@@ -404,12 +503,12 @@ export function NewDealForm({
             {
               title: "Call notes",
               description:
-                "Add the raw material: transcript, brief, constraints, and client expectations.",
+                "Add the raw material: transcript, brief, constraints, client expectations, and additional context.",
             },
             {
               title: "Output instructions",
               description:
-                "Specify important angles, email instructions, and quote information.",
+                "Specify the client type, email instructions, and billing information (required).",
             },
           ]
         : onboardingSteps.map((step) => ({
@@ -560,7 +659,8 @@ export function NewDealForm({
   async function onSubmit(valuesToSubmit: NewDealFormValues) {
     setIsSubmitting(true);
 
-    const amountEstimate = toAmountPayload(valuesToSubmit.amountEstimate);
+    const quotePriceHt = toAmountPayload(valuesToSubmit.quotePriceHt);
+    const quoteTaxRate = toTaxRatePayload(valuesToSubmit.quoteTaxRate);
     const response = await fetch("/api/deals", {
       method: "POST",
       credentials: "same-origin",
@@ -573,7 +673,8 @@ export function NewDealForm({
           transcriptSourceMode === "paste"
             ? valuesToSubmit.transcript
             : undefined,
-        amountEstimate,
+        quotePriceHt,
+        quoteTaxRate,
         expectedCloseDate: valuesToSubmit.expectedCloseDate || undefined,
         ...(selectedTranscriptId && selectedTranscriptId !== "none"
           ? { linkedTranscriptId: selectedTranscriptId }
@@ -825,19 +926,19 @@ export function NewDealForm({
                         />
                         <FormField
                           control={form.control}
-                          name="amountEstimate"
+                          name="quotePriceHt"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>{copy.budget}</FormLabel>
+                              <FormLabel>{copy.quotePrice}</FormLabel>
                               <FormControl>
                                 <Input
                                   inputMode="decimal"
-                                  placeholder="25 000"
+                                  placeholder="1 500"
                                   {...field}
                                 />
                               </FormControl>
                               <FormDescription>
-                                {copy.budgetHelp}
+                                {copy.quotePriceHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -1262,11 +1363,7 @@ export function NewDealForm({
                             </div>
                           </div>
                         )}
-                      </div>
-                    ) : null}
 
-                    {stepIndex === 3 ? (
-                      <div className="space-y-5">
                         <FormField
                           control={form.control}
                           name="additionalContext"
@@ -1275,7 +1372,7 @@ export function NewDealForm({
                               <FormLabel>{copy.context}</FormLabel>
                               <FormControl>
                                 <Textarea
-                                  rows={5}
+                                  rows={4}
                                   placeholder={copy.contextPlaceholder}
                                   {...field}
                                 />
@@ -1284,6 +1381,70 @@ export function NewDealForm({
                             </FormItem>
                           )}
                         />
+                      </div>
+                    ) : null}
+
+                    {stepIndex === 3 ? (
+                      <div className="space-y-5">
+                        <div className="grid gap-5 sm:grid-cols-2">
+                          <FormField
+                            control={form.control}
+                            name="quoteClientType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{copy.clientType}</FormLabel>
+                                <Select
+                                  value={field.value}
+                                  onValueChange={field.onChange}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="company">
+                                      {copy.clientTypeCompany}
+                                    </SelectItem>
+                                    <SelectItem value="individual">
+                                      {copy.clientTypeIndividual}
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="quoteTaxRate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{copy.taxRate}</FormLabel>
+                                <Select
+                                  value={field.value}
+                                  onValueChange={field.onChange}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="0">0 %</SelectItem>
+                                    <SelectItem value="5.5">5,5 %</SelectItem>
+                                    <SelectItem value="10">10 %</SelectItem>
+                                    <SelectItem value="20">20 %</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                  {copy.taxRateHelp}
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         <FormField
                           control={form.control}
                           name="emailInstructions"
@@ -1307,43 +1468,57 @@ export function NewDealForm({
                           render={({ field }) => (
                             <FormItem>
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <FormLabel>{copy.companyInfo}</FormLabel>
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  size="sm"
-                                  disabled={
-                                    !values.clientCompanyName?.trim() ||
-                                    isImportingCompanyInfo
-                                  }
-                                  onClick={() =>
-                                    void importCompanyInfoFromPappers()
-                                  }
-                                >
-                                  {isImportingCompanyInfo
-                                    ? copy.importing
-                                    : copy.importPappers}
-                                </Button>
-                                <Button asChild variant="outline" size="sm">
-                                  <a
-                                    href="https://www.pappers.fr/"
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <FormLabel>
+                                  {values.quoteClientType === "individual"
+                                    ? copy.individualBillingLabel
+                                    : copy.companyBillingLabel}
+                                </FormLabel>
+                                {values.quoteClientType !== "individual" ? (
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    disabled={
+                                      !values.clientCompanyName?.trim() ||
+                                      isImportingCompanyInfo
+                                    }
+                                    onClick={() =>
+                                      void importCompanyInfoFromPappers()
+                                    }
                                   >
-                                    {copy.searchPappers}
-                                    <ExternalLink aria-hidden="true" />
-                                  </a>
-                                </Button>
+                                    {isImportingCompanyInfo
+                                      ? copy.importing
+                                      : copy.importPappers}
+                                  </Button>
+                                ) : null}
+                                {values.quoteClientType !== "individual" ? (
+                                  <Button asChild variant="outline" size="sm">
+                                    <a
+                                      href="https://www.pappers.fr/"
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      {copy.searchPappers}
+                                      <ExternalLink aria-hidden="true" />
+                                    </a>
+                                  </Button>
+                                ) : null}
                               </div>
                               <FormControl>
                                 <Textarea
                                   rows={4}
-                                  placeholder={copy.companyInfoPlaceholder}
+                                  placeholder={
+                                    values.quoteClientType === "individual"
+                                      ? copy.individualBillingPlaceholder
+                                      : copy.companyBillingPlaceholder
+                                  }
                                   {...field}
                                 />
                               </FormControl>
                               <FormDescription>
-                                {copy.companyInfoHelp}
+                                {values.quoteClientType === "individual"
+                                  ? copy.individualBillingHelp
+                                  : copy.companyBillingHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>

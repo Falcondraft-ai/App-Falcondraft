@@ -21,7 +21,15 @@ export default async function NewDealPage() {
           title={<T tx="dealDetail.newTitle" />}
           description={<T tx="dealDetail.newDescription" />}
         />
-        <NewDealForm existingTranscripts={transcripts} />
+        <NewDealForm
+          existingTranscripts={transcripts}
+          defaultQuoteClientType={
+            context.organization?.default_quote_client_type ?? "company"
+          }
+          defaultQuoteTaxRate={
+            context.organization?.default_quote_tax_rate ?? 20
+          }
+        />
       </div>
     </PageTransition>
   );

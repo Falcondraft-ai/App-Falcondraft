@@ -34,6 +34,7 @@ import {
 } from "@/lib/auth/workspace-permissions";
 import type {
   AuditLogRow,
+  BillingDocumentRow,
   BillingSubscriptionRow,
   DealRow,
   DocumentRow,
@@ -281,6 +282,8 @@ function mapGeneratedDealDocuments(
         createdAt: document.created_at,
         url: document.url ?? undefined,
         hasStoragePath: Boolean(document.storage_path),
+        source: "documents" as const,
+        downloadUrl: `/api/documents/${document.id}/download?source=documents`,
       };
     });
 }
@@ -485,6 +488,9 @@ function mapDealRow(
     updatedAt,
     lastAction: lastDealAction(row),
     amountEstimate: row.amount_estimate ?? 0,
+    quoteClientType: (row.quote_client_type as "company" | "individual") ?? undefined,
+    quotePriceHt: row.quote_price_ht ?? undefined,
+    quoteTaxRate: row.quote_tax_rate ?? undefined,
     ownerName: owner?.full_name ?? owner?.email ?? "Équipe FalconDraft",
     priority: "standard",
     expectedCloseDate: row.expected_close_date ?? undefined,
@@ -602,15 +608,21 @@ export async function getDealDetail(
 
   const owners = await getProfilesByUserId(supabase, [dealRow.created_by]);
 
-  const [workflowRuns, auditLogs, documents] = await Promise.all([
+  const [workflowRuns, auditLogs, documents, billingDocuments] = await Promise.all([
     getWorkflowRunsForOrganization(organizationId, dealId),
     getAuditLogsForOrganization(organizationId, dealId),
     getDocumentRowsForDeal(organizationId, dealId),
+    getBillingDocumentRowsForDeal(organizationId, dealId),
   ]);
   const normalizedStatus = normalizeDealStatus(dealRow.status);
   const showProposalPdf =
     hasCompletedProposalValidation(workflowRuns) ||
     isPastProposalValidation(normalizedStatus);
+
+  const mappedDocuments = [
+    ...mapGeneratedDealDocuments(documents, { showProposalPdf }),
+    ...mapBillingDocumentsForDeal(billingDocuments),
+  ];
 
   return {
     deal: mapDealRow(
@@ -619,7 +631,7 @@ export async function getDealDetail(
       documents,
     ),
     activity: mapActivity(workflowRuns, auditLogs),
-    documents: mapGeneratedDealDocuments(documents, { showProposalPdf }),
+    documents: mappedDocuments,
   };
 }
 
@@ -930,6 +942,76 @@ async function getDocumentRowsForDeal(
   }
 
   return data;
+}
+
+async function getBillingDocumentRowsForDeal(
+  organizationId: string,
+  dealId: string,
+): Promise<BillingDocumentRow[]> {
+  const supabase = await getSupabaseDataClient();
+
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("billing_documents")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("deal_id", dealId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data;
+}
+
+function mapBillingDocumentsForDeal(
+  billingDocs: BillingDocumentRow[],
+): GeneratedDealDocument[] {
+  return billingDocs.map((bd) => {
+    const documentType = bd.document_type;
+    const title =
+      documentType === "quote"
+        ? bd.provider_quote_number
+          ? `Devis ${bd.provider_quote_number}`
+          : "Devis"
+        : documentType === "invoice"
+          ? "Facture"
+          : documentType === "credit_note"
+            ? "Avoir"
+            : "Document de facturation";
+
+    return {
+      id: bd.id,
+      type: `billing_${documentType}`,
+      label: title,
+      title,
+      status: bd.provider_status ? mapBillingProviderStatus(bd.provider_status) : "ready",
+      createdAt: bd.created_at,
+      url: bd.provider_quote_url ?? undefined,
+      hasStoragePath: false,
+      source: "billing_documents" as const,
+      downloadUrl: `/api/documents/${bd.id}/download?source=billing_documents`,
+    };
+  });
+}
+
+function mapBillingProviderStatus(providerStatus: string): DocumentStatus {
+  const statusMap: Record<string, DocumentStatus> = {
+    accepted: "ready",
+    signed: "ready",
+    sent: "sent",
+    draft: "draft",
+    pending: "generating",
+    expired: "ready",
+    declined: "ready",
+  };
+
+  return statusMap[providerStatus] ?? "ready";
 }
 
 export async function getDocumentsForOrganization(

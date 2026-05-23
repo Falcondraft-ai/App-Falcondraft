@@ -31,6 +31,10 @@ async function resolveDocumentUrl(
     invalidSignedUrl: string;
   },
 ) {
+  if (download && document.downloadUrl) {
+    return document.downloadUrl;
+  }
+
   if (document.url) {
     return document.url;
   }
@@ -201,6 +205,10 @@ function isOpenOnlyDocument(document: GeneratedDealDocument): boolean {
   return ["proposal_gamma", "proposal_pdf"].includes(document.type);
 }
 
+function isBillingDocument(document: GeneratedDealDocument): boolean {
+  return document.source === "billing_documents";
+}
+
 export function GeneratedDocumentsPanel({
   documents,
 }: {
@@ -218,39 +226,48 @@ export function GeneratedDocumentsPanel({
 
   return (
     <div className="bg-card/70 divide-y rounded-md border">
-      {documents.map((document) => (
-        <div
-          key={document.id}
-          className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p className="text-sm font-medium">
-              {t(`documentType.${document.type}` as TranslationKey)}
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {t(`common.status.${document.status}` as TranslationKey)} ·{" "}
-              {document.title}
-            </p>
+      {documents.map((document) => {
+        const billing = isBillingDocument(document);
+
+        return (
+          <div
+            key={`${document.source ?? "documents"}-${document.id}`}
+            className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="text-sm font-medium">
+                {billing
+                  ? document.label
+                  : t(`documentType.${document.type}` as TranslationKey)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {t(`common.status.${document.status}` as TranslationKey)} ·{" "}
+                {document.title}
+              </p>
+            </div>
+            <GeneratedDocumentButtons
+              document={document}
+              compact
+              showOpen={
+                !billing &&
+                (isOpenOnlyDocument(document) ||
+                  (document.type !== "quote_pdf" &&
+                    document.type !== "final_document_pdf"))
+              }
+              showDownload={!isOpenOnlyDocument(document)}
+              downloadLabel={
+                billing && document.type === "billing_quote"
+                  ? t("common.actions.downloadQuote")
+                  : document.type === "quote_pdf"
+                    ? t("common.actions.downloadQuote")
+                    : document.type === "final_document_pdf"
+                      ? t("common.actions.downloadFinalDocument")
+                      : t("common.actions.download")
+              }
+            />
           </div>
-          <GeneratedDocumentButtons
-            document={document}
-            compact
-            showOpen={
-              isOpenOnlyDocument(document) ||
-              (document.type !== "quote_pdf" &&
-                document.type !== "final_document_pdf")
-            }
-            showDownload={!isOpenOnlyDocument(document)}
-            downloadLabel={
-              document.type === "quote_pdf"
-                ? t("common.actions.downloadQuote")
-                : document.type === "final_document_pdf"
-                  ? t("common.actions.downloadFinalDocument")
-                  : t("common.actions.download")
-            }
-          />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

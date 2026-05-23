@@ -197,7 +197,8 @@ export function DealEditDialog({
         setShowExpectedCloseDate(Boolean(deal.expectedCloseDate));
       }
     }
-  }, [deal, form, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, open]);
 
   async function onSubmit(values: DealEditFormValues) {
     setIsSubmitting(true);

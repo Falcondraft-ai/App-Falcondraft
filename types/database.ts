@@ -21,6 +21,8 @@ export type OrganizationRow = {
   setup_amount: number | null;
   monthly_subscription_amount: number | null;
   allow_member_company_visibility: boolean;
+  default_quote_client_type: string;
+  default_quote_tax_rate: number;
   created_at: string;
 };
 
@@ -73,6 +75,9 @@ export type DealRow = {
   proposal_content: string | null;
   quote_context: string | null;
   amount_estimate: number | null;
+  quote_client_type: string | null;
+  quote_price_ht: number | null;
+  quote_tax_rate: number | null;
   expected_close_date: string | null;
   archived_at: string | null;
   created_by: string | null;
@@ -137,6 +142,40 @@ export type BillingSubscriptionRow = {
   plan: string | null;
   current_period_end: string | null;
   created_at: string;
+};
+
+export type BillingConnectionRow = {
+  id: string;
+  organization_id: string;
+  provider: "qonto" | "pennylane" | "odoo" | "invoice_ninja" | "manual" | string;
+  auth_type: "api_key" | "oauth" | "manual" | string;
+  status: "connected" | "disconnected" | "error" | string;
+  encrypted_credentials: Record<string, unknown>;
+  provider_account_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BillingDocumentRow = {
+  id: string;
+  organization_id: string;
+  deal_id: string | null;
+  workflow_run_id: string | null;
+  provider: "qonto" | "pennylane" | "odoo" | "invoice_ninja" | "manual" | string;
+  document_type: "quote" | "invoice" | "credit_note" | string;
+  provider_client_id: string | null;
+  provider_quote_id: string | null;
+  provider_quote_number: string | null;
+  provider_quote_url: string | null;
+  provider_status: string | null;
+  amount_ht: number | null;
+  amount_tva: number | null;
+  amount_ttc: number | null;
+  currency: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 };
 
 export type AuditLogRow = {
@@ -370,6 +409,8 @@ export type Database = {
           setup_amount?: number | null;
           monthly_subscription_amount?: number | null;
           allow_member_company_visibility?: boolean;
+          default_quote_client_type?: string;
+          default_quote_tax_rate?: number;
           created_at?: string;
         },
         {
@@ -380,6 +421,8 @@ export type Database = {
           setup_amount?: number | null;
           monthly_subscription_amount?: number | null;
           allow_member_company_visibility?: boolean;
+          default_quote_client_type?: string;
+          default_quote_tax_rate?: number;
           created_at?: string;
         }
       >;
@@ -444,6 +487,9 @@ export type Database = {
           proposal_content?: string | null;
           quote_context?: string | null;
           amount_estimate?: number | null;
+          quote_client_type?: string | null;
+          quote_price_ht?: number | null;
+          quote_tax_rate?: number | null;
           expected_close_date?: string | null;
           archived_at?: string | null;
           created_by?: string | null;
@@ -521,6 +567,76 @@ export type Database = {
           expires_at?: string;
           status?: string;
           created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      billing_connections: TableDefinition<
+        BillingConnectionRow,
+        {
+          id?: string;
+          organization_id: string;
+          provider: string;
+          auth_type: string;
+          status?: string;
+          encrypted_credentials: Record<string, unknown>;
+          provider_account_id?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          organization_id?: string;
+          provider?: string;
+          auth_type?: string;
+          status?: string;
+          encrypted_credentials?: Record<string, unknown>;
+          provider_account_id?: string | null;
+          metadata?: Record<string, unknown>;
+          updated_at?: string;
+        }
+      >;
+
+      billing_documents: TableDefinition<
+        BillingDocumentRow,
+        {
+          id?: string;
+          organization_id: string;
+          deal_id?: string | null;
+          workflow_run_id?: string | null;
+          provider: string;
+          document_type?: string;
+          provider_client_id?: string | null;
+          provider_quote_id?: string | null;
+          provider_quote_number?: string | null;
+          provider_quote_url?: string | null;
+          provider_status?: string | null;
+          amount_ht?: number | null;
+          amount_tva?: number | null;
+          amount_ttc?: number | null;
+          currency?: string;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          organization_id?: string;
+          deal_id?: string | null;
+          workflow_run_id?: string | null;
+          provider?: string;
+          document_type?: string;
+          provider_client_id?: string | null;
+          provider_quote_id?: string | null;
+          provider_quote_number?: string | null;
+          provider_quote_url?: string | null;
+          provider_status?: string | null;
+          amount_ht?: number | null;
+          amount_tva?: number | null;
+          amount_ttc?: number | null;
+          currency?: string;
+          metadata?: Record<string, unknown>;
           updated_at?: string;
         }
       >;

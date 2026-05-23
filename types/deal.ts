@@ -43,6 +43,9 @@ export type Deal = {
   updatedAt: string;
   lastAction: string;
   amountEstimate: number;
+  quoteClientType?: "company" | "individual";
+  quotePriceHt?: number;
+  quoteTaxRate?: number;
   ownerName: string;
   priority: DealPriority;
   expectedCloseDate?: string;
