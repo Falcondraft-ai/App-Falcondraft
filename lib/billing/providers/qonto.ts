@@ -57,8 +57,6 @@ function loadQontoCredentialsFromEnv(): QontoCredentials {
   console.info("[Qonto] Credentials loaded from env.", {
     QONTO_API_LOGIN_present: Boolean(apiLogin),
     QONTO_API_SECRET_KEY_present: Boolean(apiSecretKey),
-    login_length: apiLogin?.length ?? 0,
-    secret_length: apiSecretKey?.length ?? 0,
     QONTO_API_BASE_URL: baseUrl,
   });
 
@@ -117,30 +115,137 @@ async function qontoRequest<T>(
   return data as T;
 }
 
+function normalizeIdentifier(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 async function findOrCreateQontoClient(
   credentials: QontoCredentials,
   client: CreateQuoteRequest["client"],
-): Promise<QontoClientResponse> {
+): Promise<{ qontoClient: QontoClientResponse; matchStrategy: string }> {
   const { tax_identification_number: tva, email, name, client_type } = client;
   const clientKind = client_type === "individual" ? "individual" : "company";
 
-  try {
-    const searchParam = tva ? encodeURIComponent(tva) : encodeURIComponent(name);
-    const searchResult = await qontoRequest<{
-      clients: QontoClientResponse[];
-    }>(
-      credentials,
-      `/v2/clients?search=${searchParam}`,
-      "GET",
-    );
-
-    if (searchResult.clients?.length > 0) {
-      return searchResult.clients[0];
+  if (client_type === "company") {
+    // ── Company matching ──────────────────────────────────────
+    // Require tax_identification_number (enforced by validation).
+    // Search/reuse only on exact tax_identification_number match.
+    // Never reuse based on name alone.
+    if (!tva || tva.trim().length === 0) {
+      throw new Error(
+        "tax_identification_number est requis pour les clients de type company.",
+      );
     }
-  } catch {
-    // Search failed; try creation below.
+
+    const searchParam = encodeURIComponent(tva.trim());
+
+    try {
+      const searchResult = await qontoRequest<{
+        clients: QontoClientResponse[];
+      }>(credentials, `/v2/clients?search=${searchParam}`, "GET");
+
+      const normalizedTva = normalizeIdentifier(tva);
+      const exactMatch = (searchResult.clients ?? []).find(
+        (c) =>
+          normalizeIdentifier(c.tax_identification_number) === normalizedTva,
+      );
+
+      if (exactMatch) {
+        console.info("[Qonto] Client reused (company).", {
+          match_strategy: "tax_identification_number_exact",
+          action: "reused",
+          client_type: "company",
+          client_id: exactMatch.id,
+          client_name: exactMatch.name,
+        });
+        return { qontoClient: exactMatch, matchStrategy: "tax_identification_number_exact" };
+      }
+    } catch {
+      // Search failed; create new below.
+    }
+
+    console.info("[Qonto] Creating new Qonto client (company).", {
+      match_strategy: "created_new",
+      action: "created",
+      client_type: "company",
+      client_name: name,
+    });
+  } else {
+    // ── Individual matching ───────────────────────────────────
+    // Do not use tax_identification_number.
+    // Search/reuse only on exact email match.
+    // If multiple email matches, also require exact name match.
+    // Never reuse based on name alone.
+    const searchQuery = email || name;
+    const searchParam = encodeURIComponent(searchQuery);
+
+    try {
+      const searchResult = await qontoRequest<{
+        clients: QontoClientResponse[];
+      }>(credentials, `/v2/clients?search=${searchParam}`, "GET");
+
+      const normalizedEmail = normalizeIdentifier(email);
+      const emailMatches = (searchResult.clients ?? []).filter(
+        (c) => normalizeIdentifier(c.email) === normalizedEmail,
+      );
+
+      if (emailMatches.length === 1) {
+        console.info("[Qonto] Client reused (individual).", {
+          match_strategy: "email_exact",
+          action: "reused",
+          client_type: "individual",
+          client_id: emailMatches[0].id,
+          client_name: emailMatches[0].name,
+        });
+        return { qontoClient: emailMatches[0], matchStrategy: "email_exact" };
+      }
+
+      if (emailMatches.length > 1) {
+        // Multiple clients share the same email.
+        // Require exact name match as additional disambiguation.
+        const normalizedName = name.trim().toLowerCase();
+        const nameMatch = emailMatches.find(
+          (c) => (c.name ?? "").trim().toLowerCase() === normalizedName,
+        );
+
+        if (nameMatch) {
+          console.info("[Qonto] Client reused (individual, email+name).", {
+            match_strategy: "email_exact",
+            action: "reused",
+            client_type: "individual",
+            client_id: nameMatch.id,
+            client_name: nameMatch.name,
+          });
+          return { qontoClient: nameMatch, matchStrategy: "email_exact" };
+        }
+
+        console.info(
+          "[Qonto] Multiple email matches but no name match. Creating new client (individual).",
+          {
+            match_strategy: "created_new",
+            action: "created",
+            client_type: "individual",
+            email_match_count: emailMatches.length,
+            requested_name: name,
+          },
+        );
+        // Fall through to creation below.
+      } else {
+        // No email match found (search returned no results or no exact email match).
+      }
+    } catch {
+      // Search failed; create new below.
+    }
+
+    console.info("[Qonto] Creating new Qonto client (individual).", {
+      match_strategy: "created_new",
+      action: "created",
+      client_type: "individual",
+      client_name: name,
+    });
   }
 
+  // ── Create new Qonto client ─────────────────────────────────
   const clientPayload: Record<string, unknown> = {
     kind: clientKind,
     name,
@@ -166,7 +271,7 @@ async function findOrCreateQontoClient(
     { client: clientPayload },
   );
 
-  return newClient.client;
+  return { qontoClient: newClient.client, matchStrategy: "created_new" };
 }
 
 function computeAmounts(
@@ -448,7 +553,10 @@ export async function createQontoQuote(
     parsed.organization_id,
   );
 
-  const qontoClient = await findOrCreateQontoClient(credentials, parsed.client);
+  const { qontoClient, matchStrategy } = await findOrCreateQontoClient(
+    credentials,
+    parsed.client,
+  );
 
   const amounts = computeAmounts(parsed.quote.items);
   const issueDate = todayISO();
@@ -521,6 +629,7 @@ export async function createQontoQuote(
       metadata: {
         qonto_client_name: qontoClient.name,
         qonto_client_email: qontoClient.email,
+        qonto_client_match_strategy: matchStrategy,
         validity_days: parsed.quote.validity_days ?? 30,
         issue_date: issueDate,
         expiry_date: expiryDate,
