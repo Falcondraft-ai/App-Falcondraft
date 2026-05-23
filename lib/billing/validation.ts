@@ -54,6 +54,16 @@ const quoteClientSchema = z.object({
     .trim()
     .optional()
     .superRefine(noPlaceholder),
+  first_name: z
+    .string()
+    .trim()
+    .optional()
+    .superRefine(noPlaceholder),
+  last_name: z
+    .string()
+    .trim()
+    .optional()
+    .superRefine(noPlaceholder),
   billing_address: billingAddressSchema,
 }).superRefine((data, ctx) => {
   if (data.client_type === "company") {
@@ -67,6 +77,24 @@ const quoteClientSchema = z.object({
           "Le numéro de TVA / SIRET du client est obligatoire pour les entreprises.",
         path: ["tax_identification_number"],
       });
+    }
+  }
+
+  if (data.client_type === "individual") {
+    const hasExplicitNames = Boolean(
+      data.first_name?.trim() && data.last_name?.trim(),
+    );
+
+    if (!hasExplicitNames) {
+      const nameWords = data.name.trim().split(/\s+/);
+      if (nameWords.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "Pour un particulier, le nom doit contenir au moins un prénom et un nom (ex: \"Sabine Moulard\").",
+          path: ["name"],
+        });
+      }
     }
   }
 });

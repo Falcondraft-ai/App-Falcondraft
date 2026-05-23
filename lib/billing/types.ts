@@ -39,6 +39,8 @@ export interface QuoteClient {
   name: string;
   email: string;
   tax_identification_number?: string;
+  first_name?: string;
+  last_name?: string;
   billing_address: BillingAddress;
 }
 
@@ -83,7 +85,9 @@ export interface QuoteResponse {
 
 export interface QontoClientResponse {
   id: string;
-  name: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   kind: string;
   currency: string;

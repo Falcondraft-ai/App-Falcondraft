@@ -119,6 +119,30 @@ function normalizeIdentifier(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function qontoClientDisplayName(c: QontoClientResponse): string {
+  return (
+    c.name ??
+    ([c.first_name, c.last_name].filter(Boolean).join(" ") ||
+      "")
+  );
+}
+
+function splitIndividualName(
+  fullName: string,
+  first_name?: string,
+  last_name?: string,
+): { first_name: string; last_name: string } {
+  if (first_name?.trim() && last_name?.trim()) {
+    return { first_name: first_name.trim(), last_name: last_name.trim() };
+  }
+
+  const parts = fullName.trim().split(/\s+/);
+  return {
+    first_name: parts[0],
+    last_name: parts.slice(1).join(" ") || ".",
+  };
+}
+
 async function findOrCreateQontoClient(
   credentials: QontoCredentials,
   client: CreateQuoteRequest["client"],
@@ -156,7 +180,7 @@ async function findOrCreateQontoClient(
           action: "reused",
           client_type: "company",
           client_id: exactMatch.id,
-          client_name: exactMatch.name,
+          client_name: qontoClientDisplayName(exactMatch),
         });
         return { qontoClient: exactMatch, matchStrategy: "tax_identification_number_exact" };
       }
@@ -195,7 +219,7 @@ async function findOrCreateQontoClient(
           action: "reused",
           client_type: "individual",
           client_id: emailMatches[0].id,
-          client_name: emailMatches[0].name,
+          client_name: qontoClientDisplayName(emailMatches[0]),
         });
         return { qontoClient: emailMatches[0], matchStrategy: "email_exact" };
       }
@@ -205,7 +229,7 @@ async function findOrCreateQontoClient(
         // Require exact name match as additional disambiguation.
         const normalizedName = name.trim().toLowerCase();
         const nameMatch = emailMatches.find(
-          (c) => (c.name ?? "").trim().toLowerCase() === normalizedName,
+          (c) => qontoClientDisplayName(c).trim().toLowerCase() === normalizedName,
         );
 
         if (nameMatch) {
@@ -214,7 +238,7 @@ async function findOrCreateQontoClient(
             action: "reused",
             client_type: "individual",
             client_id: nameMatch.id,
-            client_name: nameMatch.name,
+            client_name: qontoClientDisplayName(nameMatch),
           });
           return { qontoClient: nameMatch, matchStrategy: "email_exact" };
         }
@@ -226,7 +250,6 @@ async function findOrCreateQontoClient(
             action: "created",
             client_type: "individual",
             email_match_count: emailMatches.length,
-            requested_name: name,
           },
         );
         // Fall through to creation below.
@@ -241,14 +264,12 @@ async function findOrCreateQontoClient(
       match_strategy: "created_new",
       action: "created",
       client_type: "individual",
-      client_name: name,
     });
   }
 
   // ── Create new Qonto client ─────────────────────────────────
   const clientPayload: Record<string, unknown> = {
-    kind: clientKind,
-    name,
+    type: clientKind,
     email,
     billing_address: {
       street_address: client.billing_address.street_address,
@@ -260,8 +281,24 @@ async function findOrCreateQontoClient(
     locale: "fr",
   };
 
-  if (tva && tva.trim().length > 0) {
-    clientPayload.tax_identification_number = tva.trim();
+  if (client_type === "company") {
+    // Company: send name + tax_identification_number
+    clientPayload.name = name;
+
+    if (tva && tva.trim().length > 0) {
+      clientPayload.tax_identification_number = tva.trim();
+    }
+  } else {
+    // Individual: split name into first_name + last_name
+    // Do NOT send name (Qonto rejects it for individuals)
+    // Do NOT send tax_identification_number
+    const individualNames = splitIndividualName(
+      name,
+      client.first_name,
+      client.last_name,
+    );
+    clientPayload.first_name = individualNames.first_name;
+    clientPayload.last_name = individualNames.last_name;
   }
 
   const newClient = await qontoRequest<{ client: QontoClientResponse }>(
@@ -627,7 +664,7 @@ export async function createQontoQuote(
       amount_ttc: amounts.amount_ttc,
       currency: qontoQuote.currency,
       metadata: {
-        qonto_client_name: qontoClient.name,
+        qonto_client_name: qontoClient.name ?? ([qontoClient.first_name, qontoClient.last_name].filter(Boolean).join(" ") || qontoClient.id),
         qonto_client_email: qontoClient.email,
         qonto_client_match_strategy: matchStrategy,
         validity_days: parsed.quote.validity_days ?? 30,
