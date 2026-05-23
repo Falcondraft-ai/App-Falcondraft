@@ -301,11 +301,25 @@ async function findOrCreateQontoClient(
     clientPayload.last_name = individualNames.last_name;
   }
 
+  // Qonto expects flat request body (same pattern as /v2/quotes).
+  // Response is wrapped: { client: QontoClientResponse }.
+  if (process.env.NODE_ENV === "development") {
+    console.info("[Qonto] Client create payload shape.", {
+      client_type,
+      payload_keys: Object.keys(clientPayload),
+      has_type: Object.prototype.hasOwnProperty.call(clientPayload, "type"),
+      has_first_name: Object.prototype.hasOwnProperty.call(clientPayload, "first_name"),
+      has_last_name: Object.prototype.hasOwnProperty.call(clientPayload, "last_name"),
+      has_name: Object.prototype.hasOwnProperty.call(clientPayload, "name"),
+      has_tax_identification_number: Object.prototype.hasOwnProperty.call(clientPayload, "tax_identification_number"),
+    });
+  }
+
   const newClient = await qontoRequest<{ client: QontoClientResponse }>(
     credentials,
     "/v2/clients",
     "POST",
-    { client: clientPayload },
+    clientPayload,
   );
 
   return { qontoClient: newClient.client, matchStrategy: "created_new" };
