@@ -56,7 +56,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   ]);
 
   const quoteDocument = documents.find(
-    (document) => document.type === "quote_pdf",
+    (document) => document.type === "quote_pdf" || document.type === "billing_quote",
   );
   const finalDocument = documents.find(
     (document) => document.type === "final_document_pdf",
