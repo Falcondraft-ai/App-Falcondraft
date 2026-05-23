@@ -54,6 +54,14 @@ function loadQontoCredentialsFromEnv(): QontoCredentials {
   const baseUrl =
     process.env.QONTO_API_BASE_URL || "https://thirdparty.qonto.com";
 
+  console.info("[Qonto] Credentials loaded from env.", {
+    QONTO_API_LOGIN_present: Boolean(apiLogin),
+    QONTO_API_SECRET_KEY_present: Boolean(apiSecretKey),
+    login_length: apiLogin?.length ?? 0,
+    secret_length: apiSecretKey?.length ?? 0,
+    QONTO_API_BASE_URL: baseUrl,
+  });
+
   if (!apiLogin || !apiSecretKey) {
     throw new Error(
       "QONTO_API_LOGIN et QONTO_API_SECRET_KEY sont requis (aucune billing_connection Qonto trouvée).",
