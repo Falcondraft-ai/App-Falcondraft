@@ -23,6 +23,7 @@ export type OrganizationRow = {
   allow_member_company_visibility: boolean;
   default_quote_client_type: string;
   default_quote_tax_rate: number;
+  default_billing_provider: string;
   created_at: string;
 };
 
@@ -153,6 +154,8 @@ export type BillingConnectionRow = {
   encrypted_credentials: Record<string, unknown>;
   provider_account_id: string | null;
   metadata: Record<string, unknown>;
+  last_tested_at: string | null;
+  last_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -411,6 +414,7 @@ export type Database = {
           allow_member_company_visibility?: boolean;
           default_quote_client_type?: string;
           default_quote_tax_rate?: number;
+          default_billing_provider?: string;
           created_at?: string;
         },
         {
@@ -423,6 +427,7 @@ export type Database = {
           allow_member_company_visibility?: boolean;
           default_quote_client_type?: string;
           default_quote_tax_rate?: number;
+          default_billing_provider?: string;
           created_at?: string;
         }
       >;
@@ -582,6 +587,8 @@ export type Database = {
           encrypted_credentials: Record<string, unknown>;
           provider_account_id?: string | null;
           metadata?: Record<string, unknown>;
+          last_tested_at?: string | null;
+          last_error?: string | null;
           created_at?: string;
           updated_at?: string;
         },
@@ -594,6 +601,8 @@ export type Database = {
           encrypted_credentials?: Record<string, unknown>;
           provider_account_id?: string | null;
           metadata?: Record<string, unknown>;
+          last_tested_at?: string | null;
+          last_error?: string | null;
           updated_at?: string;
         }
       >;

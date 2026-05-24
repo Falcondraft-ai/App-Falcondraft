@@ -33,22 +33,11 @@ export const organizations = pgTable("organizations", {
     })
       .default(20)
       .notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const profiles = pgTable(
-  "profiles",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull(),
-    fullName: text("full_name"),
-    email: text("email").notNull(),
+    defaultBillingProvider: text("default_billing_provider")
+      .default("qonto")
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => ({
-    userIdx: uniqueIndex("profiles_user_id_idx").on(table.userId),
-    emailIdx: uniqueIndex("profiles_email_idx").on(table.email),
-  }),
 );
 
 export const organizationMembers = pgTable(
@@ -314,6 +303,8 @@ export const billingConnections = pgTable(
     encryptedCredentials: jsonb("encrypted_credentials").notNull(),
     providerAccountId: text("provider_account_id"),
     metadata: jsonb("metadata").default({}).notNull(),
+    lastTestedAt: timestamp("last_tested_at", { withTimezone: true }),
+    lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

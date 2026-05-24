@@ -172,3 +172,42 @@ export const createQuoteRequestSchema = z
   });
 
 export type CreateQuoteRequest = z.infer<typeof createQuoteRequestSchema>;
+
+const QONTO_API_BASE_URL_DEFAULT = "https://thirdparty.qonto.com";
+
+export const billingProviderConfigRequestSchema = z
+  .object({
+    provider: z.enum(["none", "qonto"]),
+    qonto: z
+      .object({
+        api_login: z
+          .string()
+          .trim()
+          .min(1, "Le login API Qonto est requis."),
+        api_secret_key: z
+          .string()
+          .min(1, "La clé secrète Qonto est requise."),
+        api_base_url: z
+          .string()
+          .trim()
+          .url("L'URL de base API Qonto est invalide.")
+          .default(QONTO_API_BASE_URL_DEFAULT)
+          .optional(),
+      })
+      .optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.provider === "qonto" && !data.qonto) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Les identifiants Qonto sont requis lorsque le provider Qonto est sélectionné.",
+        path: ["qonto"],
+      });
+    }
+  });
+
+export type BillingProviderConfigRequest = z.infer<
+  typeof billingProviderConfigRequestSchema
+>;

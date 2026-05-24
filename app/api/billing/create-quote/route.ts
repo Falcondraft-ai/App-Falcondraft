@@ -55,7 +55,7 @@ async function verifyOrganizationExists(
 ): Promise<void> {
   const { data, error } = await adminSupabase
     .from("organizations")
-    .select("id")
+    .select("id, default_billing_provider")
     .eq("id", organizationId)
     .maybeSingle();
 
@@ -63,6 +63,15 @@ async function verifyOrganizationExists(
     throw Object.assign(
       new Error("Organisation introuvable."),
       { status: 404, reason: "organization_not_found" },
+    );
+  }
+
+  if (data.default_billing_provider === "none") {
+    throw Object.assign(
+      new Error(
+        "La création de devis n'est pas configurée pour cet espace. Contactez un gestionnaire pour activer un provider de facturation.",
+      ),
+      { status: 400, reason: "billing_not_configured" },
     );
   }
 }

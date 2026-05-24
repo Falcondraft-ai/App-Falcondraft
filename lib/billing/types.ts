@@ -106,3 +106,38 @@ export interface QontoQuoteResponse {
   amount_ttc: string;
   currency: string;
 }
+
+export type BillingProviderChoice = "none" | "qonto";
+
+export interface QontoConfigInput {
+  api_login: string;
+  api_secret_key: string;
+  api_base_url?: string;
+}
+
+export interface BillingProviderConfigRequest {
+  provider: BillingProviderChoice;
+  qonto?: QontoConfigInput;
+}
+
+export interface BillingProviderConfigResponse {
+  provider: BillingProviderChoice;
+  qonto?: {
+    status: "non_configuré" | "connecté" | "erreur";
+    masked_login: string;
+    last_tested_at: string | null;
+    last_error: string | null;
+    provider_account_id: string | null;
+  };
+}
+
+export interface QontoOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  bank_accounts: Array<{
+    slug: string;
+    iban: string;
+    bic: string;
+  }>;
+}

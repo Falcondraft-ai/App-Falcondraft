@@ -15,6 +15,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { ActionCard } from "@/components/common/action-card";
 import { PasswordVisibilityToggle } from "@/components/auth/password-visibility-toggle";
+import { InternalAdminBillingProvider } from "@/components/admin/internal-admin-billing-provider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1365,6 +1366,11 @@ export function InternalAdminConsole({
                               </div>
                             </section>
                           </div>
+
+                          <InternalAdminBillingProvider
+                            organizationId={organization.id}
+                            visible={isExpanded}
+                          />
 
                           <section className="space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,9 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import {
-  decryptBillingCredentials,
-  type EncryptedPayload,
-} from "@/lib/billing/crypto";
+  loadQontoCredentials,
+} from "@/lib/billing/credentials";
 import type {
   CreateQuoteRequest,
   QuoteResponse,
@@ -11,63 +10,6 @@ import type {
   QontoClientResponse,
 } from "@/lib/billing/types";
 import { createQuoteRequestSchema } from "@/lib/billing/validation";
-
-function loadQontoCredentials(
-  adminSupabase: SupabaseClient<Database>,
-  organizationId: string,
-): Promise<QontoCredentials> {
-  return loadQontoCredentialsFromDb(adminSupabase, organizationId).catch(
-    () => loadQontoCredentialsFromEnv(),
-  );
-}
-
-async function loadQontoCredentialsFromDb(
-  adminSupabase: SupabaseClient<Database>,
-  organizationId: string,
-): Promise<QontoCredentials> {
-  const { data, error } = await adminSupabase
-    .from("billing_connections")
-    .select("encrypted_credentials, provider_account_id")
-    .eq("organization_id", organizationId)
-    .eq("provider", "qonto")
-    .eq("status", "connected")
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error("Aucune connexion Qonto trouvée pour cette organisation.");
-  }
-
-  const decrypted = decryptBillingCredentials(
-    data.encrypted_credentials as unknown as EncryptedPayload,
-  );
-
-  return {
-    api_login: decrypted.api_login,
-    api_secret_key: decrypted.api_secret_key,
-    base_url: decrypted.base_url || "https://thirdparty.qonto.com",
-  };
-}
-
-function loadQontoCredentialsFromEnv(): QontoCredentials {
-  const apiLogin = process.env.QONTO_API_LOGIN;
-  const apiSecretKey = process.env.QONTO_API_SECRET_KEY;
-  const baseUrl =
-    process.env.QONTO_API_BASE_URL || "https://thirdparty.qonto.com";
-
-  console.info("[Qonto] Credentials loaded from env.", {
-    QONTO_API_LOGIN_present: Boolean(apiLogin),
-    QONTO_API_SECRET_KEY_present: Boolean(apiSecretKey),
-    QONTO_API_BASE_URL: baseUrl,
-  });
-
-  if (!apiLogin || !apiSecretKey) {
-    throw new Error(
-      "QONTO_API_LOGIN et QONTO_API_SECRET_KEY sont requis (aucune billing_connection Qonto trouvée).",
-    );
-  }
-
-  return { api_login: apiLogin, api_secret_key: apiSecretKey, base_url: baseUrl };
-}
 
 function qontoAuthHeader(credentials: QontoCredentials): string {
   return `${credentials.api_login}:${credentials.api_secret_key}`;
