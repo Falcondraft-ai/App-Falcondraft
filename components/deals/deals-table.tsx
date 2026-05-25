@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Archive, Ellipsis, RotateCcw, Search, Trash2 } from "lucide-react";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
+import { MarkEmailSentButton } from "@/components/deals/mark-email-sent-button";
 import { useI18n } from "@/components/i18n/language-provider";
 import {
   AlertDialog,
@@ -268,6 +269,13 @@ export function DealsTable({
               <TableCell>{formatDate(deal.updatedAt)}</TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1.5">
+                  {deal.status === "email_draft_ready" ? (
+                    <MarkEmailSentButton
+                      dealId={deal.id}
+                      variant="compact"
+                      stopPropagation
+                    />
+                  ) : null}
                   <Button
                     asChild
                     variant="outline"

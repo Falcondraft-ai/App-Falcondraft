@@ -3,40 +3,87 @@ import type { DealStatus } from "@/types/deal";
 import { cn } from "@/lib/utils";
 import type { TranslationKey } from "@/lib/i18n/translations";
 
-const indicatorTone: Record<DealStatus, string> = {
-  draft: "bg-[var(--muted-foreground)]/55",
-  call_summary_ready: "bg-[var(--muted-foreground)]/70",
-  proposal_generating: "bg-amber-500",
-  proposal_ready: "bg-[var(--accent)]",
-  validation_pending: "bg-[var(--accent)]",
-  final_document_generating: "bg-amber-500",
-  final_document_ready: "bg-emerald-600",
-  signature_ready: "bg-emerald-600",
-  email_draft_ready: "bg-[var(--accent)]",
-  completed: "bg-emerald-600",
-  failed: "bg-red-600",
+type StatusFamily = "draft" | "review" | "sent" | "signed" | "archived" | "error";
+
+const statusFamily: Record<DealStatus, StatusFamily> = {
+  draft: "draft",
+  call_summary_ready: "draft",
+  proposal_generating: "draft",
+  proposal_ready: "review",
+  validation_pending: "review",
+  final_document_generating: "review",
+  final_document_ready: "sent",
+  signature_ready: "sent",
+  email_draft_ready: "sent",
+  completed: "signed",
+  failed: "error",
+};
+
+const familyTokens: Record<
+  StatusFamily,
+  { fg: string; bg: string; bd: string }
+> = {
+  draft: {
+    fg: "var(--status-draft-fg)",
+    bg: "var(--status-draft-bg)",
+    bd: "var(--status-draft-bd)",
+  },
+  review: {
+    fg: "var(--status-review-fg)",
+    bg: "var(--status-review-bg)",
+    bd: "var(--status-review-bd)",
+  },
+  sent: {
+    fg: "var(--status-sent-fg)",
+    bg: "var(--status-sent-bg)",
+    bd: "var(--status-sent-bd)",
+  },
+  signed: {
+    fg: "var(--status-signed-fg)",
+    bg: "var(--status-signed-bg)",
+    bd: "var(--status-signed-bd)",
+  },
+  archived: {
+    fg: "var(--status-archived-fg)",
+    bg: "var(--status-archived-bg)",
+    bd: "var(--status-archived-bd)",
+  },
+  error: {
+    fg: "var(--status-error-fg)",
+    bg: "var(--status-error-bg)",
+    bd: "var(--status-error-bd)",
+  },
 };
 
 export function DealStatusBadge({
   status,
   className,
+  showDot = true,
 }: {
   status: DealStatus;
   className?: string;
+  showDot?: boolean;
 }) {
+  const tokens = familyTokens[statusFamily[status]];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-xs font-medium",
-        "bg-[var(--accent-soft)] text-[var(--accent-foreground)]",
-        "border-[rgba(184,146,42,0.2)]",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[11px] font-semibold leading-none",
         className,
       )}
+      style={{
+        color: tokens.fg,
+        background: tokens.bg,
+        borderColor: tokens.bd,
+      }}
     >
-      <span
-        className={cn("h-1.5 w-1.5 rounded-[1px]", indicatorTone[status])}
-        aria-hidden="true"
-      />
+      {showDot ? (
+        <span
+          aria-hidden
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ background: "currentColor" }}
+        />
+      ) : null}
       <T tx={`dealStatus.${status}` as TranslationKey} />
     </span>
   );

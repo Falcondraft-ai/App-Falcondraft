@@ -1,11 +1,17 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(mkdir -p /tmp/design-extract)",
+      "Bash(cp \"/home/timde/.claude/projects/-home-timde-code-falcondraft-app/ec81d405-08f8-48f2-af3a-bc99d7804758/tool-results/webfetch-1779741180960-s0d8im.bin\" /tmp/design-extract/design.gz)",
+      "Read(//tmp/**)",
+      "Bash(gunzip -k design.gz)",
+      "Bash(tar -xf design)"
+    ]
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase"
-  ],
-  "permissions": {
-    "allow": [
-      "Bash(npx tsc *)"
-    ]
-  }
+  ]
 }

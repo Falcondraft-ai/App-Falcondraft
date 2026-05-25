@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import type { ActivityEvent } from "@/types/activity";
 import { useI18n } from "@/components/i18n/language-provider";
@@ -45,8 +47,17 @@ function workflowTitleKey(title: string): TranslationKey | null {
   return null;
 }
 
-export function ActivityLog({ items }: { items: ActivityEvent[] }) {
+export function ActivityLog({
+  items,
+  collapsible = false,
+  initialCount = 3,
+}: {
+  items: ActivityEvent[];
+  collapsible?: boolean;
+  initialCount?: number;
+}) {
   const { t } = useI18n();
+  const [expanded, setExpanded] = React.useState(false);
 
   if (items.length === 0) {
     return (
@@ -55,6 +66,11 @@ export function ActivityLog({ items }: { items: ActivityEvent[] }) {
       </p>
     );
   }
+
+  const shouldCollapse = collapsible && items.length > initialCount;
+  const visibleItems =
+    shouldCollapse && !expanded ? items.slice(0, initialCount) : items;
+  const hiddenCount = items.length - initialCount;
 
   function formatTitle(item: ActivityEvent) {
     const workflowKey = workflowTitleKey(item.title);
@@ -97,28 +113,55 @@ export function ActivityLog({ items }: { items: ActivityEvent[] }) {
   }
 
   return (
-    <ol className="divide-y">
-      {items.map((item) => (
-        <li
-          key={item.id}
-          className="hover:bg-muted/20 py-3 transition-colors first:pt-0 last:pb-0"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">{formatTitle(item)}</p>
-              <p className="text-muted-foreground mt-1 text-sm leading-5">
-                {formatDescription(item)}
-              </p>
+    <div className="space-y-3">
+      <ol className="divide-y">
+        {visibleItems.map((item) => (
+          <li
+            key={item.id}
+            className="hover:bg-muted/20 py-3 transition-colors first:pt-0 last:pb-0"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">{formatTitle(item)}</p>
+                <p className="text-muted-foreground mt-1 text-sm leading-5">
+                  {formatDescription(item)}
+                </p>
+              </div>
+              <time className="text-muted-foreground shrink-0 text-xs">
+                {formatDateTime(item.createdAt)}
+              </time>
             </div>
-            <time className="text-muted-foreground shrink-0 text-xs">
-              {formatDateTime(item.createdAt)}
-            </time>
-          </div>
-          <p className="text-muted-foreground mt-2 text-xs">
-            {formatActor(item.actorName)}
-          </p>
-        </li>
-      ))}
-    </ol>
+            <p className="text-muted-foreground mt-2 text-xs">
+              {formatActor(item.actorName)}
+            </p>
+          </li>
+        ))}
+      </ol>
+      {shouldCollapse ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="inline-flex w-full items-center justify-center gap-1 rounded-md border px-3 py-2 text-[12.5px] font-semibold transition-colors"
+          style={{
+            background: "var(--brand-navy-50)",
+            borderColor: "var(--border-1)",
+            color: "var(--brand-navy-700)",
+          }}
+        >
+          {expanded ? (
+            <>
+              Réduire
+              <ChevronUp className="size-3.5" strokeWidth={2} />
+            </>
+          ) : (
+            <>
+              Voir {hiddenCount} événement{hiddenCount > 1 ? "s" : ""}{" "}
+              de plus
+              <ChevronDown className="size-3.5" strokeWidth={2} />
+            </>
+          )}
+        </button>
+      ) : null}
+    </div>
   );
 }

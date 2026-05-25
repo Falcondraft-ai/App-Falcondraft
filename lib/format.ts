@@ -28,3 +28,14 @@ export function formatDateTime(date: string): string {
 export function formatCurrency(amount: number): string {
   return euroFormatter.format(amount);
 }
+
+const frenchLongDateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+export function formatLongDate(date: Date): string {
+  return frenchLongDateFormatter.format(date);
+}

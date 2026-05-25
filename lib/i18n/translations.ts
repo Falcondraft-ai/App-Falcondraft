@@ -137,6 +137,14 @@ export type TranslationKey =
   | "nav.internalAdmin"
   | "nav.internalBadge"
   | "nav.prospection"
+  | "nav.quotes"
+  | "nav.clients"
+  | "nav.coach"
+  | "nav.workflows"
+  | "nav.comingSoon"
+  | "common.comingSoon.title"
+  | "common.comingSoon.description"
+  | "common.comingSoon.badge"
   | "prospection.title"
   | "prospection.subtitle"
   | "prospection.eyebrow"
@@ -309,6 +317,10 @@ export type TranslationKey =
   | "shell.helpDescription"
   | "shell.signOut"
   | "shell.signOutSuccess"
+  | "shell.topbar.workspace"
+  | "shell.topbar.searchPlaceholder"
+  | "shell.topbar.notifications"
+  | "shell.topbar.create"
   | "support.eyebrow"
   | "support.title"
   | "support.description"
@@ -378,6 +390,24 @@ export type TranslationKey =
   | "dashboard.stats.pipelineValueDetail"
   | "dashboard.stats.attention"
   | "dashboard.stats.attentionDetail"
+  | "dashboard.stats.signatureRate"
+  | "dashboard.stats.signatureRateDetail"
+  | "dashboard.stats.pipelineOpen"
+  | "dashboard.stats.activeProposals"
+  | "dashboard.stats.readyToSend"
+  | "dashboard.pipeline.title"
+  | "dashboard.pipeline.viewAll"
+  | "dashboard.pipeline.total"
+  | "dashboard.pipeline.range.week"
+  | "dashboard.pipeline.range.month"
+  | "dashboard.pipeline.range.quarter"
+  | "dashboard.pipeline.stages.draft"
+  | "dashboard.pipeline.stages.review"
+  | "dashboard.pipeline.stages.sent"
+  | "dashboard.pipeline.stages.signed"
+  | "dashboard.followUp.title"
+  | "dashboard.followUp.empty"
+  | "dashboard.followUp.viewAll"
   | "dashboard.recentDeals.title"
   | "dashboard.recentDeals.description"
   | "dashboard.featured.title"
@@ -848,6 +878,15 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internalAdmin": "Admin interne",
     "nav.internalBadge": "Interne",
     "nav.prospection": "Prospection",
+    "nav.quotes": "Devis",
+    "nav.clients": "Clients",
+    "nav.coach": "Coach IA",
+    "nav.workflows": "Workflows",
+    "nav.comingSoon": "À venir",
+    "common.comingSoon.title": "Fonctionnalité à venir",
+    "common.comingSoon.description":
+      "Cette section sera disponible dans une prochaine mise à jour. Vous serez prévenu dès qu'elle sera activée pour votre espace.",
+    "common.comingSoon.badge": "Bientôt disponible",
     "prospection.title": "Prospection",
     "prospection.subtitle": "Gestion interne des leads FalconDraft",
     "prospection.eyebrow": "Interne",
@@ -1044,6 +1083,11 @@ export const translations: Record<Language, Dictionary> = {
     "shell.helpDescription": "Ouvrir le centre d’aide et de support.",
     "shell.signOut": "Déconnexion",
     "shell.signOutSuccess": "Session fermée",
+    "shell.topbar.workspace": "Espace",
+    "shell.topbar.searchPlaceholder":
+      "Rechercher un client, une proposition, un document…",
+    "shell.topbar.notifications": "Notifications",
+    "shell.topbar.create": "Créer",
     "support.eyebrow": "Support",
     "support.title": "Aide & support FalconDraft",
     "support.description":
@@ -1138,6 +1182,24 @@ export const translations: Record<Language, Dictionary> = {
     "dashboard.stats.pipelineValueDetail": "Pipeline en cours",
     "dashboard.stats.attention": "Nécessitent votre attention",
     "dashboard.stats.attentionDetail": "Validation, document ou erreur",
+    "dashboard.stats.signatureRate": "Taux de signature",
+    "dashboard.stats.signatureRateDetail": "Sur 30 derniers jours",
+    "dashboard.stats.pipelineOpen": "Pipeline ouvert",
+    "dashboard.stats.activeProposals": "Propositions actives",
+    "dashboard.stats.readyToSend": "Prêt à envoyer",
+    "dashboard.pipeline.title": "Pipeline par étape",
+    "dashboard.pipeline.viewAll": "Voir le détail",
+    "dashboard.pipeline.total": "Total pipeline",
+    "dashboard.pipeline.range.week": "7 j",
+    "dashboard.pipeline.range.month": "30 j",
+    "dashboard.pipeline.range.quarter": "Trim.",
+    "dashboard.pipeline.stages.draft": "Brouillon",
+    "dashboard.pipeline.stages.review": "En revue",
+    "dashboard.pipeline.stages.sent": "Envoyée",
+    "dashboard.pipeline.stages.signed": "Signée",
+    "dashboard.followUp.title": "Dossiers à suivre",
+    "dashboard.followUp.empty": "Aucun dossier ne demande votre attention.",
+    "dashboard.followUp.viewAll": "Tous les dossiers",
     "dashboard.recentDeals.title": "Dossiers récents",
     "dashboard.recentDeals.description": "À traiter en priorité",
     "dashboard.featured.title": "Dossier à suivre",
@@ -1657,6 +1719,15 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internalAdmin": "Internal admin",
     "nav.internalBadge": "Internal",
     "nav.prospection": "Prospection",
+    "nav.quotes": "Quotes",
+    "nav.clients": "Clients",
+    "nav.coach": "AI Coach",
+    "nav.workflows": "Workflows",
+    "nav.comingSoon": "Coming soon",
+    "common.comingSoon.title": "Feature coming soon",
+    "common.comingSoon.description":
+      "This section will be available in a future update. You'll be notified once it's activated for your workspace.",
+    "common.comingSoon.badge": "Coming soon",
     "prospection.title": "Prospection",
     "prospection.subtitle": "Internal FalconDraft lead management",
     "prospection.eyebrow": "Internal",
@@ -1852,6 +1923,11 @@ export const translations: Record<Language, Dictionary> = {
     "shell.helpDescription": "Open the help and support center.",
     "shell.signOut": "Sign out",
     "shell.signOutSuccess": "Session closed",
+    "shell.topbar.workspace": "Workspace",
+    "shell.topbar.searchPlaceholder":
+      "Search clients, proposals, documents…",
+    "shell.topbar.notifications": "Notifications",
+    "shell.topbar.create": "Create",
     "support.eyebrow": "Support",
     "support.title": "FalconDraft help & support",
     "support.description":
@@ -1944,6 +2020,24 @@ export const translations: Record<Language, Dictionary> = {
     "dashboard.stats.pipelineValueDetail": "Current pipeline",
     "dashboard.stats.attention": "Need attention",
     "dashboard.stats.attentionDetail": "Approval, document, or error",
+    "dashboard.stats.signatureRate": "Signature rate",
+    "dashboard.stats.signatureRateDetail": "Over the last 30 days",
+    "dashboard.stats.pipelineOpen": "Open pipeline",
+    "dashboard.stats.activeProposals": "Active proposals",
+    "dashboard.stats.readyToSend": "Ready to send",
+    "dashboard.pipeline.title": "Pipeline by stage",
+    "dashboard.pipeline.viewAll": "View details",
+    "dashboard.pipeline.total": "Total pipeline",
+    "dashboard.pipeline.range.week": "7 d",
+    "dashboard.pipeline.range.month": "30 d",
+    "dashboard.pipeline.range.quarter": "Quarter",
+    "dashboard.pipeline.stages.draft": "Draft",
+    "dashboard.pipeline.stages.review": "In review",
+    "dashboard.pipeline.stages.sent": "Sent",
+    "dashboard.pipeline.stages.signed": "Signed",
+    "dashboard.followUp.title": "Deals to follow",
+    "dashboard.followUp.empty": "No deal needs your attention.",
+    "dashboard.followUp.viewAll": "All deals",
     "dashboard.recentDeals.title": "Recent deals",
     "dashboard.recentDeals.description": "Priority items",
     "dashboard.featured.title": "Next deal",
@@ -2462,6 +2556,15 @@ export const translations: Record<Language, Dictionary> = {
     "nav.internalAdmin": "Administrador interno",
     "nav.internalBadge": "Interno",
     "nav.prospection": "Prospección",
+    "nav.quotes": "Presupuestos",
+    "nav.clients": "Clientes",
+    "nav.coach": "Coach IA",
+    "nav.workflows": "Flujos",
+    "nav.comingSoon": "Próximamente",
+    "common.comingSoon.title": "Funcionalidad próximamente",
+    "common.comingSoon.description":
+      "Esta sección estará disponible en una próxima actualización. Recibirá un aviso en cuanto se active en su espacio.",
+    "common.comingSoon.badge": "Próximamente",
     "prospection.title": "Prospección",
     "prospection.subtitle": "Gestión interna de leads FalconDraft",
     "prospection.eyebrow": "Interno",
@@ -2663,6 +2766,11 @@ export const translations: Record<Language, Dictionary> = {
     "shell.helpDescription": "Abra el centro de ayuda y soporte.",
     "shell.signOut": "desconectar",
     "shell.signOutSuccess": "Sesión cerrada",
+    "shell.topbar.workspace": "Espacio",
+    "shell.topbar.searchPlaceholder":
+      "Buscar un cliente, propuesta, documento…",
+    "shell.topbar.notifications": "Notificaciones",
+    "shell.topbar.create": "Crear",
     "support.eyebrow": "Apoyo",
     "support.title": "Ayuda y soporte técnico de FalconDraft",
     "support.description":
@@ -2757,6 +2865,24 @@ export const translations: Record<Language, Dictionary> = {
     "dashboard.stats.pipelineValueDetail": "Tubería actual",
     "dashboard.stats.attention": "Requieren atención",
     "dashboard.stats.attentionDetail": "Aprobación, documento o error",
+    "dashboard.stats.signatureRate": "Tasa de firma",
+    "dashboard.stats.signatureRateDetail": "Últimos 30 días",
+    "dashboard.stats.pipelineOpen": "Pipeline abierto",
+    "dashboard.stats.activeProposals": "Propuestas activas",
+    "dashboard.stats.readyToSend": "Listo para enviar",
+    "dashboard.pipeline.title": "Pipeline por etapa",
+    "dashboard.pipeline.viewAll": "Ver detalle",
+    "dashboard.pipeline.total": "Total pipeline",
+    "dashboard.pipeline.range.week": "7 d",
+    "dashboard.pipeline.range.month": "30 d",
+    "dashboard.pipeline.range.quarter": "Trim.",
+    "dashboard.pipeline.stages.draft": "Borrador",
+    "dashboard.pipeline.stages.review": "En revisión",
+    "dashboard.pipeline.stages.sent": "Enviada",
+    "dashboard.pipeline.stages.signed": "Firmada",
+    "dashboard.followUp.title": "Expedientes a seguir",
+    "dashboard.followUp.empty": "Ningún expediente requiere su atención.",
+    "dashboard.followUp.viewAll": "Todos los expedientes",
     "dashboard.recentDeals.title": "Expedientes recientes",
     "dashboard.recentDeals.description": "Prioridad",
     "dashboard.featured.title": "Siguiente acción recomendada",

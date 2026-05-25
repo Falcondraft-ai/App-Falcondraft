@@ -5,6 +5,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { LoadingDots } from "@/components/common/loading-dots";
 import { GeneratedDocumentButtons } from "@/components/deals/generated-documents-panel";
+import { MarkEmailSentButton } from "@/components/deals/mark-email-sent-button";
 import { ProposalValidationDialog } from "@/components/deals/proposal-validation-dialog";
 import { useI18n } from "@/components/i18n/language-provider";
 import {
@@ -790,6 +791,22 @@ export function DealActionPanel({
 
   return (
     <div className="space-y-2">
+      {status === "email_draft_ready" ? (
+        <div
+          className="mb-1 flex flex-col gap-2 rounded-md border p-3"
+          style={{
+            background: "var(--brand-navy-50)",
+            borderColor: "var(--brand-navy-100)",
+          }}
+        >
+          <span className="fd-eyebrow">Dernière étape</span>
+          <p className="text-[12.5px] leading-5 text-[var(--fg-2)]">
+            Marquez l&apos;email comme envoyé une fois que vous l&apos;avez
+            transmis depuis Gmail. Le dossier passera en statut terminé.
+          </p>
+          <MarkEmailSentButton dealId={dealId} />
+        </div>
+      ) : null}
       {dealActions.map((action, index) => {
         const hasReadyFinalDocument = Boolean(
           finalDocument?.hasStoragePath && finalDocument.status === "ready",

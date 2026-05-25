@@ -4,20 +4,24 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
+  Bell,
   ChevronRight,
+  Euro,
   FileText,
   FolderOpen,
   LayoutDashboard,
   Menu,
   Mic,
+  Plus,
+  Search,
   Settings,
   ShieldCheck,
   Target,
+  Workflow,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import * as React from "react";
 import { toast } from "sonner";
-import { BrandMark } from "@/components/common/brand-mark";
 import { useI18n } from "@/components/i18n/language-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -37,6 +41,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import {
   fetchProfilePhotoUrl,
   LEGACY_PROFILE_PHOTO_STORAGE_KEY,
@@ -63,6 +68,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   submenu?: NavSubItem[];
+  comingSoon?: boolean;
 };
 
 type InternalNavItem = {
@@ -163,6 +169,18 @@ function buildPrimaryNavItems(
           highlight: true,
         },
       ],
+    },
+    {
+      href: "/dashboard/quotes",
+      label: t("nav.quotes"),
+      icon: Euro,
+      comingSoon: true,
+    },
+    {
+      href: "/dashboard/workflows",
+      label: t("nav.workflows"),
+      icon: Workflow,
+      comingSoon: true,
     },
     { href: "/dashboard/archive", label: t("nav.archives"), icon: Archive },
   ];
@@ -510,6 +528,7 @@ function NavList({
               Icon={item.icon}
               active={active}
               hasSubmenu={Boolean(item.submenu && item.submenu.length > 0)}
+              badge={item.comingSoon ? t("nav.comingSoon") : undefined}
               onNavigate={onNavigate}
               onMouseEnter={onSubmenuOpen ? handleEnter(item) : undefined}
             />
@@ -564,6 +583,285 @@ function NavList({
         </div>
       ) : null}
     </nav>
+  );
+}
+
+type BreadcrumbSegment = { label: string; href?: string };
+
+function buildBreadcrumb(
+  pathname: string,
+  workspaceLabel: string,
+  t: (key: TranslationKey) => string,
+): BreadcrumbSegment[] {
+  if (pathname === "/dashboard") {
+    return [{ label: workspaceLabel }, { label: t("nav.dashboard") }];
+  }
+  if (pathname.startsWith("/dashboard/deals")) {
+    const segments: BreadcrumbSegment[] = [
+      { label: workspaceLabel },
+      { label: t("nav.deals"), href: "/dashboard/deals" },
+    ];
+    if (pathname === "/dashboard/deals/new") {
+      segments.push({ label: t("common.actions.newDeal") });
+    } else if (pathname !== "/dashboard/deals") {
+      segments.push({ label: "Détail" });
+    }
+    return segments;
+  }
+  if (pathname.startsWith("/dashboard/transcripts")) {
+    const segments: BreadcrumbSegment[] = [
+      { label: workspaceLabel },
+      { label: t("nav.transcripts"), href: "/dashboard/transcripts" },
+    ];
+    if (pathname === "/dashboard/transcripts/new") {
+      segments.push({ label: "Nouveau" });
+    } else if (pathname === "/dashboard/transcripts/recall") {
+      segments.push({ label: "Récupérer" });
+    } else if (pathname !== "/dashboard/transcripts") {
+      segments.push({ label: "Détail" });
+    }
+    return segments;
+  }
+  if (pathname.startsWith("/dashboard/documents")) {
+    return [{ label: workspaceLabel }, { label: t("nav.documents") }];
+  }
+  if (pathname.startsWith("/dashboard/quotes")) {
+    return [{ label: workspaceLabel }, { label: t("nav.quotes") }];
+  }
+  if (pathname.startsWith("/dashboard/workflows")) {
+    return [{ label: workspaceLabel }, { label: t("nav.workflows") }];
+  }
+  if (pathname.startsWith("/dashboard/archive")) {
+    return [{ label: workspaceLabel }, { label: t("nav.archives") }];
+  }
+  if (pathname.startsWith("/dashboard/settings")) {
+    return [{ label: t("nav.settings") }, { label: t("settings.nav.general") }];
+  }
+  if (pathname.startsWith("/dashboard/support")) {
+    return [{ label: workspaceLabel }, { label: t("shell.help") }];
+  }
+  if (pathname.startsWith("/admin")) {
+    return [{ label: t("nav.internal") }, { label: t("nav.internalAdmin") }];
+  }
+  if (pathname.startsWith("/prospection")) {
+    return [{ label: t("nav.internal") }, { label: t("nav.prospection") }];
+  }
+  return [{ label: workspaceLabel }];
+}
+
+function Breadcrumb({
+  pathname,
+  workspaceLabel,
+  t,
+}: {
+  pathname: string;
+  workspaceLabel: string;
+  t: (key: TranslationKey) => string;
+}) {
+  const segments = React.useMemo(
+    () => buildBreadcrumb(pathname, workspaceLabel, t),
+    [pathname, workspaceLabel, t],
+  );
+
+  return (
+    <nav
+      className="flex min-w-0 items-center gap-1.5"
+      aria-label="Breadcrumb"
+    >
+      {segments.map((segment, index) => {
+        const isLast = index === segments.length - 1;
+        return (
+          <React.Fragment key={`${segment.label}-${index}`}>
+            {index > 0 ? (
+              <ChevronRight
+                className="size-3 shrink-0"
+                style={{ color: "var(--fg-4)" }}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+            ) : null}
+            {segment.href && !isLast ? (
+              <Link
+                href={segment.href}
+                className="truncate text-[13px] font-medium transition-colors"
+                style={{ color: "var(--fg-3)" }}
+                onMouseEnter={(event) =>
+                  (event.currentTarget.style.color = "var(--brand-navy-800)")
+                }
+                onMouseLeave={(event) =>
+                  (event.currentTarget.style.color = "var(--fg-3)")
+                }
+              >
+                {segment.label}
+              </Link>
+            ) : (
+              <span
+                className="truncate text-[13px]"
+                style={{
+                  color: isLast ? "var(--fg-1)" : "var(--fg-3)",
+                  fontWeight: isLast ? 600 : 500,
+                }}
+              >
+                {segment.label}
+              </span>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </nav>
+  );
+}
+
+function NotificationsMenu({ label }: { label: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="relative hidden h-9 w-9 items-center justify-center rounded-md transition-colors sm:inline-flex"
+          style={{
+            background: "var(--brand-navy-50)",
+            border: "1px solid var(--border-1)",
+            color: "var(--fg-2)",
+          }}
+          aria-label={label}
+          title={label}
+          onMouseEnter={(event) =>
+            (event.currentTarget.style.background = "var(--brand-navy-100)")
+          }
+          onMouseLeave={(event) =>
+            (event.currentTarget.style.background = "var(--brand-navy-50)")
+          }
+        >
+          <Bell className="size-4" strokeWidth={1.75} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[360px] p-0">
+        <NotificationsPanel label={label} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function CreateMenu({ createLabel }: { createLabel: string }) {
+  const router = useRouter();
+  const { t } = useI18n();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-[filter,transform] duration-150"
+          style={{
+            background: "var(--accent)",
+            color: "#FFFFFF",
+            border: "1px solid var(--accent-hover)",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,.25), 0 1px 1px rgba(11,18,32,.12)",
+          }}
+          onMouseEnter={(event) =>
+            (event.currentTarget.style.filter = "brightness(.95)")
+          }
+          onMouseLeave={(event) => (event.currentTarget.style.filter = "")}
+        >
+          <Plus className="size-3.5" strokeWidth={2.25} />
+          {createLabel}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel>
+          <span className="fd-eyebrow">{createLabel}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => router.push("/dashboard/deals/new")}
+          className="flex flex-col items-start gap-0.5 py-2.5"
+        >
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <FolderOpen
+              className="size-3.5 text-[var(--brand-navy-700)]"
+              strokeWidth={1.75}
+            />
+            {t("common.actions.newDeal")}
+          </span>
+          <span className="pl-[22px] text-[11.5px] text-[var(--fg-3)]">
+            Dossier commercial complet
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => router.push("/dashboard/transcripts/new")}
+          className="flex flex-col items-start gap-0.5 py-2.5"
+        >
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <Mic
+              className="size-3.5 text-[var(--brand-navy-700)]"
+              strokeWidth={1.75}
+            />
+            Transcript
+          </span>
+          <span className="pl-[22px] text-[11.5px] text-[var(--fg-3)]">
+            À partir d&apos;un appel ou de notes
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled
+          className="flex flex-col items-start gap-0.5 py-2.5 opacity-70"
+        >
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <Euro
+              className="size-3.5 text-[var(--fg-4)]"
+              strokeWidth={1.75}
+            />
+            Devis
+            <span
+              className="ml-1 rounded-[3px] px-1.5 py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.08em]"
+              style={{
+                background: "var(--brand-amber-50)",
+                color: "var(--brand-amber-800)",
+                border: "1px solid var(--brand-amber-200)",
+              }}
+            >
+              {t("nav.comingSoon")}
+            </span>
+          </span>
+          <span className="pl-[22px] text-[11.5px] text-[var(--fg-4)]">
+            Bientôt disponible
+          </span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TopbarSearch({ placeholder }: { placeholder: string }) {
+  const [focus, setFocus] = React.useState(false);
+  return (
+    <div
+      className="relative hidden h-10 w-full items-center md:flex"
+      style={{
+        background: focus ? "#FFFFFF" : "var(--brand-navy-50)",
+        border: `1px solid ${focus ? "var(--accent)" : "var(--border-1)"}`,
+        borderRadius: 8,
+        boxShadow: focus ? "0 0 0 3px rgba(184,146,42,.18)" : "none",
+        transition:
+          "background 120ms var(--ease-out), border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out)",
+      }}
+    >
+      <Search
+        className="pointer-events-none absolute left-3.5 size-4"
+        style={{ color: "var(--fg-3)" }}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        placeholder={placeholder}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        className="h-full w-full bg-transparent pr-4 pl-10 text-[13.5px] outline-none placeholder:text-[var(--fg-3)]"
+        style={{ color: "var(--fg-1)" }}
+      />
+    </div>
   );
 }
 
@@ -741,108 +1039,140 @@ export function DashboardShell({
       </aside>
 
       <div className="min-h-dvh lg:pl-[280px]">
-        <header className="bg-background/95 sticky top-0 z-40 border-b backdrop-blur">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-            <div className="flex items-center gap-3">
-              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="lg:hidden"
-                    aria-label={t("nav.open")}
-                  >
-                    <Menu className="size-4" strokeWidth={1.75} />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent
-                  side="left"
-                  className="w-80 p-0"
-                  style={{
-                    backgroundColor: "var(--sidebar-bg)",
-                    borderColor: "var(--sidebar-border)",
-                    color: "var(--sidebar-text)",
-                  }}
+        <header
+          className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b px-4 sm:px-6"
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderBottomColor: "var(--border-1)",
+            color: "var(--fg-1)",
+            boxShadow: "0 1px 0 rgba(11,18,32,.02)",
+          }}
+        >
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors lg:hidden"
+                style={{
+                  background: "var(--brand-navy-50)",
+                  border: "1px solid var(--border-1)",
+                  color: "var(--fg-2)",
+                }}
+                aria-label={t("nav.open")}
+              >
+                <Menu className="size-4" strokeWidth={1.75} />
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              className="w-80 p-0"
+              style={{
+                backgroundColor: "var(--sidebar-bg)",
+                borderColor: "var(--sidebar-border)",
+                color: "var(--sidebar-text)",
+              }}
+            >
+              <SheetHeader className="sr-only">
+                <SheetTitle>{t("nav.sheetTitle")}</SheetTitle>
+                <SheetDescription>
+                  {t("nav.sheetDescription")}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex h-full flex-col">
+                <SidebarBrandHeader organizationName={organization?.name} />
+                <WorkspaceContext organization={organization} />
+                <div className="flex-1 overflow-y-auto px-3 pt-6 pb-4">
+                  <NavList
+                    navItems={primaryNavItems}
+                    pathname={pathname}
+                    search={searchString}
+                    onNavigate={() => setMobileOpen(false)}
+                    showInternalAdmin={showInternalAdmin}
+                    showProspection={showProspection}
+                  />
+                </div>
+                <div
+                  className="border-t px-3 py-3"
+                  style={{ borderColor: "var(--sidebar-border)" }}
                 >
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>{t("nav.sheetTitle")}</SheetTitle>
-                    <SheetDescription>
-                      {t("nav.sheetDescription")}
-                    </SheetDescription>
-                  </SheetHeader>
-                  <div className="flex h-full flex-col">
-                    <SidebarBrandHeader organizationName={organization?.name} />
-                    <WorkspaceContext organization={organization} />
-                    <div className="flex-1 overflow-y-auto px-3 pt-6 pb-4">
-                      <NavList
-                        navItems={primaryNavItems}
-                        pathname={pathname}
-                        search={searchString}
-                        onNavigate={() => setMobileOpen(false)}
-                        showInternalAdmin={showInternalAdmin}
-                        showProspection={showProspection}
-                      />
-                    </div>
-                    <div
-                      className="border-t px-3 py-3"
-                      style={{ borderColor: "var(--sidebar-border)" }}
-                    >
-                      <SettingsRow
-                        item={settingsNavItem}
-                        pathname={pathname}
-                        onNavigate={() => setMobileOpen(false)}
-                      />
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-              <div className="lg:hidden">
-                <BrandMark href="/dashboard" size="sm" showDescriptor={false} />
+                  <SettingsRow
+                    item={settingsNavItem}
+                    pathname={pathname}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
+                </div>
               </div>
-            </div>
+            </SheetContent>
+          </Sheet>
 
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="hover:bg-muted flex items-center gap-2 rounded-md p-1.5 transition-colors"
-                    aria-label={t("shell.userMenu")}
-                  >
-                    <Avatar className="size-8 rounded-md after:rounded-md ring-2 ring-[var(--border-strong)] shadow-sm">
-                      {profilePhotoUrl ? (
-                        <AvatarImage
-                          src={profilePhotoUrl}
-                          alt=""
-                          className="rounded-md"
-                        />
-                      ) : null}
-                      <AvatarFallback className="rounded-md text-xs">
-                        {getInitials(user.name) || "FD"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <span className="block text-sm">{user.name}</span>
-                    <span className="text-muted-foreground block text-xs font-normal">
-                      {t(`roles.${user.roleKey}`)}
-                    </span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/settings">{t("shell.profile")}</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/support">{t("shell.help")}</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={signOut}>
-                    {t("shell.signOut")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+          <div className="flex w-[260px] shrink-0 items-center">
+            <Breadcrumb
+              pathname={pathname}
+              workspaceLabel={t("shell.topbar.workspace")}
+              t={t}
+            />
+          </div>
+
+          <div className="mx-auto w-full max-w-[520px] px-2">
+            <TopbarSearch
+              placeholder={t("shell.topbar.searchPlaceholder")}
+            />
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <NotificationsMenu label={t("shell.topbar.notifications")} />
+            <CreateMenu createLabel={t("shell.topbar.create")} />
+
+            <span
+              aria-hidden
+              className="hidden h-6 w-px sm:block"
+              style={{ background: "rgba(255,255,255,.14)" }}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-2 rounded-full transition-colors"
+                  aria-label={t("shell.userMenu")}
+                >
+                  <Avatar className="size-8 rounded-full ring-2 ring-[rgba(255,255,255,.18)] shadow-sm">
+                    {profilePhotoUrl ? (
+                      <AvatarImage
+                        src={profilePhotoUrl}
+                        alt=""
+                        className="rounded-full"
+                      />
+                    ) : null}
+                    <AvatarFallback
+                      className="rounded-full text-xs font-semibold"
+                      style={{
+                        background: "var(--brand-amber-500)",
+                        color: "var(--brand-navy-900)",
+                      }}
+                    >
+                      {getInitials(user.name) || "FD"}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <span className="block text-sm">{user.name}</span>
+                  <span className="text-muted-foreground block text-xs font-normal">
+                    {t(`roles.${user.roleKey}`)}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings">{t("shell.profile")}</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/support">{t("shell.help")}</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={signOut}>
+                  {t("shell.signOut")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

@@ -1,12 +1,18 @@
 import Link from "next/link";
-import { ActivityLog } from "@/components/common/activity-log";
+import {
+  CheckCircle2,
+  Euro,
+  Files,
+  Plus,
+  Signature,
+} from "lucide-react";
 import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
-import { WorkflowTimeline } from "@/components/common/workflow-timeline";
-import { DashboardActivityChart } from "@/components/dashboard/dashboard-activity-chart";
+import { FollowUpPanel } from "@/components/dashboard/follow-up-panel";
+import { PipelineStagePanel } from "@/components/dashboard/pipeline-stage-panel";
 import { T } from "@/components/i18n/translated-text";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +25,48 @@ import {
 } from "@/components/ui/table";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { getDashboardData } from "@/lib/data/supabase-app-data";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatLongDate } from "@/lib/format";
+import type { Deal, DealStatus } from "@/types/deal";
+
+type StageKey = "draft" | "review" | "sent" | "signed";
+
+const statusFamily: Record<DealStatus, StageKey | "archived"> = {
+  draft: "draft",
+  call_summary_ready: "draft",
+  proposal_generating: "draft",
+  proposal_ready: "review",
+  validation_pending: "review",
+  final_document_generating: "review",
+  final_document_ready: "sent",
+  signature_ready: "sent",
+  email_draft_ready: "sent",
+  completed: "signed",
+  failed: "archived",
+};
+
+function aggregateStages(deals: Deal[]): {
+  key: StageKey;
+  count: number;
+  amount: number;
+}[] {
+  const buckets: Record<StageKey, { count: number; amount: number }> = {
+    draft: { count: 0, amount: 0 },
+    review: { count: 0, amount: 0 },
+    sent: { count: 0, amount: 0 },
+    signed: { count: 0, amount: 0 },
+  };
+  for (const deal of deals) {
+    const family = statusFamily[deal.status];
+    if (family === "archived") continue;
+    buckets[family].count += 1;
+    buckets[family].amount += deal.amountEstimate ?? 0;
+  }
+  return (["draft", "review", "sent", "signed"] as StageKey[]).map((key) => ({
+    key,
+    count: buckets[key].count,
+    amount: buckets[key].amount,
+  }));
+}
 
 export default async function DashboardPage() {
   const context = await requireCurrentUserContext();
@@ -31,16 +78,73 @@ export default async function DashboardPage() {
     scope: "mine",
   });
 
+  const firstName =
+    (context.profile?.full_name ?? context.user.email ?? "").split(" ").at(0) ??
+    "";
+
+  const stages = aggregateStages(dashboard.deals);
+
+  const signedCount = dashboard.deals.filter(
+    (deal) => deal.status === "completed",
+  ).length;
+  const consideredForRate = dashboard.deals.filter(
+    (deal) => deal.status !== "draft" && deal.status !== "call_summary_ready",
+  ).length;
+  const signatureRate =
+    consideredForRate === 0
+      ? null
+      : Math.round((signedCount / consideredForRate) * 100);
+
+  // Prioritise deals that explicitly need action; fall back to any active
+  // deal (drafts included) so the panel is never empty when work is open.
+  const followUpPriority: Record<string, number> = {
+    failed: 0,
+    validation_pending: 1,
+    signature_ready: 2,
+    email_draft_ready: 3,
+    proposal_ready: 4,
+    final_document_ready: 5,
+    proposal_generating: 6,
+    final_document_generating: 6,
+    call_summary_ready: 7,
+    draft: 8,
+  };
+  const followUpDeals = [...dashboard.activeDeals]
+    .sort((a, b) => {
+      const pa = followUpPriority[a.status] ?? 99;
+      const pb = followUpPriority[b.status] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return (
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+    })
+    .slice(0, 4);
+
+  const today = formatLongDate(new Date());
+
   return (
     <PageTransition>
-      <div className="space-y-5">
+      <div className="space-y-6">
         <PageHeader
-          eyebrow={<T tx="dashboard.eyebrow" />}
-          title={`Bonjour, ${(context.profile?.full_name ?? context.user.email ?? "").split(" ").at(0) ?? ""}`}
-          description={<T tx="dashboard.description" />}
+          size="large"
+          eyebrow={
+            <span className="capitalize">{today}</span>
+          }
+          title={firstName ? `Bonjour ${firstName}` : "Bonjour"}
+          description={
+            <>
+              {dashboard.attentionCount > 0
+                ? `${dashboard.attentionCount} proposition${dashboard.attentionCount > 1 ? "s" : ""} à finaliser aujourd'hui.`
+                : "Tous vos dossiers sont à jour."}
+            </>
+          }
           actions={
             <Button asChild>
-              <Link href="/dashboard/deals/new">
+              <Link
+                href="/dashboard/deals/new"
+                className="inline-flex items-center gap-1.5"
+              >
+                <Plus className="size-3.5" strokeWidth={2.25} />
                 <T tx="common.actions.createDeal" />
               </Link>
             </Button>
@@ -49,172 +153,138 @@ export default async function DashboardPage() {
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <DashboardStatCard
-            label={<T tx="dashboard.stats.activeDeals" />}
-            value={String(dashboard.activeDeals.length)}
-            detail={<T tx="dashboard.stats.activeDealsDetail" />}
+            label={<T tx="dashboard.stats.pipelineOpen" />}
+            value={formatCurrency(dashboard.pipelineValue)}
+            detail={
+              <T tx="dashboard.stats.pipelineValueDetail" />
+            }
             tone="accent"
+            icon={<Euro className="size-3.5" strokeWidth={1.75} />}
+            deltaTone="neutral"
           />
           <DashboardStatCard
-            label={<T tx="dashboard.stats.readyDocuments" />}
+            label={<T tx="dashboard.stats.activeProposals" />}
+            value={String(dashboard.activeDeals.length)}
+            detail={<T tx="dashboard.stats.activeDealsDetail" />}
+            icon={<Files className="size-3.5" strokeWidth={1.75} />}
+            deltaTone="neutral"
+          />
+          <DashboardStatCard
+            label={<T tx="dashboard.stats.signatureRate" />}
+            value={signatureRate === null ? "—" : `${signatureRate} %`}
+            detail={<T tx="dashboard.stats.signatureRateDetail" />}
+            icon={<Signature className="size-3.5" strokeWidth={1.75} />}
+            deltaTone="neutral"
+          />
+          <DashboardStatCard
+            label={<T tx="dashboard.stats.readyToSend" />}
             value={String(dashboard.readyDocumentCount)}
             detail={<T tx="dashboard.stats.readyDocumentsDetail" />}
             tone="success"
-          />
-          <DashboardStatCard
-            label={<T tx="dashboard.stats.pipelineValue" />}
-            value={formatCurrency(dashboard.pipelineValue)}
-            detail={<T tx="dashboard.stats.pipelineValueDetail" />}
-          />
-          <DashboardStatCard
-            label={<T tx="dashboard.stats.attention" />}
-            value={String(dashboard.attentionCount)}
-            detail={<T tx="dashboard.stats.attentionDetail" />}
+            icon={<CheckCircle2 className="size-3.5" strokeWidth={1.75} />}
+            deltaTone="neutral"
           />
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[1.45fr_0.55fr]">
-          <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
-            <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold">
-                  <T tx="dashboard.recentDeals.title" />
-                </h2>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  <T tx="dashboard.recentDeals.description" />
-                </p>
-              </div>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/deals">
-                  <T tx="common.actions.viewAll" />
-                </Link>
-              </Button>
+        <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+          <PipelineStagePanel stages={stages} />
+          <FollowUpPanel deals={followUpDeals} />
+        </div>
+
+        <section
+          className="overflow-hidden rounded-lg border bg-[var(--bg-surface)]"
+          style={{
+            borderColor: "var(--border-1)",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
+          <div
+            className="flex items-center justify-between gap-4 border-b px-5 py-4"
+            style={{ borderColor: "var(--border-1)" }}
+          >
+            <div>
+              <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.005em] text-[var(--fg-1)]">
+                <T tx="dashboard.recentDeals.title" />
+              </h2>
+              <p className="mt-1 text-[12.5px] leading-5 text-[var(--fg-3)]">
+                <T tx="dashboard.recentDeals.description" />
+              </p>
             </div>
-            {dashboard.deals.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
-                      <T tx="table.deal" />
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
-                      <T tx="table.status" />
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
-                      <T tx="table.budget" />
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
-                      <T tx="table.updated" />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dashboard.deals.slice(0, 5).map((deal) => (
-                    <TableRow
-                      key={deal.id}
-                      className="duration-100 hover:bg-[var(--background-subtle)]"
-                    >
-                      <TableCell>
-                        <Link
-                          href={`/dashboard/deals/${deal.id}`}
-                          className="hover:text-primary font-medium transition-colors"
-                        >
-                          {deal.name}
-                        </Link>
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          {deal.clientCompanyName}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <DealStatusBadge status={deal.status} />
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatCurrency(deal.amountEstimate)}
-                      </TableCell>
-                      <TableCell>{formatDate(deal.updatedAt)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="p-4">
-                <EmptyState
-                  title={<T tx="common.empty.deals.title" />}
-                  description={<T tx="common.empty.deals.description" />}
-                  action={
-                    <Button asChild>
-                      <Link href="/dashboard/deals/new">
-                        <T tx="common.actions.createDeal" />
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/dashboard/deals">
+                <T tx="common.actions.viewAll" />
+              </Link>
+            </Button>
+          </div>
+          {dashboard.deals.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow
+                  className="hover:bg-transparent"
+                  style={{
+                    background: "var(--bg-sunken)",
+                  }}
+                >
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <T tx="table.deal" />
+                  </TableHead>
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <T tx="table.status" />
+                  </TableHead>
+                  <TableHead className="h-10 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <T tx="table.budget" />
+                  </TableHead>
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <T tx="table.updated" />
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dashboard.deals.slice(0, 5).map((deal) => (
+                  <TableRow
+                    key={deal.id}
+                    className="duration-100 hover:bg-[rgba(14,34,56,0.025)]"
+                  >
+                    <TableCell>
+                      <Link
+                        href={`/dashboard/deals/${deal.id}`}
+                        className="text-[13px] font-semibold text-[var(--fg-1)] transition-colors hover:text-[var(--brand-navy-800)]"
+                      >
+                        {deal.clientCompanyName || deal.name}
                       </Link>
-                    </Button>
-                  }
-                />
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">
-                <T tx="dashboard.featured.title" />
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                <T tx="dashboard.featured.description" />
-              </p>
+                      <p className="mt-0.5 font-mono text-[11.5px] text-[var(--fg-3)]">
+                        {deal.name}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <DealStatusBadge status={deal.status} />
+                    </TableCell>
+                    <TableCell className="fd-numeric text-right text-[13px] font-semibold text-[var(--fg-1)]">
+                      {formatCurrency(deal.amountEstimate)}
+                    </TableCell>
+                    <TableCell className="font-mono text-[12px] text-[var(--fg-3)]">
+                      {formatDate(deal.updatedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="p-5">
+              <EmptyState
+                title={<T tx="common.empty.deals.title" />}
+                description={<T tx="common.empty.deals.description" />}
+                action={
+                  <Button asChild>
+                    <Link href="/dashboard/deals/new">
+                      <T tx="common.actions.createDeal" />
+                    </Link>
+                  </Button>
+                }
+              />
             </div>
-            <div className="p-4">
-              {dashboard.featuredDeal ? (
-                <>
-                  <div className="mb-4">
-                    <p className="text-sm font-medium">
-                      {dashboard.featuredDeal.name}
-                    </p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {dashboard.featuredDeal.clientCompanyName}
-                    </p>
-                  </div>
-                  <WorkflowTimeline
-                    status={dashboard.featuredDeal.status}
-                    compact
-                  />
-                </>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  <T tx="dashboard.featured.empty" />
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-          <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">
-                <T tx="dashboard.chart.title" />
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                <T tx="dashboard.chart.description" />
-              </p>
-            </div>
-            <div className="p-4">
-              <DashboardActivityChart data={dashboard.chartData} />
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">
-                <T tx="dashboard.activity.title" />
-              </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                <T tx="dashboard.activity.description" />
-              </p>
-            </div>
-            <div className="p-4">
-              <ActivityLog items={dashboard.activity} />
-            </div>
-          </section>
-        </div>
+          )}
+        </section>
       </div>
     </PageTransition>
   );

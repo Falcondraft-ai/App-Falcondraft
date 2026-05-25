@@ -302,7 +302,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
             </ActionCard>
 
             <ActionCard title={<T tx="dealDetail.activity" />}>
-              <ActivityLog items={activity} />
+              <ActivityLog items={activity} collapsible initialCount={3} />
             </ActionCard>
           </div>
 

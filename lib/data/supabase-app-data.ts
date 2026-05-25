@@ -741,6 +741,19 @@ function workflowRunDate(run: WorkflowRunRow): string {
   return run.completed_at ?? run.started_at ?? run.created_at;
 }
 
+export async function getRecentNotifications(
+  organizationId: string,
+  limit = 8,
+  access?: WorkspaceDataAccess,
+): Promise<ActivityEvent[]> {
+  const [workflowRuns, auditLogs] = await Promise.all([
+    getWorkflowRunsForOrganization(organizationId, undefined, access),
+    getAuditLogsForOrganization(organizationId, undefined, access),
+  ]);
+
+  return mapActivity(workflowRuns, auditLogs).slice(0, limit);
+}
+
 function mapActivity(
   workflowRuns: WorkflowRunRow[],
   auditLogs: AuditLogRow[],
