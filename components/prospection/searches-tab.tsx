@@ -56,7 +56,7 @@ function formatShortDate(value: string | null): string {
 /*  Location options                                                   */
 /* ------------------------------------------------------------------ */
 
-const nicheOptions = ["Falcon Conseil", "Falcon Event", "Autre"] as const;
+const nicheOptions = ["Falcon Conseil", "Falcon Event", "Falcon Assurance", "Falcon Immo", "Autre"] as const;
 
 const scopeOptions = [
   { value: "city", label: "Ville" },

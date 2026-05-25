@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 import type { TranslationKey } from "@/lib/i18n/translations";
 
 const stepStyles = {
-  done: "border-primary bg-primary",
-  active: "border-accent bg-accent",
-  pending: "border-border bg-background text-muted-foreground",
-  failed: "border-red-700 bg-red-700",
+  done: "border-[var(--muted-foreground)] bg-[var(--muted-foreground)]",
+  active: "border-[var(--accent)] bg-[var(--accent)]",
+  pending: "border-[var(--border)] bg-[var(--background)]",
+  failed: "border-red-600 bg-red-600",
 } as const;
 
 export function WorkflowTimeline({
@@ -26,13 +26,13 @@ export function WorkflowTimeline({
         <li key={step.id} className="relative grid grid-cols-[1rem_1fr] gap-3">
           {index < steps.length - 1 ? (
             <span
-              className="bg-border absolute top-5 bottom-0 left-[7px] w-px"
+              className="bg-[var(--border)] absolute top-4 bottom-0 left-[2.5px] w-px"
               aria-hidden="true"
             />
           ) : null}
           <span
             className={cn(
-              "relative mt-1 flex h-3 w-2.5 items-center justify-center rounded-[2px] border",
+              "relative mt-1.5 block h-1.5 w-1.5 rounded-[1px] border",
               stepStyles[step.status],
             )}
             aria-hidden="true"

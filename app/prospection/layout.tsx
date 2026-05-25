@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
-import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
+import {
+  canManageWorkspace,
+  normalizeWorkspaceRole,
+} from "@/lib/auth/workspace-permissions";
 import { canAccessProspection, canViewInternalAdmin } from "@/lib/internal-access";
 
 export default async function ProspectionLayout({
@@ -32,6 +35,7 @@ export default async function ProspectionLayout({
       }}
       showInternalAdmin={canViewInternalAdmin(context)}
       showProspection={true}
+      canManageBilling={canManageWorkspace(context.membership?.role)}
     >
       {children}
     </DashboardShell>

@@ -20,6 +20,7 @@ import { getDealDetail } from "@/lib/data/supabase-app-data";
 import { getLinkedTranscriptForDeal, getTranscriptsForLinking } from "@/lib/data/transcripts";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
+import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 
 type DealDetailPageProps = {
   params: Promise<{
@@ -30,30 +31,27 @@ type DealDetailPageProps = {
 export default async function DealDetailPage({ params }: DealDetailPageProps) {
   const { id } = await params;
   const context = await requireCurrentUserContext();
-  const { deal, activity, documents } = await getDealDetail(
-    context.organization?.id ?? null,
-    id,
-    {
-      userId: context.user.id,
-      role: context.membership?.role,
-      allowMemberCompanyVisibility:
-        context.organization?.allow_member_company_visibility ?? true,
-      scope: "organization",
-    },
-  );
-
-  if (!deal) {
-    notFound();
-  }
 
   const organizationId = context.organization?.id ?? "";
   const userRole = normalizeWorkspaceRole(context.membership?.role);
   const canEdit = userRole !== "viewer";
 
-  const [linkedTranscript, availableTranscripts] = await Promise.all([
-    getLinkedTranscriptForDeal(organizationId, id),
-    canEdit ? getTranscriptsForLinking(organizationId) : Promise.resolve([]),
-  ]);
+  const [{ deal, activity, documents }, linkedTranscript, availableTranscripts] =
+    await Promise.all([
+      getDealDetail(context.organization?.id ?? null, id, {
+        userId: context.user.id,
+        role: context.membership?.role,
+        allowMemberCompanyVisibility:
+          context.organization?.allow_member_company_visibility ?? true,
+        scope: "organization",
+      }),
+      getLinkedTranscriptForDeal(organizationId, id),
+      canEdit ? getTranscriptsForLinking(organizationId) : Promise.resolve([]),
+    ]);
+
+  if (!deal) {
+    notFound();
+  }
 
   const quoteDocument = documents.find(
     (document) => document.type === "quote_pdf" || document.type === "billing_quote",
@@ -65,92 +63,112 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <header className="bg-card/45 grid gap-4 rounded-lg border p-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <PageBreadcrumb parent="Dossiers" parentHref="/dashboard/deals" current={deal.name} />
+        <header
+          className="grid gap-5 rounded-lg border bg-[var(--background-card)] p-5 lg:grid-cols-[1fr_auto] lg:items-end"
+          style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-sm)" }}
+        >
           <div>
-            <p className="text-muted-foreground text-xs font-medium tracking-[0.08em] uppercase">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
               <T tx="dealDetail.eyebrow" />
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h1 className="text-[24px] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
                 {deal.name}
               </h1>
               <DealStatusBadge status={deal.status} />
               <DealEditDialog deal={deal} />
             </div>
-            <p className="text-muted-foreground mt-2 max-w-3xl text-sm leading-6">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted-foreground)]">
               {deal.clientCompanyName} · {deal.lastAction}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:text-right">
-            <div>
-              <p className="text-muted-foreground text-xs">Budget</p>
-              <p className="font-mono font-semibold">
+          <dl className="flex flex-wrap items-stretch gap-x-5 gap-y-3 lg:justify-end lg:divide-x lg:divide-[var(--border)]">
+            <div className="lg:px-5 lg:first:pl-0 lg:last:pr-0">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+                Budget
+              </dt>
+              <dd className="mt-1 font-mono text-[13px] font-medium text-[var(--foreground)]">
                 {formatCurrency(deal.amountEstimate)}
-              </p>
+              </dd>
             </div>
-            <div>
-              <p className="text-muted-foreground text-xs">
+            <div className="lg:px-5">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                 <T tx="dealDetail.created" />
-              </p>
-              <p>{formatDate(deal.createdAt)}</p>
+              </dt>
+              <dd className="mt-1 text-[13px] text-[var(--foreground)]">
+                {formatDate(deal.createdAt)}
+              </dd>
             </div>
-            <div>
-              <p className="text-muted-foreground text-xs">
+            <div className="lg:px-5">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                 <T tx="dealDetail.updated" />
-              </p>
-              <p>{formatDate(deal.updatedAt)}</p>
+              </dt>
+              <dd className="mt-1 text-[13px] text-[var(--foreground)]">
+                {formatDate(deal.updatedAt)}
+              </dd>
             </div>
-            <div>
-              <p className="text-muted-foreground text-xs">
+            <div className="lg:px-5 lg:last:pr-0">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                 <T tx="dealDetail.owner" />
-              </p>
-              <p>{deal.ownerName}</p>
+              </dt>
+              <dd className="mt-1 text-[13px] text-[var(--foreground)]">
+                {deal.ownerName}
+              </dd>
             </div>
-          </div>
+          </dl>
         </header>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-6">
             <section className="grid gap-4 md:grid-cols-2">
               <ActionCard title={<T tx="dealDetail.clientCompany" />}>
-                <dl className="space-y-3 text-sm">
+                <dl className="space-y-4">
                   <div>
-                    <dt className="text-muted-foreground">
+                    <dt className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
                       <T tx="dealDetail.organization" />
                     </dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
                       {deal.clientCompanyName}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">
+                    <dt className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
                       <T tx="dealDetail.source" />
                     </dt>
-                    <dd className="mt-1">{deal.source}</dd>
+                    <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                      {deal.source}
+                    </dd>
                   </div>
                 </dl>
               </ActionCard>
 
               <ActionCard title={<T tx="dealDetail.contact" />}>
-                <dl className="space-y-3 text-sm">
+                <dl className="space-y-4">
                   <div>
-                    <dt className="text-muted-foreground">
+                    <dt className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
                       <T tx="dealDetail.name" />
                     </dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
                       {deal.clientContactName}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Email</dt>
-                    <dd className="mt-1">{deal.clientEmail}</dd>
+                    <dt className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
+                      Email
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                      {deal.clientEmail}
+                    </dd>
                   </div>
                   {deal.clientPhone ? (
                     <div>
-                      <dt className="text-muted-foreground">
+                      <dt className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
                         <T tx="dealDetail.phone" />
                       </dt>
-                      <dd className="mt-1">{deal.clientPhone}</dd>
+                      <dd className="mt-1 text-sm font-medium text-[var(--foreground)]">
+                        {deal.clientPhone}
+                      </dd>
                     </div>
                   ) : null}
                 </dl>
@@ -175,18 +193,27 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
               </div>
             </ActionCard>
 
-            <section className="bg-card/80 overflow-hidden rounded-lg border">
-              <div className="border-b px-4 py-3.5">
-                <h2 className="text-[0.82rem] font-semibold tracking-[-0.01em]">
+            <section
+              className="overflow-hidden rounded-lg border bg-[var(--background-card)]"
+              style={{
+                borderColor: "var(--border)",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
+              <div
+                className="border-b px-4 py-3.5"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <h2 className="text-[13px] font-medium tracking-[-0.005em] text-[var(--foreground)]">
                   <T tx="dealDetail.productionTitle" />
                 </h2>
-                <p className="text-muted-foreground mt-1 text-sm leading-5">
+                <p className="mt-1 text-sm leading-5 text-[var(--muted-foreground)]">
                   <T tx="dealDetail.productionDescription" />
                 </p>
               </div>
-              <div className="divide-y">
+              <div className="divide-y" style={{ borderColor: "var(--border)" }}>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">
+                  <h3 className="text-[13px] font-medium text-[var(--foreground)]">
                     <T tx="dealDetail.callSummary" />
                   </h3>
                   <CallSummaryPanel
@@ -196,7 +223,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   />
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">
+                  <h3 className="text-[13px] font-medium text-[var(--foreground)]">
                     <T tx="dealDetail.proposal" />
                   </h3>
                   <ProposalPanel
@@ -207,14 +234,14 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   />
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">
+                  <h3 className="text-[13px] font-medium text-[var(--foreground)]">
                     <T tx="dealDetail.finalDocument" />
                   </h3>
                   <div>
-                    <p className="font-mono text-sm">
+                    <p className="font-mono text-sm text-[var(--foreground)]">
                       {finalDocument?.title ?? deal.finalDocumentName}
                     </p>
-                    <p className="text-muted-foreground mt-2 text-sm leading-6">
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
                       {finalDocument
                         ? <T tx="dealDetail.finalDocumentReady" />
                         : <T tx="dealDetail.finalDocumentWaiting" />}
@@ -230,14 +257,14 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                   </div>
                 </article>
                 <article className="grid gap-3 px-4 py-4 lg:grid-cols-[12rem_1fr]">
-                  <h3 className="text-sm font-medium">
+                  <h3 className="text-[13px] font-medium text-[var(--foreground)]">
                     <T tx="dealDetail.signature" />
                   </h3>
                   <div>
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium text-[var(--foreground)]">
                       <T tx="dealDetail.signaturePrepared" />
                     </p>
-                    <p className="text-muted-foreground mt-2 text-sm leading-6 break-all">
+                    <p className="mt-2 break-all text-sm leading-6 text-[var(--muted-foreground)]">
                       {deal.signatureUrl}
                     </p>
                   </div>
@@ -280,10 +307,21 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
           </div>
 
           <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
-            <ActionCard
-              title={<T tx="dealDetail.actions" />}
-              description={<T tx="dealDetail.actionsDescription" />}
+            <section
+              className="rounded-lg border bg-[var(--background-card)] p-4"
+              style={{
+                borderColor: "var(--border)",
+                boxShadow: "var(--shadow-sm)",
+              }}
             >
+              <div className="mb-3">
+                <h2 className="text-[12px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+                  <T tx="dealDetail.actions" />
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-[var(--muted-foreground)]">
+                  <T tx="dealDetail.actionsDescription" />
+                </p>
+              </div>
               <DealActionPanel
                 dealId={deal.id}
                 status={deal.status}
@@ -293,7 +331,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 quoteDocument={quoteDocument}
                 finalDocument={finalDocument}
               />
-            </ActionCard>
+            </section>
             <ActionCard title={<T tx="dealDetail.progress" />}>
               <WorkflowTimeline status={deal.status} compact />
             </ActionCard>

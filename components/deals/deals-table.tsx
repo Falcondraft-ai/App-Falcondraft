@@ -178,25 +178,25 @@ export function DealsTable({
   });
 
   return (
-    <section className="bg-card/75 rounded-lg border">
-      <div className="grid gap-3 border-b p-4 md:grid-cols-[1fr_auto]">
+    <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
+      <div className="grid gap-3 border-b border-[var(--border)] p-4 md:grid-cols-[1fr_auto]">
         <div className="relative">
           <Search
-            className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4"
+            className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-[var(--muted-foreground)]"
             strokeWidth={1.75}
           />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("deals.searchPlaceholder")}
-            className="pl-8"
+            className="h-9 rounded-md border-[var(--border)] bg-[var(--background-card)] pl-8 focus-visible:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
           />
         </div>
         <Select
           value={status}
           onValueChange={(value) => setStatus(value as StatusFilter)}
         >
-          <SelectTrigger className="w-full md:w-60">
+          <SelectTrigger className="h-9 w-full rounded-md border-[var(--border)] bg-[var(--background-card)] focus-visible:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] md:w-60">
             <SelectValue placeholder={t("deals.statusPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
@@ -211,18 +211,33 @@ export function DealsTable({
       </div>
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>{t("table.deal")}</TableHead>
-            <TableHead>{t("deals.client")}</TableHead>
-            <TableHead>{t("table.status")}</TableHead>
-            <TableHead>{t("table.budget")}</TableHead>
-            <TableHead>{t("table.updated")}</TableHead>
-            <TableHead className="text-right">{t("deals.actions")}</TableHead>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+              {t("table.deal")}
+            </TableHead>
+            <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+              {t("deals.client")}
+            </TableHead>
+            <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+              {t("table.status")}
+            </TableHead>
+            <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+              {t("table.budget")}
+            </TableHead>
+            <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+              {t("table.updated")}
+            </TableHead>
+            <TableHead className="h-10 text-right text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
+              {t("deals.actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredDeals.map((deal) => (
-            <TableRow key={deal.id}>
+            <TableRow
+              key={deal.id}
+              className="duration-100 hover:bg-[var(--background-subtle)]"
+            >
               <TableCell>
                 <div className="max-w-72">
                   <Link
@@ -253,7 +268,12 @@ export function DealsTable({
               <TableCell>{formatDate(deal.updatedAt)}</TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1.5">
-                  <Button asChild variant="outline" size="sm">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="border-[var(--border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--background-subtle)] hover:text-[var(--foreground)]"
+                  >
                     <Link href={`/dashboard/deals/${deal.id}`}>
                       {t("deals.open")}
                     </Link>

@@ -26,8 +26,8 @@ export default async function TranscriptsPage() {
       <div className="space-y-6">
         <PageHeader
           eyebrow="Transcripts"
-          title="Transcripts d'appel"
-          description="Transcripts d'échanges commerciaux : texte collé, fichier audio ou enregistrement automatique."
+          title="Vos appels"
+          description="Importez ou enregistrez vos appels clients."
         />
         <TranscriptsPageContent
           transcripts={transcripts}

@@ -63,17 +63,24 @@ export function TranscriptPanel({
   );
 
   return (
-    <div className="rounded-md border bg-card p-3">
+    <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium">Transcript d’appel</p>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="text-sm font-medium text-[var(--foreground)]">
+            Transcript d’appel
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted-foreground)]">
             Extrait conservé comme base de travail du dossier.
           </p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button type="button" variant="outline" size="sm">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--background-subtle)]"
+            >
               <ExternalLink aria-hidden="true" />
               Ouvrir
             </Button>
@@ -88,7 +95,7 @@ export function TranscriptPanel({
             <div className="space-y-6">
               <FullTextBlock title="Transcript d’appel" value={transcript} />
               <FullTextBlock
-                title="Contexte complémentaire"
+                title="Informations complémentaires"
                 value={additionalContext}
               />
             </div>
@@ -96,21 +103,31 @@ export function TranscriptPanel({
         </Dialog>
       </div>
 
-      <p className="text-muted-foreground mt-4 text-sm leading-7">
-        {transcriptPreview.text}
-      </p>
-
-      <div className="mt-4 border-t pt-3">
-        <p className="text-muted-foreground text-xs font-medium">
-          Contexte complémentaire
-        </p>
-        <p className="text-muted-foreground mt-2 text-sm leading-6">
-          {contextPreview.text}
+      <div
+        className="rounded-md border bg-[var(--background-subtle)] p-3"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <p className="text-sm leading-7 text-[var(--muted-foreground)]">
+          {transcriptPreview.text}
         </p>
       </div>
 
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--muted-foreground)]">
+          Informations complémentaires
+        </p>
+        <div
+          className="mt-2 rounded-md border bg-[var(--background-subtle)] p-3"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            {contextPreview.text}
+          </p>
+        </div>
+      </div>
+
       {transcriptPreview.isTruncated || contextPreview.isTruncated ? (
-        <p className="text-muted-foreground mt-3 text-xs">
+        <p className="text-xs text-[var(--muted-foreground)]">
           Version complète disponible dans la vue détaillée.
         </p>
       ) : null}

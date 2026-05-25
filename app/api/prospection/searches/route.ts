@@ -9,7 +9,7 @@ import {
   triggerProspectionSearch,
 } from "@/lib/prospection/n8n";
 
-const nicheOptions = ["Falcon Conseil", "Falcon Event", "Autre"] as const;
+const nicheOptions = ["Falcon Conseil", "Falcon Event", "Falcon Assurance", "Falcon Immo", "Autre"] as const;
 const scopeOptions = ["city", "region", "country"] as const;
 const maxResultsOptions = [10, 20, 50, 100] as const;
 

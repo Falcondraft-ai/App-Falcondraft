@@ -27,6 +27,39 @@ import {
 } from "@/components/prospection/status-badge";
 import type { ProspectCompanyRow } from "@/types/database";
 
+const CANONICAL_NICHES = [
+  "Falcon Conseil",
+  "Falcon Event",
+  "Falcon Assurance",
+  "Falcon Immo",
+] as const;
+
+const FILTERS_STORAGE_KEY = "falcondraft:prospection:leads-filters";
+
+interface SavedFilters {
+  search?: string;
+  statusFilter?: string;
+  nicheFilter?: string;
+  cityFilter?: string;
+  showArchived?: boolean;
+}
+
+function loadFilters(): SavedFilters {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as SavedFilters;
+  } catch {}
+  return {};
+}
+
+function saveFilters(filters: SavedFilters) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  } catch {}
+}
+
 const qualityLabel = (company: ProspectCompanyRow): string => {
   if (company.priority === "high") return "Haute";
   if (company.priority === "medium") return "Moyenne";
@@ -49,17 +82,22 @@ export function LeadsTab({
   initialData: ProspectCompanyRow[];
 }) {
   const { t } = useI18n();
-  const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("all");
-  const [nicheFilter, setNicheFilter] = React.useState("all");
-  const [cityFilter, setCityFilter] = React.useState("all");
-  const [showArchived, setShowArchived] = React.useState(false);
+  const defaultFilters = React.useMemo(() => loadFilters(), []);
+  const [search, setSearch] = React.useState(defaultFilters.search ?? "");
+  const [statusFilter, setStatusFilter] = React.useState(defaultFilters.statusFilter ?? "all");
+  const [nicheFilter, setNicheFilter] = React.useState(defaultFilters.nicheFilter ?? "all");
+  const [cityFilter, setCityFilter] = React.useState(defaultFilters.cityFilter ?? "all");
+  const [showArchived, setShowArchived] = React.useState(defaultFilters.showArchived ?? false);
   const [data, setData] = React.useState(initialData);
   const [loading, setLoading] = React.useState(false);
   const [actionId, setActionId] = React.useState<string | null>(null);
 
+  React.useEffect(() => {
+    saveFilters({ search, statusFilter, nicheFilter, cityFilter, showArchived });
+  }, [search, statusFilter, nicheFilter, cityFilter, showArchived]);
+
   const niches = React.useMemo(() => {
-    const seen = new Set<string>();
+    const seen = new Set<string>(CANONICAL_NICHES);
     initialData.forEach((c) => {
       if (c.niche) seen.add(c.niche);
     });

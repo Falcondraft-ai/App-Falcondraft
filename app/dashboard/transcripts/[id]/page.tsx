@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/common/page-header";
+import { PageBreadcrumb } from "@/components/common/page-breadcrumb";
 import { PageTransition } from "@/components/common/page-transition";
 import { TranscriptDetailContent } from "@/components/transcripts/transcript-detail-content";
 import { requireCurrentUserContext } from "@/lib/auth/session";
@@ -22,6 +23,7 @@ export default async function TranscriptDetailPage({
   return (
     <PageTransition>
       <div className="space-y-6">
+        <PageBreadcrumb parent="Vos appels" parentHref="/dashboard/transcripts" current={transcript.title} />
         <PageHeader
           eyebrow="Transcript"
           title={transcript.title}

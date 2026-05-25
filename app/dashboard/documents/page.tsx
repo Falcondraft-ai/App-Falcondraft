@@ -78,12 +78,21 @@ export default async function DocumentsPage() {
           description={<T tx="documents.description" />}
         />
         {canOpenCompanyView ? (
-          <Tabs defaultValue="mine" className="gap-4">
-            <TabsList>
-              <TabsTrigger value="mine">
+          <Tabs defaultValue="mine" className="gap-5">
+            <TabsList
+              variant="line"
+              className="h-9 w-full justify-start gap-6 border-b border-[var(--border)] p-0"
+            >
+              <TabsTrigger
+                value="mine"
+                className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
+              >
                 <T tx="documents.tabs.mine" />
               </TabsTrigger>
-              <TabsTrigger value="organization">
+              <TabsTrigger
+                value="organization"
+                className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
+              >
                 <T tx="documents.tabs.organization" />
               </TabsTrigger>
             </TabsList>

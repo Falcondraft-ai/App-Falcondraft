@@ -9,7 +9,15 @@ import { requireCurrentUserContext } from "@/lib/auth/session";
 import { canUseOrganizationDataScope } from "@/lib/auth/workspace-permissions";
 import { getDealsForOrganization } from "@/lib/data/supabase-app-data";
 
-export default async function DealsPage() {
+export default async function DealsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const rawScope = Array.isArray(params.scope) ? params.scope[0] : params.scope;
+  const initialScope = rawScope === "organization" ? "organization" : "mine";
+
   const context = await requireCurrentUserContext();
   const organizationId = context.organization?.id ?? null;
   const access = {
@@ -41,7 +49,10 @@ export default async function DealsPage() {
           title={<T tx="deals.title" />}
           description={<T tx="deals.description" />}
           actions={
-            <Button asChild>
+            <Button
+              asChild
+              className="rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
+            >
               <Link href="/dashboard/deals/new">
                 <T tx="common.actions.newDeal" />
               </Link>
@@ -49,12 +60,25 @@ export default async function DealsPage() {
           }
         />
         {canOpenCompanyView ? (
-          <Tabs defaultValue="mine" className="gap-4">
-            <TabsList>
-              <TabsTrigger value="mine">
+          <Tabs
+            key={initialScope}
+            defaultValue={initialScope}
+            className="gap-5"
+          >
+            <TabsList
+              variant="line"
+              className="h-9 w-full justify-start gap-6 border-b border-[var(--border)] p-0"
+            >
+              <TabsTrigger
+                value="mine"
+                className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
+              >
                 <T tx="deals.tabs.mine" />
               </TabsTrigger>
-              <TabsTrigger value="organization">
+              <TabsTrigger
+                value="organization"
+                className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
+              >
                 <T tx="deals.tabs.organization" />
               </TabsTrigger>
             </TabsList>

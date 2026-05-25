@@ -36,7 +36,7 @@ export default async function DashboardPage() {
       <div className="space-y-5">
         <PageHeader
           eyebrow={<T tx="dashboard.eyebrow" />}
-          title={<T tx="dashboard.title" />}
+          title={`Bonjour, ${(context.profile?.full_name ?? context.user.email ?? "").split(" ").at(0) ?? ""}`}
           description={<T tx="dashboard.description" />}
           actions={
             <Button asChild>
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[1.45fr_0.55fr]">
-          <section className="bg-card/80 overflow-hidden rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
+          <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
             <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold">
@@ -92,24 +92,27 @@ export default async function DashboardPage() {
             {dashboard.deals.length > 0 ? (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                       <T tx="table.deal" />
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                       <T tx="table.status" />
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                       <T tx="table.budget" />
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
                       <T tx="table.updated" />
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {dashboard.deals.slice(0, 5).map((deal) => (
-                    <TableRow key={deal.id}>
+                    <TableRow
+                      key={deal.id}
+                      className="duration-100 hover:bg-[var(--background-subtle)]"
+                    >
                       <TableCell>
                         <Link
                           href={`/dashboard/deals/${deal.id}`}
@@ -149,7 +152,7 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          <section className="bg-card/80 rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">
                 <T tx="dashboard.featured.title" />
@@ -184,7 +187,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-          <section className="bg-card/80 rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">
                 <T tx="dashboard.chart.title" />
@@ -198,7 +201,7 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <section className="bg-card/80 rounded-xl border shadow-[0_18px_65px_-55px_rgba(20,32,51,0.7)]">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--background-card)] shadow-sm">
             <div className="border-b px-4 py-3">
               <h2 className="text-sm font-semibold">
                 <T tx="dashboard.activity.title" />

@@ -36,12 +36,21 @@ export default async function ArchivePage() {
           title={<T tx="archives.title" />}
           description={<T tx="archives.description" />}
         />
-        <Tabs defaultValue="deals" className="gap-4">
-          <TabsList>
-            <TabsTrigger value="deals">
+        <Tabs defaultValue="deals" className="gap-5">
+          <TabsList
+            variant="line"
+            className="h-9 w-full justify-start gap-6 border-b border-[var(--border)] p-0"
+          >
+            <TabsTrigger
+              value="deals"
+              className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
+            >
               <T tx="nav.deals" /> ({deals.length})
             </TabsTrigger>
-            <TabsTrigger value="transcripts">
+            <TabsTrigger
+              value="transcripts"
+              className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
+            >
               <T tx="nav.transcripts" /> ({archivedTranscripts.length})
             </TabsTrigger>
           </TabsList>

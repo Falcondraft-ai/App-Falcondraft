@@ -836,15 +836,16 @@ export function DealActionPanel({
           <Button
             key={action.label}
             type="button"
-            variant={isAvailable ? "default" : "outline"}
+            variant="outline"
             className={cn(
-              "w-full justify-between gap-3",
+              "w-full justify-between gap-3 rounded-[6px] text-[13px] font-medium transition-[background-color,border-color,color] duration-150 ease-out",
               isSignatureAction
-                ? "bg-muted/30 text-muted-foreground border-dashed opacity-100"
-                : "",
-              isAvailable && !isNextAction
-                ? "bg-primary/88 hover:bg-primary/82"
-                : "",
+                ? "border-0 bg-[var(--background-subtle)] italic text-[var(--muted-foreground)] shadow-none hover:bg-[var(--background-subtle)]"
+                : isEmailDraftAction && isAvailable
+                  ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-none hover:bg-[var(--primary-hover)] hover:border-[var(--primary-hover)]"
+                  : isAvailable
+                    ? "border-[var(--border)] bg-transparent text-[var(--foreground)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--background-subtle)]"
+                    : "border-[var(--border)] bg-transparent text-[var(--muted-foreground)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--background-subtle)]",
             )}
             disabled={
               !isAvailable ||
@@ -925,7 +926,14 @@ export function DealActionPanel({
             !isProposalGenerating &&
             !isTriggeringEmailDraft &&
             localActionIndex === null ? (
-              <span className="text-[10px] font-medium tracking-[0.12em] uppercase opacity-70">
+              <span
+                className={cn(
+                  "rounded-[3px] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                  isEmailDraftAction
+                    ? "bg-[var(--accent)] text-white"
+                    : "bg-[var(--accent-soft)] text-[var(--accent-foreground)]",
+                )}
+              >
                 {isNextAction ? copy.next : copy.ready}
               </span>
             ) : null}
@@ -952,8 +960,8 @@ export function DealActionPanel({
         >
           <Button
             type="button"
-            variant="outline"
-            className="w-full justify-start"
+            variant="ghost"
+            className="w-full justify-start rounded-[6px] border-0 bg-transparent text-[var(--muted-foreground)] shadow-none hover:bg-[var(--background-subtle)] hover:text-[var(--foreground)]"
             disabled={
               isArchivingDeal ||
               isDeletingDeal ||
@@ -987,7 +995,7 @@ export function DealActionPanel({
           <Button
             type="button"
             variant="destructive"
-            className="w-full justify-start"
+            className="w-full justify-start rounded-[6px] border-0 bg-[var(--destructive-soft)] text-[var(--destructive)] shadow-none hover:bg-[#FCE4E4] hover:text-[var(--destructive)]"
             disabled={
               isDeletingDeal ||
               isArchivingDeal ||

@@ -1,6 +1,9 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
-import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
+import {
+  canManageWorkspace,
+  normalizeWorkspaceRole,
+} from "@/lib/auth/workspace-permissions";
 import { canAccessProspection, canViewInternalAdmin } from "@/lib/internal-access";
 
 export default async function DashboardLayout({
@@ -28,6 +31,7 @@ export default async function DashboardLayout({
       }}
       showInternalAdmin={canViewInternalAdmin(context)}
       showProspection={canAccessProspection(context)}
+      canManageBilling={canManageWorkspace(context.membership?.role)}
     >
       {children}
     </DashboardShell>

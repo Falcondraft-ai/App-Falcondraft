@@ -10,13 +10,19 @@ export function ActionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border bg-card/80">
-      <div className="border-b px-4 py-3.5">
-        <h2 className="text-[0.82rem] font-semibold tracking-[-0.01em]">
+    <section
+      className="overflow-hidden rounded-lg border bg-[var(--background-card)]"
+      style={{
+        borderColor: "var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      <div className="border-b px-4 py-3.5" style={{ borderColor: "var(--border)" }}>
+        <h2 className="text-[13px] font-medium tracking-[-0.005em] text-[var(--foreground)]">
           {title}
         </h2>
         {description ? (
-          <p className="text-muted-foreground mt-1 text-sm leading-5">
+          <p className="mt-1 text-sm leading-5 text-[var(--muted-foreground)]">
             {description}
           </p>
         ) : null}

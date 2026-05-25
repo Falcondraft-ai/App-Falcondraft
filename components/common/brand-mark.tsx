@@ -7,6 +7,7 @@ type BrandMarkProps = {
   size?: "sm" | "md" | "lg";
   showDescriptor?: boolean;
   className?: string;
+  variant?: "light" | "dark";
 };
 
 const sizeStyles = {
@@ -27,24 +28,42 @@ const sizeStyles = {
   },
 } as const;
 
-function BrandSymbol({ className }: { className?: string }) {
+function BrandSymbol({
+  className,
+  variant = "light",
+}: {
+  className?: string;
+  variant?: "light" | "dark";
+}) {
   return (
     <span
       className={cn(
         "relative flex shrink-0 items-center justify-center rounded-md",
-        "dark:bg-[#f7f1e8] dark:p-1 dark:ring-1 dark:ring-white/10 dark:shadow-[0_0_22px_rgba(198,154,97,0.18)]",
+        variant === "light" &&
+          "dark:bg-[#f7f1e8] dark:p-1 dark:ring-1 dark:ring-white/10 dark:shadow-[0_0_22px_rgba(198,154,97,0.18)]",
         className,
       )}
     >
-      <Image
-        src="/falcondraft-logo.png"
-        alt="FalconDraft"
-        width={363}
-        height={384}
-        className="h-full w-auto object-contain"
-        data-slot="brand-symbol-light"
-        priority
-      />
+      {variant === "dark" ? (
+        <div className="h-10 w-10 flex items-center justify-center">
+          <img
+            src="/bimi/logo.svg"
+            alt="FalconDraft"
+            className="h-10 w-10 object-contain scale-[1.15]"
+            data-slot="brand-symbol-dark"
+          />
+        </div>
+      ) : (
+        <Image
+          src="/falcondraft-logo.png"
+          alt="FalconDraft"
+          width={363}
+          height={384}
+          className="h-full w-auto object-contain"
+          data-slot="brand-symbol-light"
+          priority
+        />
+      )}
     </span>
   );
 }
@@ -52,12 +71,13 @@ function BrandSymbol({ className }: { className?: string }) {
 function BrandContent({
   size = "md",
   showDescriptor = true,
-}: Pick<BrandMarkProps, "size" | "showDescriptor">) {
+  variant = "light",
+}: Pick<BrandMarkProps, "size" | "showDescriptor" | "variant">) {
   const styles = sizeStyles[size];
 
   return (
     <>
-      <BrandSymbol className={styles.mark} />
+      <BrandSymbol className={styles.mark} variant={variant} />
       <span className="min-w-0 leading-tight">
         <span
           className={cn(
@@ -88,10 +108,11 @@ export function BrandMark({
   size = "md",
   showDescriptor = true,
   className,
+  variant = "light",
 }: BrandMarkProps) {
   const content = (
     <span className={cn("flex items-center gap-3", className)}>
-      <BrandContent size={size} showDescriptor={showDescriptor} />
+      <BrandContent size={size} showDescriptor={showDescriptor} variant={variant} />
     </span>
   );
 
@@ -101,7 +122,7 @@ export function BrandMark({
 
   return (
     <Link href={href} className={cn("group flex items-center gap-3", className)}>
-      <BrandContent size={size} showDescriptor={showDescriptor} />
+      <BrandContent size={size} showDescriptor={showDescriptor} variant={variant} />
     </Link>
   );
 }

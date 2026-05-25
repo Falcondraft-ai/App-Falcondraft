@@ -36,7 +36,7 @@ const emptyableFallbacks = new Set([
   "Email à renseigner",
   "Contact à renseigner",
   "Aucune note d’appel renseignée.",
-  "Contexte complémentaire à préciser si nécessaire.",
+  "Ajoutez des informations utiles ici.",
   "Consignes email à préciser si nécessaire.",
   "Le compte-rendu sera disponible après génération.",
   "La proposition sera disponible après génération.",
@@ -248,7 +248,12 @@ export function DealEditDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size={triggerSize}>
+        <Button
+          type="button"
+          variant="ghost"
+          size={triggerSize}
+          className="border border-[var(--border)] bg-transparent text-[13px] text-[var(--foreground)] hover:bg-[var(--background-subtle)] hover:text-[var(--foreground)]"
+        >
           <Pencil aria-hidden="true" />
           {triggerLabel}
         </Button>
@@ -386,7 +391,7 @@ export function DealEditDialog({
               </CollapsibleSection>
 
               <CollapsibleSection
-                label="Contexte complémentaire"
+                label="Informations complémentaires"
                 preview={form.getValues("additionalContext")?.slice(0, 80) ?? ""}
                 expanded={expandedSections.has("additionalContext")}
                 onToggle={() => setExpandedSections((s) => {
