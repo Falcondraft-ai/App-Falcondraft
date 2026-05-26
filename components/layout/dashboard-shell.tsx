@@ -224,7 +224,7 @@ function WorkspaceContext({
 
   return (
     <section
-      className="border-b px-5 py-5"
+      className="border-b px-4 py-3.5"
       style={{
         backgroundColor: "var(--sidebar-hover)",
         borderColor: "var(--sidebar-border)",
@@ -235,10 +235,13 @@ function WorkspaceContext({
         style={{ borderColor: "var(--accent)" }}
       >
         <p
-          className="text-[10px] font-semibold uppercase tracking-[0.1em]"
-          style={{ color: "var(--sidebar-text)" }}
+          className="text-[9.5px] font-semibold uppercase"
+          style={{
+            color: "var(--accent)",
+            letterSpacing: "0.16em",
+          }}
         >
-          {t("shell.workspaceTitle")}
+          Production commerciale
         </p>
         <p
           className="mt-1 truncate text-[13px] font-medium"
@@ -286,7 +289,7 @@ function SidebarBrandHeader({
           </span>
           {organizationName ? (
             <span
-              className="block truncate text-[11px] font-medium mt-[2px]"
+              className="mt-[2px] block truncate text-[11px] font-medium"
               style={{ color: "var(--sidebar-text)", letterSpacing: "0.01em" }}
             >
               {organizationName}
@@ -974,6 +977,7 @@ export function DashboardShell({
         }}
       >
         <SidebarBrandHeader organizationName={organization?.name} />
+        <WorkspaceContext organization={organization} />
         <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-3">
           <NavList
             navItems={primaryNavItems}
@@ -1026,6 +1030,7 @@ export function DashboardShell({
             borderBottomColor: "var(--border-1)",
             color: "var(--fg-1)",
             boxShadow: "0 1px 0 rgba(11,18,32,.02)",
+            position: "sticky",
           }}
         >
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -1092,10 +1097,15 @@ export function DashboardShell({
             />
           </div>
 
-          <div className="hidden flex-1 px-2 md:mx-auto md:block md:w-full md:max-w-[520px]">
-            <TopbarSearch
-              placeholder={t("shell.topbar.searchPlaceholder")}
-            />
+          <div
+            className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 md:block md:w-[460px] lg:w-[520px]"
+            style={{ top: "50%", transform: "translate(-50%, -50%)" }}
+          >
+            <div className="pointer-events-auto">
+              <TopbarSearch
+                placeholder={t("shell.topbar.searchPlaceholder")}
+              />
+            </div>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">

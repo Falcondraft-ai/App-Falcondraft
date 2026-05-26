@@ -284,10 +284,13 @@
 
   html {
     @apply h-full scroll-smooth font-sans;
+    color-scheme: light;
+    background-color: var(--background);
   }
 
   body {
     @apply bg-background text-foreground min-h-full antialiased;
+    color-scheme: light;
   }
 
   ::selection {

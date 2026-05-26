@@ -15,6 +15,7 @@ import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
+import { DashboardActivityChart } from "@/components/dashboard/dashboard-activity-chart";
 import { DashboardAutoRefresh } from "@/components/dashboard/dashboard-auto-refresh";
 import { FollowUpPanel } from "@/components/dashboard/follow-up-panel";
 import { PipelineStagePanel } from "@/components/dashboard/pipeline-stage-panel";
@@ -293,7 +294,59 @@ export default async function DashboardPage() {
             </div>
           )}
         </section>
+
+        <section
+          className="overflow-hidden rounded-lg border bg-[var(--bg-surface)]"
+          style={{
+            borderColor: "var(--border-1)",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5 sm:py-4"
+            style={{ borderColor: "var(--border-1)" }}
+          >
+            <div className="min-w-0">
+              <p className="fd-eyebrow">Activité</p>
+              <h2 className="mt-1 text-[14px] font-semibold leading-tight tracking-[-0.005em] text-[var(--fg-1)] sm:text-[15px]">
+                <T tx="dashboard.chart.title" />
+              </h2>
+              <p className="mt-1 text-[12px] leading-5 text-[var(--fg-3)] sm:text-[12.5px]">
+                <T tx="dashboard.chart.description" />
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <ChartLegend />
+            </div>
+          </div>
+          <div className="p-3 sm:p-5">
+            <DashboardActivityChart data={dashboard.chartData} />
+          </div>
+        </section>
       </div>
     </PageTransition>
+  );
+}
+
+function ChartLegend() {
+  return (
+    <div className="flex items-center gap-3 text-[11px] font-medium text-[var(--fg-3)]">
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="h-2 w-2 rounded-full"
+          style={{ background: "var(--brand-navy-800)" }}
+        />
+        Propositions
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="h-2 w-2 rounded-full"
+          style={{ background: "var(--accent)" }}
+        />
+        Documents
+      </span>
+    </div>
   );
 }

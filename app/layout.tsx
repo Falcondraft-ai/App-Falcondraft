@@ -1,8 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Instrument_Sans, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/app/providers";
 
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#FFFFFF",
+  colorScheme: "light",
+};
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -33,7 +41,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "FalconDraft",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
 };
 
