@@ -258,19 +258,9 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
                 >
                   <Link
                     href={`/dashboard/deals/${deal.id}`}
-                    className="group absolute inset-0 flex items-start gap-3 rounded-md px-2 py-2 transition-colors"
+                    className="group absolute inset-0 flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-[var(--bg-subtle)]"
                     style={{
                       flexDirection: isLeft ? "row" : "row-reverse",
-                      background:
-                        stage.state === "active"
-                          ? "var(--brand-amber-50)"
-                          : stage.state === "done"
-                            ? "var(--brand-navy-50)"
-                            : "transparent",
-                      border:
-                        stage.state === "active"
-                          ? "1px solid var(--brand-amber-200)"
-                          : "1px solid transparent",
                     }}
                   >
                     <span className="relative z-10 mt-[1px] shrink-0">

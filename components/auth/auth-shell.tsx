@@ -118,22 +118,7 @@ export function AuthShell({
               {...cardMotionProps}
             >
               <div className="mb-7 text-center">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] font-semibold uppercase tracking-[0.16em]"
-                  style={{
-                    background: "var(--brand-amber-50)",
-                    color: "var(--brand-amber-800)",
-                    border: "1px solid var(--brand-amber-200)",
-                  }}
-                >
-                  <span
-                    aria-hidden
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: "var(--accent)" }}
-                  />
-                  {eyebrow}
-                </span>
-                <h1 className="mt-4 text-[28px] font-semibold leading-[1.1] tracking-[-0.035em] text-[var(--fg-1)] sm:text-[32px] sm:tracking-[-0.045em] md:text-[38px]">
+                <h1 className="text-[28px] font-semibold leading-[1.1] tracking-[-0.035em] text-[var(--fg-1)] sm:text-[32px] sm:tracking-[-0.045em] md:text-[38px]">
                   {title}
                 </h1>
               </div>

@@ -232,13 +232,13 @@ function WorkspaceContext({
     >
       <div
         className="border-l-2 pl-3"
-        style={{ borderColor: "var(--accent)" }}
+        style={{ borderColor: "rgba(148,163,184,0.35)" }}
       >
         <p
           className="text-[9.5px] font-semibold uppercase"
           style={{
-            color: "var(--accent)",
-            letterSpacing: "0.16em",
+            color: "var(--sidebar-text)",
+            letterSpacing: "0.14em",
           }}
         >
           Production commerciale
