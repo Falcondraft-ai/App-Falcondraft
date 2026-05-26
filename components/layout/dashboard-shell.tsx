@@ -721,7 +721,7 @@ function NotificationsMenu({ label }: { label: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="relative hidden h-9 w-9 items-center justify-center rounded-md transition-colors sm:inline-flex"
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors"
           style={{
             background: "var(--brand-navy-50)",
             border: "1px solid var(--border-1)",
@@ -754,7 +754,8 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-colors duration-150"
+          aria-label={createLabel}
+          className="inline-flex h-9 w-9 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold transition-colors duration-150 sm:w-auto sm:px-3"
           style={{
             background: "var(--brand-navy-800)",
             color: "#FFFFFF",
@@ -775,7 +776,7 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
             strokeWidth={2.25}
             style={{ color: "var(--accent)" }}
           />
-          {createLabel}
+          <span className="hidden sm:inline">{createLabel}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
@@ -1083,7 +1084,7 @@ export function DashboardShell({
             </SheetContent>
           </Sheet>
 
-          <div className="flex w-[220px] shrink-0 items-center">
+          <div className="hidden min-w-0 shrink-0 items-center md:flex md:w-[220px]">
             <Breadcrumb
               pathname={pathname}
               workspaceLabel={t("shell.topbar.workspace")}
@@ -1091,13 +1092,13 @@ export function DashboardShell({
             />
           </div>
 
-          <div className="mx-auto w-full max-w-[520px] px-2">
+          <div className="hidden flex-1 px-2 md:mx-auto md:block md:w-full md:max-w-[520px]">
             <TopbarSearch
               placeholder={t("shell.topbar.searchPlaceholder")}
             />
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <NotificationsMenu label={t("shell.topbar.notifications")} />
             <CreateMenu createLabel={t("shell.topbar.create")} />
 

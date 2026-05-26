@@ -119,7 +119,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
           </dl>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-6">
             <section className="grid gap-4 md:grid-cols-2">
               <ActionCard title={<T tx="dealDetail.clientCompany" />}>
@@ -306,7 +306,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
             </ActionCard>
           </div>
 
-          <aside className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+          <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <section
               className="rounded-lg border bg-[var(--background-card)] p-4"
               style={{

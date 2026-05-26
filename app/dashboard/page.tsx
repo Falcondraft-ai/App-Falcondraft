@@ -157,7 +157,7 @@ export default async function DashboardPage() {
           }
         />
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardStatCard
             label={<T tx="dashboard.stats.pipelineOpen" />}
             value={formatCurrency(dashboard.pipelineValue)}
@@ -192,7 +192,7 @@ export default async function DashboardPage() {
           />
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <PipelineStagePanel stages={stages} />
           <FollowUpPanel deals={followUpDeals} />
         </div>
@@ -205,14 +205,14 @@ export default async function DashboardPage() {
           }}
         >
           <div
-            className="flex items-center justify-between gap-4 border-b px-5 py-4"
+            className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5 sm:py-4"
             style={{ borderColor: "var(--border-1)" }}
           >
-            <div>
-              <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.005em] text-[var(--fg-1)]">
+            <div className="min-w-0">
+              <h2 className="text-[14px] font-semibold leading-tight tracking-[-0.005em] text-[var(--fg-1)] sm:text-[15px]">
                 <T tx="dashboard.recentDeals.title" />
               </h2>
-              <p className="mt-1 text-[12.5px] leading-5 text-[var(--fg-3)]">
+              <p className="mt-1 text-[12px] leading-5 text-[var(--fg-3)] sm:text-[12.5px]">
                 <T tx="dashboard.recentDeals.description" />
               </p>
             </div>
@@ -223,7 +223,8 @@ export default async function DashboardPage() {
             </Button>
           </div>
           {dashboard.deals.length > 0 ? (
-            <Table>
+            <div className="-mx-px overflow-x-auto">
+            <Table className="min-w-[640px]">
               <TableHeader>
                 <TableRow
                   className="hover:bg-transparent"
@@ -275,6 +276,7 @@ export default async function DashboardPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           ) : (
             <div className="p-5">
               <EmptyState

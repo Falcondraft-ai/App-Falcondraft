@@ -10,33 +10,78 @@ type FollowUpDeal = Pick<
 
 type NodeStatus = "done" | "active" | "pending" | "failed";
 
-function getNodeStatus(status: DealStatus): NodeStatus {
-  if (status === "completed") return "done";
-  if (status === "failed") return "failed";
-  if (
-    status === "validation_pending" ||
-    status === "signature_ready" ||
-    status === "email_draft_ready" ||
-    status === "proposal_ready"
-  ) {
-    return "active";
-  }
-  return "pending";
-}
+type Stage = { title: string; sub: string; state: NodeStatus };
 
-const stageLabel: Record<DealStatus, { title: string; sub: string }> = {
-  draft: { title: "Deal", sub: "Cadrage client" },
-  call_summary_ready: { title: "Compte-rendu", sub: "Synthèse de l'appel" },
-  proposal_generating: { title: "Proposition", sub: "Génération en cours" },
-  proposal_ready: { title: "Proposition", sub: "Document prêt à envoyer" },
-  validation_pending: { title: "Validation", sub: "Vérification interne" },
-  final_document_generating: { title: "Document final", sub: "Génération du PDF" },
-  final_document_ready: { title: "Document final", sub: "PDF finalisé" },
-  signature_ready: { title: "Signature", sub: "Lien de signature" },
-  email_draft_ready: { title: "Email d'envoi", sub: "Brouillon personnalisable" },
-  completed: { title: "Terminé", sub: "Email envoyé" },
-  failed: { title: "Erreur", sub: "Génération à reprendre" },
-};
+// Return the *next action expected* on the deal, not the step already done.
+// A deal at `call_summary_ready` means the summary IS generated and the
+// next thing to do is generate the proposal — so we show "Proposition" /
+// "Génération à lancer" with state = active.
+function stageForDeal(status: DealStatus): Stage {
+  switch (status) {
+    case "draft":
+      return {
+        title: "Compte-rendu",
+        sub: "À générer depuis le transcript",
+        state: "active",
+      };
+    case "call_summary_ready":
+      return {
+        title: "Proposition",
+        sub: "À générer (compte-rendu prêt)",
+        state: "active",
+      };
+    case "proposal_generating":
+      return {
+        title: "Proposition",
+        sub: "Génération en cours",
+        state: "active",
+      };
+    case "proposal_ready":
+      return {
+        title: "Proposition",
+        sub: "Document prêt à valider",
+        state: "active",
+      };
+    case "validation_pending":
+      return {
+        title: "Validation",
+        sub: "Vérification interne en cours",
+        state: "active",
+      };
+    case "final_document_generating":
+      return {
+        title: "Document final",
+        sub: "Génération du PDF",
+        state: "active",
+      };
+    case "final_document_ready":
+      return {
+        title: "Document final",
+        sub: "PDF prêt à envoyer",
+        state: "active",
+      };
+    case "signature_ready":
+      return {
+        title: "Signature",
+        sub: "Lien à transmettre au client",
+        state: "active",
+      };
+    case "email_draft_ready":
+      return {
+        title: "Email d'envoi",
+        sub: "Brouillon prêt — à envoyer",
+        state: "active",
+      };
+    case "completed":
+      return { title: "Terminé", sub: "Email envoyé", state: "done" };
+    case "failed":
+      return {
+        title: "Erreur",
+        sub: "Génération à reprendre",
+        state: "failed",
+      };
+  }
+}
 
 const subStatusLabel: Record<NodeStatus, string> = {
   done: "FAIT",
@@ -70,7 +115,7 @@ function Node({ state }: { state: NodeStatus }) {
   if (state === "done") {
     return (
       <span
-        className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2"
+        className="flex h-5 w-5 items-center justify-center rounded-full border-2"
         style={{
           background: "var(--brand-navy-800)",
           borderColor: "var(--brand-navy-800)",
@@ -78,7 +123,7 @@ function Node({ state }: { state: NodeStatus }) {
       >
         <svg
           viewBox="0 0 24 24"
-          className="h-2.5 w-2.5"
+          className="h-3 w-3"
           fill="none"
           stroke="#fff"
           strokeWidth={3}
@@ -93,7 +138,7 @@ function Node({ state }: { state: NodeStatus }) {
   if (state === "active") {
     return (
       <span
-        className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 bg-white"
+        className="flex h-5 w-5 items-center justify-center rounded-full border-2 bg-white"
         style={{
           borderColor: "var(--accent)",
           boxShadow: "0 0 0 5px rgba(184,146,42,0.18)",
@@ -109,7 +154,7 @@ function Node({ state }: { state: NodeStatus }) {
   if (state === "failed") {
     return (
       <span
-        className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2"
+        className="flex h-5 w-5 items-center justify-center rounded-full border-2"
         style={{
           background: "var(--status-error-fg)",
           borderColor: "var(--status-error-fg)",
@@ -121,18 +166,18 @@ function Node({ state }: { state: NodeStatus }) {
   }
   return (
     <span
-      className="block h-[18px] w-[18px] rounded-full border-2 bg-white"
+      className="block h-5 w-5 rounded-full border-2 bg-white"
       style={{ borderColor: "var(--border-2)" }}
     />
   );
 }
 
-const ROW_HEIGHT = 64; // each row in the zigzag timeline
+const ROW_HEIGHT = 78;
 
 export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
   return (
     <section
-      className="flex flex-col rounded-lg border bg-[var(--bg-surface)] p-5"
+      className="flex flex-col rounded-lg border bg-[var(--bg-surface)] p-4 sm:p-5"
       style={{
         borderColor: "var(--border-1)",
         boxShadow: "var(--shadow-sm)",
@@ -144,15 +189,19 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
             <T tx="dashboard.followUp.title" />
           </h2>
           <p className="mt-0.5 text-[12px] text-[var(--fg-3)]">
-            Progression de vos dossiers ouverts
+            Prochaine action à mener par dossier
           </p>
         </div>
         {deals.length > 0 ? (
           <span
-            className="fd-meta font-semibold"
-            style={{ color: "var(--accent-foreground)" }}
+            className="inline-flex items-center rounded-full px-2 py-[3px] text-[10.5px] font-semibold tracking-[0.08em] uppercase"
+            style={{
+              background: "var(--brand-amber-50)",
+              color: "var(--brand-amber-800)",
+              border: "1px solid var(--brand-amber-200)",
+            }}
           >
-            {deals.length}
+            {deals.length} actif{deals.length > 1 ? "s" : ""}
           </span>
         ) : null}
       </header>
@@ -163,21 +212,21 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
         </p>
       ) : (
         <div className="relative flex-1">
-          {/* Zigzag spine — SVG path threading through the nodes */}
+          {/* Zigzag spine threading through the nodes */}
           <svg
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 h-full w-full"
             preserveAspectRatio="none"
             viewBox={`0 0 100 ${deals.length * ROW_HEIGHT}`}
           >
-            {deals.slice(0, -1).map((_, index) => {
+            {deals.slice(0, -1).map((deal, index) => {
               const isLeft = index % 2 === 0;
-              const startX = isLeft ? 9 : 91;
-              const endX = isLeft ? 91 : 9;
-              const startY = index * ROW_HEIGHT + 9;
-              const endY = (index + 1) * ROW_HEIGHT + 9;
+              const startX = isLeft ? 10 : 90;
+              const endX = isLeft ? 90 : 10;
+              const startY = index * ROW_HEIGHT + 14;
+              const endY = (index + 1) * ROW_HEIGHT + 14;
               const midY = (startY + endY) / 2;
-              const state = getNodeStatus(deals[index].status);
+              const state = stageForDeal(deal.status).state;
               const stroke =
                 state === "done"
                   ? "var(--brand-navy-800)"
@@ -192,7 +241,6 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
                   stroke={stroke}
                   strokeWidth={1.5}
                   strokeLinecap="round"
-                  strokeDasharray={state === "pending" ? "3 4" : undefined}
                 />
               );
             })}
@@ -201,8 +249,7 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
           <ol className="relative">
             {deals.map((deal, index) => {
               const isLeft = index % 2 === 0;
-              const nodeState = getNodeStatus(deal.status);
-              const stage = stageLabel[deal.status];
+              const stage = stageForDeal(deal.status);
               return (
                 <li
                   key={deal.id}
@@ -211,17 +258,23 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
                 >
                   <Link
                     href={`/dashboard/deals/${deal.id}`}
-                    className="group absolute inset-0 flex items-start gap-3 rounded-md px-2 py-1.5 transition-colors"
+                    className="group absolute inset-0 flex items-start gap-3 rounded-md px-2 py-2 transition-colors"
                     style={{
                       flexDirection: isLeft ? "row" : "row-reverse",
                       background:
-                        nodeState === "active"
+                        stage.state === "active"
                           ? "var(--brand-amber-50)"
-                          : "transparent",
+                          : stage.state === "done"
+                            ? "var(--brand-navy-50)"
+                            : "transparent",
+                      border:
+                        stage.state === "active"
+                          ? "1px solid var(--brand-amber-200)"
+                          : "1px solid transparent",
                     }}
                   >
-                    <span className="relative z-10 mt-[2px] shrink-0">
-                      <Node state={nodeState} />
+                    <span className="relative z-10 mt-[1px] shrink-0">
+                      <Node state={stage.state} />
                     </span>
                     <div
                       className="min-w-0 flex-1"
@@ -234,21 +287,21 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
                         }}
                       >
                         <p
-                          className="truncate text-[13.5px] font-semibold leading-tight"
-                          style={{ color: titleTone[nodeState] }}
+                          className="truncate text-[14px] font-semibold leading-tight"
+                          style={{ color: titleTone[stage.state] }}
                         >
                           {stage.title}
                         </p>
                         <span
-                          className="shrink-0 font-mono text-[10px] tracking-[0.1em]"
-                          style={{ color: subStatusTone[nodeState] }}
+                          className="shrink-0 font-mono text-[10px] font-semibold tracking-[0.12em]"
+                          style={{ color: subStatusTone[stage.state] }}
                         >
-                          {subStatusLabel[nodeState]}
+                          {subStatusLabel[stage.state]}
                         </span>
                       </div>
                       <p
                         className="mt-[3px] truncate text-[12px] leading-[1.45]"
-                        style={{ color: subTone[nodeState] }}
+                        style={{ color: subTone[stage.state] }}
                       >
                         {stage.sub}
                       </p>

@@ -71,7 +71,7 @@ export function AuthShell({
         </aside>
 
         <div className="bg-background flex min-h-dvh flex-col">
-          <header className="flex h-20 items-center justify-between border-b px-5 sm:px-8 lg:h-24">
+          <header className="flex h-16 items-center justify-between gap-3 border-b px-4 sm:h-20 sm:px-8 lg:h-24">
             <BrandMark href="/" size="md" showDescriptor={false} />
             <div className="flex items-center gap-3">
               <LanguageSelector triggerClassName="h-9 w-[8.5rem]" />
@@ -84,26 +84,26 @@ export function AuthShell({
             </div>
           </header>
 
-          <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8 lg:py-12">
+          <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:py-12">
             <motion.div className="w-full max-w-[28rem]" {...formMotionProps}>
               <div className="mb-7">
                 <p className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
                   {eyebrow}
                 </p>
-                <h1 className="mt-2 text-4xl leading-tight font-semibold tracking-[-0.055em]">
+                <h1 className="mt-2 text-[26px] leading-tight font-semibold tracking-[-0.04em] sm:text-[32px] sm:tracking-[-0.05em] md:text-4xl md:tracking-[-0.055em]">
                   {title}
                 </h1>
               </div>
 
               <div className="bg-card overflow-hidden rounded-2xl border shadow-[0_18px_55px_-45px_rgba(20,32,51,0.55)]">
-                <div className="border-b px-7 py-5">
+                <div className="border-b px-5 py-5 sm:px-7">
                   <p className="text-base font-medium">{cardTitle}</p>
                   <p className="text-muted-foreground mt-1 text-sm leading-6">
                     {cardDescription}
                   </p>
                 </div>
 
-                <div className="px-7 py-7">{children}</div>
+                <div className="px-5 py-6 sm:px-7 sm:py-7">{children}</div>
               </div>
 
               <div className="text-muted-foreground mt-5 flex items-center justify-between gap-4 text-xs">

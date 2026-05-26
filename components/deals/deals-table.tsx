@@ -210,7 +210,8 @@ export function DealsTable({
           </SelectContent>
         </Select>
       </div>
-      <Table>
+      <div className="-mx-px overflow-x-auto rounded-md">
+      <Table className="min-w-[720px]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="h-10 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
@@ -339,6 +340,7 @@ export function DealsTable({
           ))}
         </TableBody>
       </Table>
+      </div>
       {filteredDeals.length === 0 ? (
         <div className="text-muted-foreground border-t p-6 text-center text-sm">
           {t("deals.emptyFiltered")}

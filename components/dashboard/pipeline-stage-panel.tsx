@@ -39,13 +39,13 @@ export function PipelineStagePanel({ stages }: { stages: StageInput[] }) {
 
   return (
     <section
-      className="rounded-lg border bg-[var(--bg-surface)] p-5"
+      className="rounded-lg border bg-[var(--bg-surface)] p-4 sm:p-5"
       style={{
         borderColor: "var(--border-1)",
         boxShadow: "var(--shadow-sm)",
       }}
     >
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.005em] text-[var(--fg-1)]">
           {t("dashboard.pipeline.title")}
         </h2>
