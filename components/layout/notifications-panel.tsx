@@ -215,34 +215,110 @@ function classify(event: ActivityEvent): FormattedNotification {
   };
 }
 
+// ---- Global notifications cache (shared across mounts) ---------------
+const CACHE_TTL_MS = 30_000;
+const BACKGROUND_REFRESH_MS = 60_000;
+
+type Listener = (items: FormattedNotification[]) => void;
+
+const notificationsStore: {
+  items: FormattedNotification[] | null;
+  fetchedAt: number;
+  pending: Promise<FormattedNotification[]> | null;
+  listeners: Set<Listener>;
+} = { items: null, fetchedAt: 0, pending: null, listeners: new Set() };
+
+function notifyListeners(items: FormattedNotification[]) {
+  for (const listener of notificationsStore.listeners) listener(items);
+}
+
+async function fetchNotifications(): Promise<FormattedNotification[]> {
+  if (notificationsStore.pending) return notificationsStore.pending;
+  const promise = (async () => {
+    const response = await fetch("/api/notifications/recent", {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("fetch_failed");
+    const data = (await response.json()) as {
+      notifications: ActivityEvent[];
+    };
+    const items = data.notifications.map(classify);
+    notificationsStore.items = items;
+    notificationsStore.fetchedAt = Date.now();
+    notificationsStore.pending = null;
+    notifyListeners(items);
+    return items;
+  })();
+  notificationsStore.pending = promise.catch((error) => {
+    notificationsStore.pending = null;
+    throw error;
+  });
+  return notificationsStore.pending;
+}
+
+function isCacheFresh(): boolean {
+  return (
+    Boolean(notificationsStore.items) &&
+    Date.now() - notificationsStore.fetchedAt < CACHE_TTL_MS
+  );
+}
+
+/**
+ * Hook that pre-warms the notifications cache once per shell mount and
+ * keeps it up-to-date silently in the background (interval + tab focus).
+ * Listeners (e.g. the dropdown) read instantly from cache, so opening
+ * the bell never blocks the UI on a network round-trip.
+ */
+export function useNotificationsBackgroundSync() {
+  React.useEffect(() => {
+    if (!isCacheFresh()) {
+      void fetchNotifications().catch(() => {
+        /* silent */
+      });
+    }
+    const interval = window.setInterval(() => {
+      void fetchNotifications().catch(() => {
+        /* silent */
+      });
+    }, BACKGROUND_REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !isCacheFresh()) {
+        void fetchNotifications().catch(() => {
+          /* silent */
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+}
+
 export function NotificationsPanel({ label }: { label: string }) {
   const { t } = useI18n();
-  const [items, setItems] = React.useState<FormattedNotification[] | null>(null);
+  const [items, setItems] = React.useState<FormattedNotification[] | null>(
+    () => notificationsStore.items,
+  );
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const response = await fetch("/api/notifications/recent", {
-          cache: "no-store",
+    const listener: Listener = (next) => setItems(next);
+    notificationsStore.listeners.add(listener);
+    // If cache is empty when the dropdown opens, kick off a fetch.
+    if (!notificationsStore.items) {
+      fetchNotifications().catch(() => setError("Chargement impossible."));
+    } else {
+      // Refresh silently on open if stale (no UI loader).
+      if (!isCacheFresh()) {
+        void fetchNotifications().catch(() => {
+          /* silent */
         });
-        if (!response.ok) {
-          if (!cancelled) setError("Chargement impossible.");
-          return;
-        }
-        const data = (await response.json()) as {
-          notifications: ActivityEvent[];
-        };
-        if (cancelled) return;
-        setItems(data.notifications.map(classify));
-      } catch {
-        if (!cancelled) setError("Chargement impossible.");
       }
     }
-    void load();
     return () => {
-      cancelled = true;
+      notificationsStore.listeners.delete(listener);
     };
   }, []);
 

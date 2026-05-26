@@ -13,7 +13,6 @@ import {
   Menu,
   Mic,
   Plus,
-  Search,
   Settings,
   ShieldCheck,
   Target,
@@ -41,7 +40,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { NotificationsPanel } from "@/components/layout/notifications-panel";
+import {
+  NotificationsPanel,
+  useNotificationsBackgroundSync,
+} from "@/components/layout/notifications-panel";
+import { TopbarSearch } from "@/components/layout/topbar-search";
 import {
   fetchProfilePhotoUrl,
   LEGACY_PROFILE_PHOTO_STORAGE_KEY,
@@ -52,7 +55,7 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceMemberRole } from "@/lib/auth/workspace-permissions";
 import type { TranslationKey } from "@/lib/i18n/translations";
 
-const SIDEBAR_WIDTH = 280;
+const SIDEBAR_WIDTH = 256;
 const SUBMENU_WIDTH = 208;
 const SUBMENU_CLOSE_DELAY = 120;
 
@@ -255,7 +258,7 @@ function SidebarBrandHeader({
 }) {
   return (
     <div
-      className="flex items-center border-b px-5 py-5"
+      className="flex items-center border-b px-4 py-4"
       style={{
         backgroundColor: "var(--sidebar-bg)",
         borderColor: "var(--sidebar-border)",
@@ -266,25 +269,25 @@ function SidebarBrandHeader({
         className="flex items-center gap-3 min-w-0"
         aria-label="FalconDraft"
       >
-        <div className="h-10 w-10 flex items-center justify-center shrink-0">
+        <div className="h-11 w-11 flex items-center justify-center shrink-0">
           <img
             src="/bimi/logo.svg"
             alt=""
             aria-hidden="true"
-            className="h-10 w-10 object-contain scale-[1.15]"
+            className="h-11 w-11 object-contain scale-[1.15]"
           />
         </div>
         <span className="min-w-0 leading-tight">
           <span
-            className="block text-[15px] font-semibold tracking-[-0.025em]"
+            className="block text-[17px] font-semibold tracking-[-0.025em]"
             style={{ color: "var(--sidebar-text-active)" }}
           >
             FalconDraft
           </span>
           {organizationName ? (
             <span
-              className="block truncate text-[11px] font-medium mt-0.5"
-              style={{ color: "var(--sidebar-text)" }}
+              className="block truncate text-[11px] font-medium mt-[2px]"
+              style={{ color: "var(--sidebar-text)", letterSpacing: "0.01em" }}
             >
               {organizationName}
             </span>
@@ -318,8 +321,8 @@ const NavRow = React.forwardRef<HTMLAnchorElement, NavRowProps>(
         onClick={onNavigate}
         onMouseEnter={onMouseEnter}
         className={cn(
-          "group flex w-full items-center gap-3 rounded-[8px] border-l-2",
-          "h-11 pl-[15px] pr-3 text-[13.5px]",
+          "group flex w-full items-center gap-2.5 rounded-[7px] border-l-2",
+          "h-9 pl-[13px] pr-2.5 text-[13px]",
           "transition-[background-color,color,border-color] duration-150 ease-out",
           !active &&
             "hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text-active)]",
@@ -339,7 +342,7 @@ const NavRow = React.forwardRef<HTMLAnchorElement, NavRowProps>(
         }
       >
         <Icon
-          className="size-[19px] shrink-0"
+          className="size-[17px] shrink-0"
           strokeWidth={1.75}
           aria-hidden="true"
         />
@@ -751,20 +754,27 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-[filter,transform] duration-150"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-colors duration-150"
           style={{
-            background: "var(--accent)",
+            background: "var(--brand-navy-800)",
             color: "#FFFFFF",
-            border: "1px solid var(--accent-hover)",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,.25), 0 1px 1px rgba(11,18,32,.12)",
+            border: "1px solid var(--brand-navy-800)",
+            boxShadow: "0 1px 1px rgba(11,18,32,.08)",
           }}
-          onMouseEnter={(event) =>
-            (event.currentTarget.style.filter = "brightness(.95)")
-          }
-          onMouseLeave={(event) => (event.currentTarget.style.filter = "")}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.background = "var(--brand-navy-700)";
+            event.currentTarget.style.borderColor = "var(--brand-navy-700)";
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.background = "var(--brand-navy-800)";
+            event.currentTarget.style.borderColor = "var(--brand-navy-800)";
+          }}
         >
-          <Plus className="size-3.5" strokeWidth={2.25} />
+          <Plus
+            className="size-3.5"
+            strokeWidth={2.25}
+            style={{ color: "var(--accent)" }}
+          />
           {createLabel}
         </button>
       </DropdownMenuTrigger>
@@ -833,37 +843,6 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
   );
 }
 
-function TopbarSearch({ placeholder }: { placeholder: string }) {
-  const [focus, setFocus] = React.useState(false);
-  return (
-    <div
-      className="relative hidden h-10 w-full items-center md:flex"
-      style={{
-        background: focus ? "#FFFFFF" : "var(--brand-navy-50)",
-        border: `1px solid ${focus ? "var(--accent)" : "var(--border-1)"}`,
-        borderRadius: 8,
-        boxShadow: focus ? "0 0 0 3px rgba(184,146,42,.18)" : "none",
-        transition:
-          "background 120ms var(--ease-out), border-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out)",
-      }}
-    >
-      <Search
-        className="pointer-events-none absolute left-3.5 size-4"
-        style={{ color: "var(--fg-3)" }}
-        strokeWidth={1.75}
-        aria-hidden="true"
-      />
-      <input
-        type="search"
-        placeholder={placeholder}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setFocus(false)}
-        className="h-full w-full bg-transparent pr-4 pl-10 text-[13.5px] outline-none placeholder:text-[var(--fg-3)]"
-        style={{ color: "var(--fg-1)" }}
-      />
-    </div>
-  );
-}
 
 export function DashboardShell({
   children,
@@ -883,6 +862,7 @@ export function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
+  useNotificationsBackgroundSync();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(
     null,
@@ -993,8 +973,7 @@ export function DashboardShell({
         }}
       >
         <SidebarBrandHeader organizationName={organization?.name} />
-        <WorkspaceContext organization={organization} />
-        <div className="flex-1 overflow-y-auto px-3 pt-6 pb-4">
+        <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-3">
           <NavList
             navItems={primaryNavItems}
             pathname={pathname}
@@ -1007,7 +986,7 @@ export function DashboardShell({
           />
         </div>
         <div
-          className="border-t px-3 pt-3 pb-4"
+          className="border-t px-2.5 pt-2.5 pb-3"
           style={{ borderColor: "var(--sidebar-border)" }}
         >
           <SettingsRow
@@ -1016,8 +995,8 @@ export function DashboardShell({
             onSubmenuOpen={openSubmenu}
           />
           <p
-            className="mt-4 px-1 text-[10.5px] font-medium tracking-[0.04em]"
-            style={{ color: "var(--sidebar-text)", opacity: 0.5 }}
+            className="mt-3 px-1 text-[10px] font-medium tracking-[0.06em]"
+            style={{ color: "var(--sidebar-text)", opacity: 0.45 }}
           >
             {t("shell.footer")}
           </p>
@@ -1038,7 +1017,7 @@ export function DashboardShell({
         </AnimatePresence>
       </aside>
 
-      <div className="min-h-dvh lg:pl-[280px]">
+      <div className="min-h-dvh lg:pl-[256px]">
         <header
           className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b px-4 sm:px-6"
           style={{
@@ -1104,7 +1083,7 @@ export function DashboardShell({
             </SheetContent>
           </Sheet>
 
-          <div className="flex w-[260px] shrink-0 items-center">
+          <div className="flex w-[220px] shrink-0 items-center">
             <Breadcrumb
               pathname={pathname}
               workspaceLabel={t("shell.topbar.workspace")}

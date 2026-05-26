@@ -822,6 +822,23 @@ export function DealActionPanel({
             ? hasReadyFinalDocument
             : index <= visibleActionLimit || isDocumentActionAvailable);
         const isNextAction = index === visibleActionLimit;
+        // An action is "done" once the underlying step has been completed.
+        const postValidation = [
+          "final_document_generating",
+          "final_document_ready",
+          "signature_ready",
+          "email_draft_ready",
+          "completed",
+        ].includes(status);
+        const isDone =
+          (action.kind === "call-summary" && hasCallSummary) ||
+          (action.kind === "proposal-generation" && hasProposal) ||
+          (action.kind === "edit-proposal" && postValidation) ||
+          (action.kind === "validate-proposal" &&
+            (hasReadyFinalDocument || postValidation)) ||
+          (action.kind === "prepare-email-draft" &&
+            (status === "email_draft_ready" || status === "completed")) ||
+          (action.kind === "open-signature-link" && status === "completed");
 
         if (action.kind === "download-quote") {
           return (
@@ -858,11 +875,14 @@ export function DealActionPanel({
               "w-full justify-between gap-3 rounded-[6px] text-[13px] font-medium transition-[background-color,border-color,color] duration-150 ease-out",
               isSignatureAction
                 ? "border-0 bg-[var(--background-subtle)] italic text-[var(--muted-foreground)] shadow-none hover:bg-[var(--background-subtle)]"
-                : isEmailDraftAction && isAvailable
+                : isDone
                   ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-none hover:bg-[var(--primary-hover)] hover:border-[var(--primary-hover)]"
-                  : isAvailable
-                    ? "border-[var(--border)] bg-transparent text-[var(--foreground)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--background-subtle)]"
-                    : "border-[var(--border)] bg-transparent text-[var(--muted-foreground)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--background-subtle)]",
+                  : (isNextAction || (isEmailDraftAction && isAvailable)) &&
+                      !isDone
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-none hover:bg-[var(--primary-hover)] hover:border-[var(--primary-hover)]"
+                    : isAvailable
+                      ? "border-[var(--border)] bg-transparent text-[var(--foreground)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--background-subtle)]"
+                      : "border-[var(--border)] bg-transparent text-[var(--muted-foreground)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--background-subtle)]",
             )}
             disabled={
               !isAvailable ||
@@ -937,17 +957,44 @@ export function DealActionPanel({
                 copy.labels[index]
               )}
             </span>
-            {isAvailable &&
-            !isCallSummaryGenerating &&
-            !isTriggeringProposal &&
-            !isProposalGenerating &&
-            !isTriggeringEmailDraft &&
-            localActionIndex === null ? (
+            {isDone ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                style={{
+                  background: "rgba(255,255,255,0.16)",
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-2.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m5 12 5 5 9-9" />
+                </svg>
+                {language === "fr"
+                  ? "Fait"
+                  : language === "es"
+                    ? "Hecho"
+                    : "Done"}
+              </span>
+            ) : isAvailable &&
+              !isCallSummaryGenerating &&
+              !isTriggeringProposal &&
+              !isProposalGenerating &&
+              !isTriggeringEmailDraft &&
+              localActionIndex === null ? (
               <span
                 className={cn(
                   "rounded-[3px] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
-                  isEmailDraftAction
-                    ? "bg-[var(--accent)] text-white"
+                  isNextAction || isEmailDraftAction
+                    ? "border border-white/20 bg-white/15 text-white"
                     : "bg-[var(--accent-soft)] text-[var(--accent-foreground)]",
                 )}
               >

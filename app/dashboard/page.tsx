@@ -6,11 +6,16 @@ import {
   Plus,
   Signature,
 } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
+import { DashboardAutoRefresh } from "@/components/dashboard/dashboard-auto-refresh";
 import { FollowUpPanel } from "@/components/dashboard/follow-up-panel";
 import { PipelineStagePanel } from "@/components/dashboard/pipeline-stage-panel";
 import { T } from "@/components/i18n/translated-text";
@@ -124,6 +129,7 @@ export default async function DashboardPage() {
 
   return (
     <PageTransition>
+      <DashboardAutoRefresh />
       <div className="space-y-6">
         <PageHeader
           size="large"

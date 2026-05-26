@@ -487,7 +487,10 @@ function mapDealRow(
     createdAt: row.created_at ?? fallbackIsoDate,
     updatedAt,
     lastAction: lastDealAction(row),
-    amountEstimate: row.amount_estimate ?? 0,
+    amountEstimate:
+      row.amount_estimate && row.amount_estimate > 0
+        ? row.amount_estimate
+        : (row.quote_price_ht ?? 0),
     quoteClientType: (row.quote_client_type as "company" | "individual") ?? undefined,
     quotePriceHt: row.quote_price_ht ?? undefined,
     quoteTaxRate: row.quote_tax_rate ?? undefined,

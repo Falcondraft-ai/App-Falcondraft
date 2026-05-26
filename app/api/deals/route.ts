@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
       email_instructions: values.emailInstructions || null,
       client_phone: values.phone || null,
       client_company_info: values.clientCompanyInfo || null,
+      amount_estimate: values.quotePriceHt,
       quote_price_ht: values.quotePriceHt,
       quote_tax_rate: values.quoteTaxRate,
       quote_client_type: values.quoteClientType,

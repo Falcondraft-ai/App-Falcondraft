@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { T } from "@/components/i18n/translated-text";
 import type { Deal, DealStatus } from "@/types/deal";
-import { formatDate } from "@/lib/format";
 
 type FollowUpDeal = Pick<
   Deal,
@@ -16,38 +14,120 @@ function getNodeStatus(status: DealStatus): NodeStatus {
   if (status === "completed") return "done";
   if (status === "failed") return "failed";
   if (
+    status === "validation_pending" ||
     status === "signature_ready" ||
     status === "email_draft_ready" ||
-    status === "validation_pending"
+    status === "proposal_ready"
   ) {
     return "active";
   }
   return "pending";
 }
 
-const nodeStyles: Record<NodeStatus, React.CSSProperties> = {
-  done: {
-    background: "var(--brand-navy-800)",
-    borderColor: "var(--brand-navy-800)",
-    color: "#fff",
-  },
-  active: {
-    background: "#fff",
-    borderColor: "var(--accent)",
-    color: "var(--accent)",
-    boxShadow: "0 0 0 4px rgba(184,146,42,0.18)",
-  },
-  pending: {
-    background: "#fff",
-    borderColor: "var(--border-2)",
-    color: "transparent",
-  },
-  failed: {
-    background: "var(--status-error-fg)",
-    borderColor: "var(--status-error-fg)",
-    color: "#fff",
-  },
+const stageLabel: Record<DealStatus, { title: string; sub: string }> = {
+  draft: { title: "Deal", sub: "Cadrage client" },
+  call_summary_ready: { title: "Compte-rendu", sub: "Synthèse de l'appel" },
+  proposal_generating: { title: "Proposition", sub: "Génération en cours" },
+  proposal_ready: { title: "Proposition", sub: "Document prêt à envoyer" },
+  validation_pending: { title: "Validation", sub: "Vérification interne" },
+  final_document_generating: { title: "Document final", sub: "Génération du PDF" },
+  final_document_ready: { title: "Document final", sub: "PDF finalisé" },
+  signature_ready: { title: "Signature", sub: "Lien de signature" },
+  email_draft_ready: { title: "Email d'envoi", sub: "Brouillon personnalisable" },
+  completed: { title: "Terminé", sub: "Email envoyé" },
+  failed: { title: "Erreur", sub: "Génération à reprendre" },
 };
+
+const subStatusLabel: Record<NodeStatus, string> = {
+  done: "FAIT",
+  active: "ACTIF",
+  pending: "À VENIR",
+  failed: "ÉCHEC",
+};
+
+const subStatusTone: Record<NodeStatus, string> = {
+  done: "var(--fg-3)",
+  active: "var(--accent-foreground)",
+  pending: "var(--fg-4)",
+  failed: "var(--status-error-fg)",
+};
+
+const titleTone: Record<NodeStatus, string> = {
+  done: "var(--fg-1)",
+  active: "var(--accent-foreground)",
+  pending: "var(--fg-1)",
+  failed: "var(--status-error-fg)",
+};
+
+const subTone: Record<NodeStatus, string> = {
+  done: "var(--fg-3)",
+  active: "var(--brand-amber-700)",
+  pending: "var(--fg-3)",
+  failed: "var(--status-error-fg)",
+};
+
+function Node({ state }: { state: NodeStatus }) {
+  if (state === "done") {
+    return (
+      <span
+        className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2"
+        style={{
+          background: "var(--brand-navy-800)",
+          borderColor: "var(--brand-navy-800)",
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-2.5 w-2.5"
+          fill="none"
+          stroke="#fff"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m5 12 5 5 9-9" />
+        </svg>
+      </span>
+    );
+  }
+  if (state === "active") {
+    return (
+      <span
+        className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 bg-white"
+        style={{
+          borderColor: "var(--accent)",
+          boxShadow: "0 0 0 5px rgba(184,146,42,0.18)",
+        }}
+      >
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ background: "var(--accent)" }}
+        />
+      </span>
+    );
+  }
+  if (state === "failed") {
+    return (
+      <span
+        className="flex h-[18px] w-[18px] items-center justify-center rounded-full border-2"
+        style={{
+          background: "var(--status-error-fg)",
+          borderColor: "var(--status-error-fg)",
+        }}
+      >
+        <span className="h-1 w-1 rounded-full bg-white" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="block h-[18px] w-[18px] rounded-full border-2 bg-white"
+      style={{ borderColor: "var(--border-2)" }}
+    />
+  );
+}
+
+const ROW_HEIGHT = 64; // each row in the zigzag timeline
 
 export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
   return (
@@ -58,13 +138,13 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
         boxShadow: "var(--shadow-sm)",
       }}
     >
-      <header className="mb-4 flex items-center justify-between gap-3">
+      <header className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.005em] text-[var(--fg-1)]">
             <T tx="dashboard.followUp.title" />
           </h2>
           <p className="mt-0.5 text-[12px] text-[var(--fg-3)]">
-            Progression visuelle de vos dossiers ouverts.
+            Progression de vos dossiers ouverts
           </p>
         </div>
         {deals.length > 0 ? (
@@ -82,121 +162,110 @@ export function FollowUpPanel({ deals }: { deals: FollowUpDeal[] }) {
           <T tx="dashboard.followUp.empty" />
         </p>
       ) : (
-        <ol className="relative flex flex-1 flex-col">
-          {deals.map((deal, index) => {
-            const isLeft = index % 2 === 0;
-            const isLast = index === deals.length - 1;
-            const nodeState = getNodeStatus(deal.status);
-            const dotStyle = nodeStyles[nodeState];
-            return (
-              <li
-                key={deal.id}
-                className="relative flex"
-                style={{
-                  flexDirection: isLeft ? "row" : "row-reverse",
-                  paddingBottom: isLast ? 0 : 14,
-                }}
-              >
-                {/* Node + road segment */}
-                <div className="relative flex w-[28px] shrink-0 flex-col items-center">
-                  <span
-                    aria-hidden
-                    className="z-10 mt-1 flex h-4 w-4 items-center justify-center rounded-full border-2 transition-shadow"
-                    style={dotStyle}
-                  >
-                    {nodeState === "done" ? (
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-2.5 w-2.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m5 12 5 5 9-9" />
-                      </svg>
-                    ) : nodeState === "active" ? (
-                      <span
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: "var(--accent)" }}
-                      />
-                    ) : null}
-                  </span>
-                  {!isLast ? (
-                    <span
-                      aria-hidden
-                      className="absolute top-[18px] bottom-[-14px] w-[1.5px]"
-                      style={{ background: "var(--border-2)" }}
-                    />
-                  ) : null}
-                </div>
+        <div className="relative flex-1">
+          {/* Zigzag spine — SVG path threading through the nodes */}
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            preserveAspectRatio="none"
+            viewBox={`0 0 100 ${deals.length * ROW_HEIGHT}`}
+          >
+            {deals.slice(0, -1).map((_, index) => {
+              const isLeft = index % 2 === 0;
+              const startX = isLeft ? 9 : 91;
+              const endX = isLeft ? 91 : 9;
+              const startY = index * ROW_HEIGHT + 9;
+              const endY = (index + 1) * ROW_HEIGHT + 9;
+              const midY = (startY + endY) / 2;
+              const state = getNodeStatus(deals[index].status);
+              const stroke =
+                state === "done"
+                  ? "var(--brand-navy-800)"
+                  : state === "failed"
+                    ? "var(--status-error-bd)"
+                    : "var(--border-2)";
+              return (
+                <path
+                  key={`spine-${index}`}
+                  d={`M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeDasharray={state === "pending" ? "3 4" : undefined}
+                />
+              );
+            })}
+          </svg>
 
-                {/* Curve connector to the next row */}
-                {!isLast ? (
-                  <svg
-                    aria-hidden
-                    viewBox="0 0 40 32"
-                    className="pointer-events-none absolute bottom-[-4px] h-6 w-10"
-                    style={{
-                      left: isLeft ? "16px" : "auto",
-                      right: isLeft ? "auto" : "16px",
-                      transform: isLeft ? undefined : "scaleX(-1)",
-                    }}
-                  >
-                    <path
-                      d="M0 4 Q 20 4 20 16 Q 20 28 40 28"
-                      fill="none"
-                      stroke="var(--border-2)"
-                      strokeWidth={1.5}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                ) : null}
-
-                {/* Deal card */}
-                <Link
-                  href={`/dashboard/deals/${deal.id}`}
-                  className="group ml-2 mr-2 min-w-0 flex-1 rounded-md border px-3 py-2.5 transition-colors"
-                  style={{
-                    background: "var(--brand-navy-50)",
-                    borderColor: "var(--border-1)",
-                    textAlign: isLeft ? "left" : "right",
-                  }}
+          <ol className="relative">
+            {deals.map((deal, index) => {
+              const isLeft = index % 2 === 0;
+              const nodeState = getNodeStatus(deal.status);
+              const stage = stageLabel[deal.status];
+              return (
+                <li
+                  key={deal.id}
+                  className="relative"
+                  style={{ height: ROW_HEIGHT }}
                 >
-                  <div
-                    className="flex items-baseline gap-2"
+                  <Link
+                    href={`/dashboard/deals/${deal.id}`}
+                    className="group absolute inset-0 flex items-start gap-3 rounded-md px-2 py-1.5 transition-colors"
                     style={{
                       flexDirection: isLeft ? "row" : "row-reverse",
+                      background:
+                        nodeState === "active"
+                          ? "var(--brand-amber-50)"
+                          : "transparent",
                     }}
                   >
-                    <span className="truncate text-[13px] font-semibold text-[var(--fg-1)] group-hover:text-[var(--brand-navy-800)]">
-                      {deal.clientCompanyName || deal.name}
+                    <span className="relative z-10 mt-[2px] shrink-0">
+                      <Node state={nodeState} />
                     </span>
-                    <span className="font-mono text-[10.5px] text-[var(--fg-4)]">
-                      {formatDate(deal.updatedAt)}
-                    </span>
-                  </div>
-                  <div
-                    className="mt-1 flex items-center gap-2"
-                    style={{
-                      flexDirection: isLeft ? "row" : "row-reverse",
-                    }}
-                  >
-                    <DealStatusBadge status={deal.status} />
-                    <span className="truncate text-[11.5px] text-[var(--fg-3)]">
-                      {deal.name}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ol>
+                    <div
+                      className="min-w-0 flex-1"
+                      style={{ textAlign: isLeft ? "left" : "right" }}
+                    >
+                      <div
+                        className="flex items-baseline gap-3"
+                        style={{
+                          flexDirection: isLeft ? "row" : "row-reverse",
+                        }}
+                      >
+                        <p
+                          className="truncate text-[13.5px] font-semibold leading-tight"
+                          style={{ color: titleTone[nodeState] }}
+                        >
+                          {stage.title}
+                        </p>
+                        <span
+                          className="shrink-0 font-mono text-[10px] tracking-[0.1em]"
+                          style={{ color: subStatusTone[nodeState] }}
+                        >
+                          {subStatusLabel[nodeState]}
+                        </span>
+                      </div>
+                      <p
+                        className="mt-[3px] truncate text-[12px] leading-[1.45]"
+                        style={{ color: subTone[nodeState] }}
+                      >
+                        {stage.sub}
+                      </p>
+                      <p className="mt-[1px] truncate text-[11px] text-[var(--fg-4)]">
+                        {deal.clientCompanyName || deal.name}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       )}
 
       <div
-        className="mt-4 flex items-center justify-end border-t pt-3"
+        className="mt-5 flex items-center justify-end border-t pt-3"
         style={{ borderColor: "var(--border-1)" }}
       >
         <Link

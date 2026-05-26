@@ -929,7 +929,7 @@ export function NewDealForm({
                           name="quotePriceHt"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>{copy.quotePrice}</FormLabel>
+                              <FormLabel>{copy.budget}</FormLabel>
                               <FormControl>
                                 <Input
                                   inputMode="decimal"
@@ -938,7 +938,7 @@ export function NewDealForm({
                                 />
                               </FormControl>
                               <FormDescription>
-                                {copy.quotePriceHelp}
+                                {copy.budgetHelp}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>

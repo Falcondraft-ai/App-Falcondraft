@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { DealsTable } from "@/components/deals/deals-table";
+import { DealsScopeTabs } from "@/components/deals/deals-scope-tabs";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { T } from "@/components/i18n/translated-text";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireCurrentUserContext } from "@/lib/auth/session";
 import { canUseOrganizationDataScope } from "@/lib/auth/workspace-permissions";
 import { getDealsForOrganization } from "@/lib/data/supabase-app-data";
@@ -60,35 +60,11 @@ export default async function DealsPage({
           }
         />
         {canOpenCompanyView ? (
-          <Tabs
-            key={initialScope}
-            defaultValue={initialScope}
-            className="gap-5"
-          >
-            <TabsList
-              variant="line"
-              className="h-9 w-full justify-start gap-6 border-b border-[var(--border)] p-0"
-            >
-              <TabsTrigger
-                value="mine"
-                className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
-              >
-                <T tx="deals.tabs.mine" />
-              </TabsTrigger>
-              <TabsTrigger
-                value="organization"
-                className="h-9 rounded-none border-0 px-0 text-sm text-[var(--muted-foreground)] transition-colors duration-150 hover:text-[var(--foreground)] data-active:font-medium data-active:text-[var(--foreground)] after:!h-[2px] after:!bg-[var(--accent)] after:!bottom-[-1px]"
-              >
-                <T tx="deals.tabs.organization" />
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="mine">
-              <DealsTable deals={ownDeals} />
-            </TabsContent>
-            <TabsContent value="organization">
-              <DealsTable deals={companyDeals} />
-            </TabsContent>
-          </Tabs>
+          <DealsScopeTabs
+            ownDeals={ownDeals}
+            companyDeals={companyDeals}
+            initialScope={initialScope}
+          />
         ) : (
           <DealsTable deals={ownDeals} />
         )}
