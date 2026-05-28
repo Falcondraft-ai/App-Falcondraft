@@ -20,21 +20,21 @@ export function DealsScopeTabs({
   const { t } = useI18n();
   const reduceMotion = useReducedMotion();
   const [scope, setScope] = React.useState<Scope>(initialScope);
-  const previousScope = React.useRef<Scope>(initialScope);
+  const [previousScope, setPreviousScope] = React.useState<Scope>(initialScope);
 
   React.useEffect(() => {
     setScope(initialScope);
   }, [initialScope]);
 
   const direction: 1 | -1 =
-    scope === "organization" && previousScope.current === "mine"
+    scope === "organization" && previousScope === "mine"
       ? 1
-      : scope === "mine" && previousScope.current === "organization"
+      : scope === "mine" && previousScope === "organization"
         ? -1
         : 1;
 
   React.useEffect(() => {
-    previousScope.current = scope;
+    setPreviousScope(scope);
   }, [scope]);
 
   const deals = scope === "mine" ? ownDeals : companyDeals;
