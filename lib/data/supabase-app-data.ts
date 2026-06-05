@@ -456,6 +456,7 @@ function mapDealRow(
   const updatedAt = row.updated_at ?? row.created_at ?? fallbackIsoDate;
   const clientCompanyName = row.client_company_name || "Client à renseigner";
   const proposalContent = row.proposal_content?.trim();
+  const hasTranscript = Boolean(row.transcript?.trim());
   const parsedTranscript = parseDealTranscript(row.transcript);
   const additionalContext =
     row.additional_context?.trim() || parsedTranscript.additionalContext;
@@ -505,6 +506,7 @@ function mapDealRow(
     clientCompanyInfo,
     callSummary:
       callSummary || "Le compte-rendu sera disponible après génération.",
+    hasTranscript,
     hasCallSummary: Boolean(callSummary),
     hasProposal: Boolean(proposalContent),
     proposalEditUrl: getProposalEditUrl(row, documents),

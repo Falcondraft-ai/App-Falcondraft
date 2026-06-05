@@ -18,9 +18,9 @@ type StatusConfig = {
 
 const statusConfig: Record<string, StatusConfig> = {
   new: {
-    label: "prospection.status.new",
+    label: "prospection.status.toCall",
     className:
-      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
   },
   to_call: {
     label: "prospection.status.toCall",
@@ -31,6 +31,11 @@ const statusConfig: Record<string, StatusConfig> = {
     label: "prospection.status.called",
     className:
       "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+  },
+  no_answer: {
+    label: "prospection.status.noAnswer",
+    className:
+      "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700",
   },
   to_follow_up: {
     label: "prospection.status.toFollowUp",
@@ -80,7 +85,9 @@ const defaultConfig: StatusConfig = {
     "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
 };
 
-const allStatuses = Object.keys(statusConfig);
+const selectableStatuses = Object.keys(statusConfig).filter(
+  (status) => status !== "new",
+);
 
 export function ProspectionStatusBadge({
   status,
@@ -131,7 +138,7 @@ export function ProspectionStatusDropdown({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-44">
-        {allStatuses.map((s) => {
+        {selectableStatuses.map((s) => {
           const cfg = statusConfig[s] ?? defaultConfig;
           return (
             <DropdownMenuItem

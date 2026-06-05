@@ -1,5 +1,6 @@
 import { PageTransition } from "@/components/common/page-transition";
 import { GeneralSettingsForm } from "@/components/settings/general-settings-form";
+import { MeetingBotSettings } from "@/components/settings/meeting-bot-settings";
 import { OrganizationQuoteDefaults } from "@/components/settings/organization-quote-defaults";
 import { WorkspaceVisibilitySettings } from "@/components/settings/workspace-visibility-settings";
 import { requireCurrentUserContext } from "@/lib/auth/session";
@@ -32,6 +33,11 @@ export default async function SettingsPage() {
               }
               initialDefaultQuoteTaxRate={
                 organization?.default_quote_tax_rate ?? 20
+              }
+            />
+            <MeetingBotSettings
+              initialMeetingBotName={
+                organization?.meeting_bot_name ?? "FalconDraft"
               }
             />
           </>

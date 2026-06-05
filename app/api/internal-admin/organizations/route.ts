@@ -8,6 +8,15 @@ import {
 
 const billingStatuses = ["active", "pending", "trial", "suspended"] as const;
 
+const meetingBotNameSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(60)
+  .refine((value) => !/[\r\n\t]/.test(value), {
+    message: "Le nom doit tenir sur une seule ligne.",
+  });
+
 const organizationCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   slug: z
@@ -23,6 +32,7 @@ const organizationCreateSchema = z.object({
   setup_amount: z.coerce.number().min(0).optional().nullable(),
   monthly_subscription_amount: z.coerce.number().min(0).optional().nullable(),
   allow_member_company_visibility: z.boolean().default(true),
+  meeting_bot_name: meetingBotNameSchema.default("FalconDraft"),
   workflow_status: z.enum(workflowConfigStatuses).default("inactive"),
   workflow_configs: z
     .array(
@@ -106,9 +116,10 @@ export async function POST(request: NextRequest) {
       setup_amount: values.setup_amount ?? null,
       monthly_subscription_amount: values.monthly_subscription_amount ?? null,
       allow_member_company_visibility: values.allow_member_company_visibility,
+      meeting_bot_name: values.meeting_bot_name,
     })
     .select(
-      "id, name, slug, billing_status, setup_amount, monthly_subscription_amount, allow_member_company_visibility, created_at",
+      "id, name, slug, billing_status, setup_amount, monthly_subscription_amount, allow_member_company_visibility, meeting_bot_name, created_at",
     )
     .single();
 
@@ -164,6 +175,7 @@ export async function POST(request: NextRequest) {
       monthlySubscriptionAmount: organization.monthly_subscription_amount,
       allowMemberCompanyVisibility:
         organization.allow_member_company_visibility,
+      meetingBotName: organization.meeting_bot_name,
       createdAt: organization.created_at,
       isInternalWorkspace: false,
       activeMemberCount: 0,

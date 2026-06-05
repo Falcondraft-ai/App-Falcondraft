@@ -84,7 +84,11 @@ export function LeadsTab({
   const { t } = useI18n();
   const defaultFilters = React.useMemo(() => loadFilters(), []);
   const [search, setSearch] = React.useState(defaultFilters.search ?? "");
-  const [statusFilter, setStatusFilter] = React.useState(defaultFilters.statusFilter ?? "all");
+  const [statusFilter, setStatusFilter] = React.useState(
+    defaultFilters.statusFilter === "new"
+      ? "to_call"
+      : (defaultFilters.statusFilter ?? "all"),
+  );
   const [nicheFilter, setNicheFilter] = React.useState(defaultFilters.nicheFilter ?? "all");
   const [cityFilter, setCityFilter] = React.useState(defaultFilters.cityFilter ?? "all");
   const [showArchived, setShowArchived] = React.useState(defaultFilters.showArchived ?? false);
@@ -120,7 +124,11 @@ export function LeadsTab({
     }
 
     if (statusFilter !== "all") {
-      result = result.filter((c) => c.status === statusFilter);
+      result = result.filter((c) =>
+        statusFilter === "to_call"
+          ? c.status === "to_call" || c.status === "new"
+          : c.status === statusFilter,
+      );
     }
 
     if (nicheFilter !== "all") {
@@ -221,7 +229,7 @@ export function LeadsTab({
         />
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-44">
             <span className="text-muted-foreground mr-1 text-xs">
               {t("prospection.filters.status")}:
             </span>
@@ -229,12 +237,14 @@ export function LeadsTab({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous</SelectItem>
-            <SelectItem value="new">{t("prospection.status.new")}</SelectItem>
             <SelectItem value="to_call">
               {t("prospection.status.toCall")}
             </SelectItem>
             <SelectItem value="called">
               {t("prospection.status.called")}
+            </SelectItem>
+            <SelectItem value="no_answer">
+              {t("prospection.status.noAnswer")}
             </SelectItem>
             <SelectItem value="to_follow_up">
               {t("prospection.status.toFollowUp")}

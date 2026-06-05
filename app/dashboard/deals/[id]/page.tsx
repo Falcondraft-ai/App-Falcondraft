@@ -326,6 +326,7 @@ export default async function DealDetailPage({ params }: DealDetailPageProps) {
                 dealId={deal.id}
                 status={deal.status}
                 hasCallSummary={deal.hasCallSummary}
+                hasTranscript={deal.hasTranscript}
                 hasProposal={deal.hasProposal}
                 proposalEditUrl={deal.proposalEditUrl}
                 quoteDocument={quoteDocument}

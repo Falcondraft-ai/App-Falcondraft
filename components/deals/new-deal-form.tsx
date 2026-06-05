@@ -669,10 +669,11 @@ export function NewDealForm({
       },
       body: JSON.stringify({
         ...valuesToSubmit,
+        transcriptSource: transcriptSourceMode,
         transcript:
           transcriptSourceMode === "paste"
-            ? valuesToSubmit.transcript
-            : undefined,
+            ? valuesToSubmit.transcript?.trim()
+            : null,
         quotePriceHt,
         quoteTaxRate,
         expectedCloseDate: valuesToSubmit.expectedCloseDate || undefined,

@@ -29,6 +29,7 @@ export type InternalAdminOrganization = {
   setupAmount: number | null;
   monthlySubscriptionAmount: number | null;
   allowMemberCompanyVisibility: boolean;
+  meetingBotName: string;
   createdAt: string;
   isInternalWorkspace: boolean;
   activeMemberCount: number;
@@ -223,6 +224,7 @@ export async function getInternalAdminWorkspaceData(input: {
       monthlySubscriptionAmount: organization.monthly_subscription_amount,
       allowMemberCompanyVisibility:
         organization.allow_member_company_visibility,
+      meetingBotName: organization.meeting_bot_name || "FalconDraft",
       createdAt: organization.created_at,
       isInternalWorkspace: organization.id === input.internalOrganizationId,
       activeMemberCount: membersByOrganization.get(organization.id) ?? 0,

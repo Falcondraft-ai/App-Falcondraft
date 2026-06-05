@@ -34,7 +34,9 @@ function CloserRow({
 }) {
   const assigned = companies.filter((c) => c.assigned_closer === closer);
   const total = assigned.length;
-  const called = assigned.filter((c) => c.status === "called").length;
+  const called = assigned.filter(
+    (c) => c.status !== "to_call" && c.status !== "new",
+  ).length;
   const meetings = assigned.filter((c) => c.status === "meeting_booked").length;
   const clients = assigned.filter((c) => c.status === "client").length;
 
@@ -57,8 +59,12 @@ export function DashboardTab({
   companies: ProspectCompanyRow[];
 }) {
   const total = companies.length;
-  const toCall = companies.filter((c) => c.status === "to_call").length;
-  const called = companies.filter((c) => c.status === "called").length;
+  const toCall = companies.filter(
+    (c) => c.status === "to_call" || c.status === "new",
+  ).length;
+  const called = companies.filter(
+    (c) => c.status !== "to_call" && c.status !== "new",
+  ).length;
   const meetings = companies.filter((c) => c.status === "meeting_booked").length;
   const clients = companies.filter((c) => c.status === "client").length;
   const badFit = companies.filter(

@@ -24,6 +24,7 @@ export type OrganizationRow = {
   default_quote_client_type: string;
   default_quote_tax_rate: number;
   default_billing_provider: string;
+  meeting_bot_name: string;
   created_at: string;
 };
 
@@ -415,6 +416,7 @@ export type Database = {
           default_quote_client_type?: string;
           default_quote_tax_rate?: number;
           default_billing_provider?: string;
+          meeting_bot_name?: string;
           created_at?: string;
         },
         {
@@ -428,6 +430,7 @@ export type Database = {
           default_quote_client_type?: string;
           default_quote_tax_rate?: number;
           default_billing_provider?: string;
+          meeting_bot_name?: string;
           created_at?: string;
         }
       >;

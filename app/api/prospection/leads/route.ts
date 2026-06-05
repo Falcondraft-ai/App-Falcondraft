@@ -13,6 +13,7 @@ const validStatuses = [
   "new",
   "to_call",
   "called",
+  "no_answer",
   "to_follow_up",
   "interested",
   "meeting_booked",

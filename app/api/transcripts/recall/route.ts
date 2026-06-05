@@ -14,6 +14,16 @@ const requestSchema = z.object({
   language: z.string().max(10).nullable().optional(),
 });
 
+function getMeetingBotName(value: string | null | undefined) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue || trimmedValue.length < 2 || trimmedValue.length > 60) {
+    return "FalconDraft";
+  }
+
+  return trimmedValue;
+}
+
 export async function POST(request: Request) {
   const context = await requireCurrentUserContext();
   const organizationId = context.organization?.id;
@@ -55,12 +65,13 @@ export async function POST(request: Request) {
   if (!recallApiKey) {
     console.error("[Recall] RECALL_API_KEY is not set");
     return NextResponse.json(
-      { error: "Configuration Recall.ai manquante." },
+      { error: "Configuration de l’assistant de réunion manquante." },
       { status: 500 },
     );
   }
 
   const recallBaseUrl = process.env.RECALL_API_BASE_URL || "https://api.recall.ai";
+  const meetingBotName = getMeetingBotName(context.organization?.meeting_bot_name);
 
   const recallResponse = await fetch(`${recallBaseUrl}/api/v1/bot`, {
     method: "POST",
@@ -70,7 +81,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       meeting_url: meetingUrl,
-      bot_name: "FalconDraft",
+      bot_name: meetingBotName,
     }),
   }).catch((err: unknown) => {
     console.error("[Recall] Fetch failed:", err instanceof Error ? err.message : err);
@@ -81,7 +92,7 @@ export async function POST(request: Request) {
     const status = recallResponse?.status ?? "no response";
     console.error(`[Recall] Bot creation failed — status: ${status}`);
     return NextResponse.json(
-      { error: "Impossible de créer le bot Recall.ai." },
+      { error: "Impossible de démarrer l’assistant de réunion." },
       { status: 502 },
     );
   }
@@ -93,7 +104,7 @@ export async function POST(request: Request) {
 
   if (!recallData.id) {
     return NextResponse.json(
-      { error: "Réponse Recall.ai invalide." },
+      { error: "Réponse de l’assistant de réunion invalide." },
       { status: 502 },
     );
   }

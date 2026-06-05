@@ -120,6 +120,10 @@ function getLocalizedWorkflowError(message: string, language: Language) {
       en: "Your role does not allow you to modify this deal.",
       es: "Tu rol no permite modificar este expediente.",
     },
+    "Ajoutez le transcript d’appel avant de générer le compte-rendu.": {
+      en: "Add the call transcript before generating the summary.",
+      es: "Añade la transcripción de la llamada antes de generar el resumen.",
+    },
   };
 
   return knownMessages[message]?.[language] ?? message;
@@ -177,6 +181,7 @@ export function DealActionPanel({
   proposalEditUrl,
   quoteDocument,
   finalDocument,
+  hasTranscript,
 }: {
   dealId: string;
   status: DealStatus;
@@ -185,6 +190,7 @@ export function DealActionPanel({
   proposalEditUrl?: string;
   quoteDocument?: GeneratedDealDocument;
   finalDocument?: GeneratedDealDocument;
+  hasTranscript: boolean;
 }) {
   const router = useRouter();
   const { language, t } = useI18n();
@@ -274,6 +280,8 @@ export function DealActionPanel({
           ready: "Listo",
           validateFirst:
             "Valida primero la propuesta comercial para generar el documento final.",
+          transcriptRequired:
+            "Añade primero la transcripción de la llamada.",
           archiveLoading: "Archivando...",
           archive: "Archivar expediente",
           deleteLoading: "Eliminando...",
@@ -339,6 +347,7 @@ export function DealActionPanel({
             ready: "Ready",
             validateFirst:
               "Approve the proposal first to generate the final document.",
+            transcriptRequired: "Add the call transcript first.",
             archiveLoading: "Archiving...",
             archive: "Archive deal",
             deleteLoading: "Deleting...",
@@ -397,6 +406,8 @@ export function DealActionPanel({
             ready: "Prêt",
             validateFirst:
               "Validez d’abord la proposition pour générer le document final.",
+            transcriptRequired:
+              "Ajoutez d’abord le transcript d’appel.",
             archiveLoading: "Archivage...",
             archive: "Archiver le dossier",
             deleteLoading: "Suppression...",
@@ -816,7 +827,10 @@ export function DealActionPanel({
           (action.kind === "download-final-pdf" && Boolean(finalDocument));
         const isSignatureAction = action.kind === "open-signature-link";
         const isEmailDraftAction = action.kind === "prepare-email-draft";
+        const isCallSummaryBlocked =
+          action.kind === "call-summary" && !hasTranscript && !hasCallSummary;
         const isAvailable =
+          !isCallSummaryBlocked &&
           !isSignatureAction &&
           (isEmailDraftAction
             ? hasReadyFinalDocument
@@ -895,6 +909,13 @@ export function DealActionPanel({
               localActionIndex !== null
             }
             onClick={() => {
+              if (isCallSummaryBlocked) {
+                toast.error(copy.callSummaryStartFailed, {
+                  description: copy.transcriptRequired,
+                });
+                return;
+              }
+
               if (index === 0) {
                 void triggerCallSummary();
                 return;
@@ -953,6 +974,8 @@ export function DealActionPanel({
                 </>
               ) : isSignatureAction ? (
                 copy.signatureComing
+              ) : isCallSummaryBlocked ? (
+                copy.transcriptRequired
               ) : (
                 copy.labels[index]
               )}

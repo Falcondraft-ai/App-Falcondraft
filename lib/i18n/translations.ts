@@ -154,6 +154,7 @@ export type TranslationKey =
   | "prospection.status.new"
   | "prospection.status.toCall"
   | "prospection.status.called"
+  | "prospection.status.noAnswer"
   | "prospection.status.toFollowUp"
   | "prospection.status.interested"
   | "prospection.status.meetingBooked"
@@ -895,7 +896,8 @@ export const translations: Record<Language, Dictionary> = {
     "prospection.tasks": "Tâches",
     "prospection.status.new": "Nouveau",
     "prospection.status.toCall": "À appeler",
-    "prospection.status.called": "Déjà appelé",
+    "prospection.status.called": "Envoyer un email",
+    "prospection.status.noAnswer": "Pas répondu",
     "prospection.status.toFollowUp": "À relancer",
     "prospection.status.interested": "Intéressé",
     "prospection.status.meetingBooked": "RDV pris",
@@ -908,7 +910,7 @@ export const translations: Record<Language, Dictionary> = {
     "prospection.empty.searches": "Aucune recherche configurée",
     "prospection.empty.tasks": "Aucune tâche en attente",
     "prospection.actions.changeStatus": "Changer le statut",
-    "prospection.actions.markCalled": "Marquer comme appelé",
+    "prospection.actions.markCalled": "Passer en envoyer un email",
     "prospection.actions.archive": "Archiver",
     "prospection.actions.openWebsite": "Ouvrir le site",
     "prospection.actions.markDone": "Marquer comme fait",
@@ -1736,7 +1738,8 @@ export const translations: Record<Language, Dictionary> = {
     "prospection.tasks": "Tasks",
     "prospection.status.new": "New",
     "prospection.status.toCall": "To call",
-    "prospection.status.called": "Called",
+    "prospection.status.called": "Send email",
+    "prospection.status.noAnswer": "No answer",
     "prospection.status.toFollowUp": "To follow up",
     "prospection.status.interested": "Interested",
     "prospection.status.meetingBooked": "Meeting booked",
@@ -1749,7 +1752,7 @@ export const translations: Record<Language, Dictionary> = {
     "prospection.empty.searches": "No searches configured",
     "prospection.empty.tasks": "No pending tasks",
     "prospection.actions.changeStatus": "Change status",
-    "prospection.actions.markCalled": "Mark as called",
+    "prospection.actions.markCalled": "Move to send email",
     "prospection.actions.archive": "Archive",
     "prospection.actions.openWebsite": "Open website",
     "prospection.actions.markDone": "Mark as done",
@@ -2573,7 +2576,8 @@ export const translations: Record<Language, Dictionary> = {
     "prospection.tasks": "Tareas",
     "prospection.status.new": "Nuevo",
     "prospection.status.toCall": "Por llamar",
-    "prospection.status.called": "Llamado",
+    "prospection.status.called": "Enviar email",
+    "prospection.status.noAnswer": "No respondió",
     "prospection.status.toFollowUp": "Por relanzar",
     "prospection.status.interested": "Interesado",
     "prospection.status.meetingBooked": "Cita agendada",
@@ -2586,7 +2590,7 @@ export const translations: Record<Language, Dictionary> = {
     "prospection.empty.searches": "Ninguna búsqueda configurada",
     "prospection.empty.tasks": "Ninguna tarea pendiente",
     "prospection.actions.changeStatus": "Cambiar estado",
-    "prospection.actions.markCalled": "Marcar como llamado",
+    "prospection.actions.markCalled": "Pasar a enviar email",
     "prospection.actions.archive": "Archivar",
     "prospection.actions.openWebsite": "Abrir sitio web",
     "prospection.actions.markDone": "Marcar como hecho",

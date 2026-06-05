@@ -150,7 +150,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const { data: deal } = await adminSupabase
     .from("deals")
-    .select("id, created_by")
+    .select("id, created_by, transcript")
     .eq("id", dealId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -172,6 +172,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   ) {
     return jsonError("Votre rôle ne permet pas de modifier ce dossier.", 403);
+  }
+
+  if (workflowType === "call_summary" && !deal.transcript?.trim()) {
+    return jsonError(
+      "Ajoutez le transcript d’appel avant de générer le compte-rendu.",
+      409,
+      { reason: "transcript_missing" },
+    );
   }
 
   if (workflowType === "proposal_validation") {

@@ -83,6 +83,7 @@ type OrganizationUpdateResponse =
         | "setupAmount"
         | "monthlySubscriptionAmount"
         | "allowMemberCompanyVisibility"
+        | "meetingBotName"
         | "createdAt"
         | "isInternalWorkspace"
         | "workflowConfigs"
@@ -138,6 +139,7 @@ type WorkspaceDraft = {
   setupAmount: string;
   monthlySubscriptionAmount: string;
   allowMemberCompanyVisibility: boolean;
+  meetingBotName: string;
   workflowStatus: WorkflowConfigStatus;
   workflowUrls: Record<ManagedWorkflowType, string>;
 };
@@ -228,6 +230,7 @@ function getWorkspaceDraft(
         ? ""
         : String(organization.monthlySubscriptionAmount),
     allowMemberCompanyVisibility: organization.allowMemberCompanyVisibility,
+    meetingBotName: organization.meetingBotName || "FalconDraft",
     workflowStatus: organization.workflowConfigs.some(
       (config) => config.status === "active",
     )
@@ -368,6 +371,7 @@ export function InternalAdminConsole({
     workflowStatus: "inactive" as WorkflowConfigStatus,
     workflowUrls: emptyWorkflowUrls(),
     allowMemberCompanyVisibility: true,
+    meetingBotName: "FalconDraft",
   });
   const [isCreatePanelOpen, setIsCreatePanelOpen] = React.useState(false);
   const [slugTouched, setSlugTouched] = React.useState(false);
@@ -440,6 +444,7 @@ export function InternalAdminConsole({
         ),
         allow_member_company_visibility:
           workspaceForm.allowMemberCompanyVisibility,
+        meeting_bot_name: workspaceForm.meetingBotName,
         workflow_status: workspaceForm.workflowStatus,
         workflow_configs: buildWorkflowPayload(
           workspaceForm.workflowUrls,
@@ -481,6 +486,7 @@ export function InternalAdminConsole({
       workflowStatus: "inactive",
       workflowUrls: emptyWorkflowUrls(),
       allowMemberCompanyVisibility: true,
+      meetingBotName: "FalconDraft",
     });
     setSlugTouched(false);
     setIsCreatePanelOpen(false);
@@ -511,6 +517,7 @@ export function InternalAdminConsole({
             draft.monthlySubscriptionAmount,
           ),
           allow_member_company_visibility: draft.allowMemberCompanyVisibility,
+          meeting_bot_name: draft.meetingBotName,
           workflow_status: draft.workflowStatus,
           workflow_configs: buildWorkflowPayload(
             draft.workflowUrls,
@@ -943,6 +950,28 @@ export function InternalAdminConsole({
                           required
                         />
                       </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label htmlFor="workspace-meeting-bot-name">
+                          Nom de l’assistant de réunion
+                        </Label>
+                        <Input
+                          id="workspace-meeting-bot-name"
+                          value={workspaceForm.meetingBotName}
+                          onChange={(event) =>
+                            setWorkspaceForm((current) => ({
+                              ...current,
+                              meetingBotName: event.target.value,
+                            }))
+                          }
+                          placeholder="FalconDraft"
+                          maxLength={60}
+                          required
+                        />
+                        <p className="text-muted-foreground text-xs">
+                          Nom visible par les participants quand l’assistant
+                          rejoint une réunion.
+                        </p>
+                      </div>
                     </div>
                   </section>
 
@@ -1209,8 +1238,28 @@ export function InternalAdminConsole({
                           <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
                             <section className="space-y-3">
                               <h3 className="text-sm font-semibold">
-                                Facturation et visibilité
+                                Facturation, visibilité et réunion
                               </h3>
+                              <div className="space-y-1.5">
+                                <Label>Nom de l’assistant de réunion</Label>
+                                <Input
+                                  value={draft.meetingBotName ?? ""}
+                                  onChange={(event) =>
+                                    setWorkspaceDrafts((current) => ({
+                                      ...current,
+                                      [organization.id]: {
+                                        ...draft,
+                                        meetingBotName: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  placeholder="FalconDraft"
+                                  maxLength={60}
+                                />
+                                <p className="text-muted-foreground text-xs">
+                                  Nom affiché dans Google Meet, Zoom ou Teams.
+                                </p>
+                              </div>
                               <div className="grid gap-3 md:grid-cols-3">
                                 <div className="space-y-1.5">
                                   <Label>Montant setup</Label>

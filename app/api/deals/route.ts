@@ -12,7 +12,8 @@ const createDealSchema = z.object({
   clientContactName: z.string().trim().min(2),
   clientEmail: z.string().trim().email(),
   phone: z.string().trim().optional(),
-  transcript: z.string().trim().min(20),
+  transcriptSource: z.enum(["paste", "audio", "recall"]).default("paste"),
+  transcript: z.string().trim().optional().nullable(),
   quotePriceHt: z.number().positive(),
   quoteTaxRate: z.number().refine((v) => [0, 5.5, 10, 20].includes(v), {
     message: "Taux de TVA invalide.",
@@ -23,6 +24,16 @@ const createDealSchema = z.object({
   emailInstructions: z.string().trim().optional(),
   clientCompanyInfo: z.string().trim().optional(),
   linkedTranscriptId: z.string().uuid().optional(),
+}).superRefine((values, ctx) => {
+  const transcriptText = values.transcript?.trim() ?? "";
+
+  if (values.transcriptSource === "paste" && transcriptText.length < 20) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Ajoutez au moins quelques notes d'échange.",
+      path: ["transcript"],
+    });
+  }
 });
 
 type ContextErrorReason =
@@ -138,7 +149,7 @@ export async function POST(request: NextRequest) {
       client_contact_name: values.clientContactName,
       client_email: values.clientEmail,
       status: "draft",
-      transcript: values.transcript,
+      transcript: values.transcript?.trim() || null,
       additional_context: values.additionalContext || null,
       email_instructions: values.emailInstructions || null,
       client_phone: values.phone || null,

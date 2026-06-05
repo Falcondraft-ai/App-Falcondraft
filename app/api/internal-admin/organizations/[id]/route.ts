@@ -9,11 +9,21 @@ import {
 const organizationIdSchema = z.string().uuid();
 const billingStatuses = ["active", "pending", "trial", "suspended"] as const;
 
+const meetingBotNameSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(60)
+  .refine((value) => !/[\r\n\t]/.test(value), {
+    message: "Le nom doit tenir sur une seule ligne.",
+  });
+
 const organizationUpdateSchema = z.object({
   billing_status: z.enum(billingStatuses),
   setup_amount: z.coerce.number().min(0).optional().nullable(),
   monthly_subscription_amount: z.coerce.number().min(0).optional().nullable(),
   allow_member_company_visibility: z.boolean(),
+  meeting_bot_name: meetingBotNameSchema,
   workflow_status: z.enum(workflowConfigStatuses).default("active"),
   workflow_configs: z.array(
     z.object({
@@ -86,10 +96,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         setup_amount: values.setup_amount ?? null,
         monthly_subscription_amount: values.monthly_subscription_amount ?? null,
         allow_member_company_visibility: values.allow_member_company_visibility,
+        meeting_bot_name: values.meeting_bot_name,
       })
       .eq("id", organizationId)
       .select(
-        "id, name, slug, billing_status, setup_amount, monthly_subscription_amount, allow_member_company_visibility, created_at",
+        "id, name, slug, billing_status, setup_amount, monthly_subscription_amount, allow_member_company_visibility, meeting_bot_name, created_at",
       )
       .single();
 
@@ -204,6 +215,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       monthlySubscriptionAmount: organization.monthly_subscription_amount,
       allowMemberCompanyVisibility:
         organization.allow_member_company_visibility,
+      meetingBotName: organization.meeting_bot_name,
       createdAt: organization.created_at,
       isInternalWorkspace:
         organization.id === internalAdmin.context.organization?.id,

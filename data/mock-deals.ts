@@ -23,6 +23,7 @@ export const mockDeals: Deal[] = [
       "Insister sur la capacité à transformer un programme encore mouvant en dossier maîtrisé. Éviter les promesses trop larges ; privilégier méthode, rythme de validation et qualité documentaire.",
     emailInstructions:
       "Ton sobre, direct, avec une ouverture sur un point de cadrage de 30 minutes.",
+    hasTranscript: true,
     hasCallSummary: true,
     hasProposal: true,
     callSummary:
@@ -59,6 +60,7 @@ export const mockDeals: Deal[] = [
       "Mettre en avant la réutilisation contrôlée des contenus et la réduction du temps de montage des dossiers.",
     emailInstructions:
       "Message court, orienté bénéfice opérationnel et rigueur.",
+    hasTranscript: true,
     hasCallSummary: true,
     hasProposal: true,
     callSummary:
@@ -94,6 +96,7 @@ export const mockDeals: Deal[] = [
       "Conserver un ton institutionnel. Éviter toute formulation trop commerciale.",
     emailInstructions:
       "Email formel, mentionner que le document final intègre les ajustements du 3 mai.",
+    hasTranscript: true,
     hasCallSummary: true,
     hasProposal: true,
     callSummary:
@@ -130,6 +133,7 @@ export const mockDeals: Deal[] = [
       "Mettre en avant la précision des variantes plutôt que la vitesse seule.",
     emailInstructions:
       "Prévoir un email d’envoi simple avec mention du lien de signature.",
+    hasTranscript: true,
     hasCallSummary: true,
     hasProposal: true,
     callSummary:
@@ -165,6 +169,7 @@ export const mockDeals: Deal[] = [
       "La proposition doit rester pragmatique et éviter les promesses trop ambitieuses.",
     emailInstructions:
       "Demander validation sur le périmètre avant génération du document final.",
+    hasTranscript: true,
     hasCallSummary: true,
     hasProposal: true,
     callSummary:
@@ -200,6 +205,7 @@ export const mockDeals: Deal[] = [
       "Client sensible à la qualité de présentation et à la cohérence narrative.",
     emailInstructions:
       "Rester concis. Confirmer la disponibilité du document signé.",
+    hasTranscript: true,
     hasCallSummary: true,
     hasProposal: true,
     callSummary:

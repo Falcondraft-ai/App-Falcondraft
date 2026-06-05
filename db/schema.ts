@@ -36,6 +36,9 @@ export const organizations = pgTable("organizations", {
     defaultBillingProvider: text("default_billing_provider")
       .default("qonto")
       .notNull(),
+    meetingBotName: text("meeting_bot_name")
+      .default("FalconDraft")
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
 );
