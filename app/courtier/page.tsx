@@ -13,7 +13,10 @@ import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
-import { DailyBriefing } from "@/components/broker/daily-briefing";
+import {
+  DailyBriefing,
+  type EmailBriefingSummary,
+} from "@/components/broker/daily-briefing";
 import { Stagger } from "@/components/common/stagger";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +42,10 @@ import {
   getBrokerClients,
   getBrokerRecentActivity,
   getBrokerUpcomingRenewals,
+  getEmailDigestDetail,
+  getLatestEmailDigest,
 } from "@/lib/broker/data";
+import { getOutlookConnectionForUser } from "@/lib/email/connections";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
 import { formatDate, formatLongDate } from "@/lib/format";
 
@@ -60,6 +66,53 @@ export default async function CourtierDashboardPage() {
     clients.map((c) => [c.id, brokerClientDisplayName(c)]),
   );
   const topRenewals = renewals.slice(0, 4);
+
+  // Outlook briefing summary for the dashboard panel.
+  const outlookConnection = await getOutlookConnectionForUser({
+    organizationId,
+    userId: context.user.id,
+  });
+  const outlookConnected = outlookConnection?.status === "connected";
+  const latestDigest = outlookConnected
+    ? await getLatestEmailDigest(organizationId, context.user.id)
+    : null;
+  let emailSummary: EmailBriefingSummary = {
+    connected: Boolean(outlookConnected),
+    hasDigest: false,
+    narrative: null,
+    toProcess: 0,
+    toConfirm: 0,
+    pendingActions: 0,
+    generatedAt: null,
+    top: [],
+  };
+  if (latestDigest) {
+    const { items: emailItems, suggestions: emailSuggestions } =
+      await getEmailDigestDetail(organizationId, latestDigest.id);
+    const relevantItems = emailItems.filter((i) => i.relevance === "relevant");
+    emailSummary = {
+      connected: true,
+      hasDigest: true,
+      narrative: latestDigest.narrative,
+      toProcess: relevantItems.length,
+      toConfirm: emailItems.filter((i) => i.relevance === "uncertain").length,
+      pendingActions: emailSuggestions.filter((s) => s.status === "pending")
+        .length,
+      generatedAt: latestDigest.generated_at,
+      top: [...relevantItems]
+        .sort(
+          (a, b) =>
+            (b.urgency === "high" ? 1 : 0) - (a.urgency === "high" ? 1 : 0),
+        )
+        .slice(0, 3)
+        .map((i) => ({
+          id: i.id,
+          from: i.from_name || i.from_email || "Expéditeur",
+          subject: i.subject || "(sans objet)",
+          urgency: i.urgency,
+        })),
+    };
+  }
 
   const stats = {
     total: clients.length,
@@ -230,6 +283,7 @@ export default async function CourtierDashboardPage() {
         <DailyBriefing
           attentionClients={attentionClients}
           activity={activity}
+          emailSummary={emailSummary}
         />
 
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">

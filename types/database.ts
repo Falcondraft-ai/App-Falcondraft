@@ -315,6 +315,8 @@ export type BrokerEmailItemRow = {
   category: string | null;
   summary: string | null;
   urgency: "normal" | "high" | string;
+  relevance: "relevant" | "uncertain" | "excluded" | string;
+  exclusion_reason: string | null;
   suggested_client_id: string | null;
   has_attachments: boolean;
   status: "pending" | "reviewed" | "dismissed" | string;
@@ -1557,6 +1559,8 @@ export type Database = {
           category?: string | null;
           summary?: string | null;
           urgency?: string;
+          relevance?: string;
+          exclusion_reason?: string | null;
           suggested_client_id?: string | null;
           has_attachments?: boolean;
           status?: string;
@@ -1567,6 +1571,8 @@ export type Database = {
           category?: string | null;
           summary?: string | null;
           urgency?: string;
+          relevance?: string;
+          exclusion_reason?: string | null;
           suggested_client_id?: string | null;
           status?: string;
           updated_at?: string;

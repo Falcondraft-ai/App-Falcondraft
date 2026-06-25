@@ -823,6 +823,8 @@ export const brokerEmailItems = pgTable(
     category: text("category"),
     summary: text("summary"),
     urgency: text("urgency").default("normal").notNull(),
+    relevance: text("relevance").default("relevant").notNull(),
+    exclusionReason: text("exclusion_reason"),
     suggestedClientId: uuid("suggested_client_id").references(
       () => brokerClients.id,
       { onDelete: "set null" },

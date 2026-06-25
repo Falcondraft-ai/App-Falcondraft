@@ -30,7 +30,13 @@ export type DigestContext = {
 };
 
 export type GenerateDigestResult =
-  | { success: true; digestId: string; relevant: number; excluded: number }
+  | {
+      success: true;
+      digestId: string;
+      relevant: number;
+      excluded: number;
+      uncertain: number;
+    }
   | { success: false; reason: string; message: string };
 
 type AttachmentRef = {
@@ -61,7 +67,8 @@ type AiAction = {
 
 type AiEmailResult = {
   ref?: string;
-  relevant?: boolean;
+  relevance?: string; // "yes" | "no" | "uncertain"
+  reason?: string;
   category?: string;
   summary?: string;
   urgency?: string;
@@ -81,11 +88,13 @@ function buildSystemPrompt(userName: string): string {
     ``,
     `TON RÔLE : produire un briefing du jour utile et RÉELLEMENT trié.`,
     ``,
-    `RÈGLE DE PERTINENCE (la plus importante) :`,
-    `- Ne garde (relevant=true) QUE les emails en lien direct avec l'activité de courtage en assurance :`,
+    `RÈGLE DE PERTINENCE (la plus importante) — pour chaque email, "relevance" vaut "yes", "no" ou "uncertain" :`,
+    `- "yes" : email clairement en lien avec l'activité de courtage en assurance —`,
     `  demandes de clients/prospects, devis de compagnies, contrats/souscriptions, sinistres, échéances/renouvellements, factures liées à l'activité, échanges avec des assureurs.`,
-    `- Mets relevant=false pour TOUT le reste : publicités, newsletters, notifications de plateformes, réseaux sociaux, démarchage, spam, emails personnels, relevés bancaires non liés, etc.`,
-    `- Dans le doute qu'un email soit vraiment lié au courtage, mets relevant=false. Mieux vaut écarter que polluer.`,
+    `- "no" : clairement SANS lien — publicités, newsletters, notifications de plateformes, réseaux sociaux, démarchage, spam, emails personnels, relevés non liés, etc.`,
+    `- "uncertain" : cas SUBTIL/AMBIGU où tu hésites vraiment (ex. expéditeur inconnu au sujet vague, email pro mais pas sûr qu'il s'agisse d'assurance). N'invente pas : si tu hésites, mets "uncertain" pour que le courtier tranche, plutôt que de deviner.`,
+    `- Renseigne toujours "reason" : une phrase TRÈS courte expliquant pourquoi (surtout pour "no" et "uncertain").`,
+    `- Ne propose des "actions" QUE pour "yes" ou "uncertain" (jamais pour "no").`,
     ``,
     `ACTIONS — ne propose une action QUE si elle a un sens évident après avoir lu le contenu :`,
     `- attach_document : seulement si une pièce jointe est un vrai document d'assurance (devis, contrat, RIB, pièce d'identité, justificatif). document_category ∈ company_quote|contract|rib|id_document|other.`,
@@ -130,7 +139,8 @@ function buildUserPayload(
       emails: [
         {
           ref: "e0",
-          relevant: true,
+          relevance: "yes|no|uncertain",
+          reason: "string",
           category:
             "prospect|client_request|quote|contract|claim|renewal|invoice|other_broker",
           summary: "string",
@@ -302,6 +312,7 @@ export async function generateDigest(
       digestId: digest?.id ?? "",
       relevant: 0,
       excluded: 0,
+      uncertain: 0,
     };
   }
 
@@ -392,14 +403,35 @@ export async function generateDigest(
 
   let relevant = 0;
   let excluded = 0;
+  let uncertain = 0;
 
   for (let i = 0; i < messages.length; i += 1) {
     const message = messages[i];
     const r = resultByRef.get(`e${i}`);
-    if (!r || r.relevant === false) {
+    const relevance = r?.relevance;
+
+    // Clearly unrelated (or unanalysed) → store as "excluded" so the broker can
+    // still see what was set aside, with the reason. No actions.
+    if (!r || relevance === "no") {
+      await ctx.adminSupabase.from("broker_email_items").insert({
+        organization_id: ctx.organizationId,
+        digest_id: digest.id,
+        user_id: ctx.userId,
+        graph_message_id: message.id,
+        from_name: message.fromName || null,
+        from_email: message.fromEmail || null,
+        subject: message.subject,
+        received_at: message.receivedDateTime || null,
+        web_link: message.webLink || null,
+        relevance: "excluded",
+        exclusion_reason: r?.reason?.trim() || null,
+        has_attachments: message.hasAttachments,
+      });
       excluded += 1;
       continue;
     }
+
+    const itemRelevance = relevance === "uncertain" ? "uncertain" : "relevant";
 
     // Resolve the matched client: exact sender-email match wins, else AI hint.
     let clientId: string | null = null;
@@ -428,6 +460,9 @@ export async function generateDigest(
         category,
         summary: r.summary?.trim() || null,
         urgency: r.urgency === "high" ? "high" : "normal",
+        relevance: itemRelevance,
+        exclusion_reason:
+          itemRelevance === "uncertain" ? r.reason?.trim() || null : null,
         suggested_client_id: clientId,
         has_attachments: message.hasAttachments,
       })
@@ -435,7 +470,8 @@ export async function generateDigest(
       .single();
 
     if (!item) continue;
-    relevant += 1;
+    if (itemRelevance === "uncertain") uncertain += 1;
+    else relevant += 1;
 
     // Build the suggestion rows from the AI actions.
     const suggestionRows: Database["public"]["Tables"]["broker_email_suggestions"]["Insert"][] =
@@ -543,5 +579,5 @@ export async function generateDigest(
     })
     .eq("id", digest.id);
 
-  return { success: true, digestId: digest.id, relevant, excluded };
+  return { success: true, digestId: digest.id, relevant, excluded, uncertain };
 }
