@@ -11,7 +11,19 @@ type MicrosoftOAuthState = {
   userId: string;
   nonce: string;
   expiresAt: number;
+  returnTo?: string;
 };
+
+/**
+ * Returns a safe internal redirect path (must start with a single "/"), or null.
+ * Prevents open redirects after the OAuth round-trip.
+ */
+export function sanitizeReturnPath(value: string | null | undefined) {
+  if (!value || typeof value !== "string") return null;
+  if (!value.startsWith("/") || value.startsWith("//")) return null;
+  if (value.startsWith("/\\")) return null;
+  return value.slice(0, 200);
+}
 
 type MicrosoftOAuthTokenResponse = {
   access_token?: string;
@@ -51,12 +63,15 @@ function signPayload(payload: string) {
 export function createMicrosoftOAuthState(input: {
   organizationId: string;
   userId: string;
+  returnTo?: string | null;
 }) {
+  const returnTo = sanitizeReturnPath(input.returnTo);
   const state: MicrosoftOAuthState = {
     organizationId: input.organizationId,
     userId: input.userId,
     nonce: randomBytes(16).toString("base64url"),
     expiresAt: Date.now() + 10 * 60 * 1000,
+    ...(returnTo ? { returnTo } : {}),
   };
   const payload = Buffer.from(JSON.stringify(state), "utf8").toString(
     "base64url",
@@ -117,6 +132,7 @@ export function verifyMicrosoftOAuthState(stateValue: string | null) {
   return {
     organizationId: state.organizationId,
     userId: state.userId,
+    returnTo: sanitizeReturnPath(state.returnTo) ?? undefined,
   };
 }
 

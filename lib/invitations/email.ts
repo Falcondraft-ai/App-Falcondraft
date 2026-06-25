@@ -10,7 +10,63 @@ type InvitationEmailInput = {
   roleLabel: string;
   acceptUrl: string;
   recipientName?: string | null;
+  workspaceType?: string;
 };
+
+type ProductCopy = {
+  inviteValueProp: string;
+  readyBadge: string;
+  welcomeIntro: (org: string) => string;
+  welcomeRole: string;
+  welcomeValue: string;
+  capabilities: string[];
+};
+
+const PRODUCT_COPY: Record<
+  "sales_automation" | "insurance_broker",
+  ProductCopy
+> = {
+  sales_automation: {
+    inviteValueProp:
+      "FalconDraft permet à votre équipe de centraliser ses dossiers commerciaux, générer ses propositions et suivre ses documents depuis un espace sécurisé.",
+    readyBadge: "Espace client prêt",
+    welcomeIntro: (org) =>
+      `Votre espace ${org} vient d’être préparé pour accueillir votre équipe commerciale dans un environnement sécurisé, structuré et prêt à l’emploi.`,
+    welcomeRole:
+      "Vous êtes invité comme premier gestionnaire. Ce rôle vous donne la main pour finaliser l’accès de votre organisation, inviter les bons collaborateurs et lancer les premiers dossiers depuis un espace conçu pour professionnaliser la production commerciale.",
+    welcomeValue:
+      "FalconDraft aide votre équipe à centraliser les informations clés d’un dossier, transformer les notes d’appel en comptes rendus exploitables, générer des propositions mieux structurées et suivre les documents jusqu’à leur validation.",
+    capabilities: [
+      "inviter les collaborateurs qui doivent intervenir sur les dossiers commerciaux ;",
+      "créer vos premières opportunités et centraliser les informations client ;",
+      "préparer plus rapidement les propositions, documents et brouillons email ;",
+      "suivre l’avancement des dossiers dans un espace clair et partagé.",
+    ],
+  },
+  insurance_broker: {
+    inviteValueProp:
+      "FalconDraft permet à votre cabinet de centraliser ses dossiers clients, gérer ses documents (contrats, pièces d’identité, RIB, devis compagnies) et préparer ses devoirs de conseil depuis un espace sécurisé.",
+    readyBadge: "Espace courtier prêt",
+    welcomeIntro: (org) =>
+      `Votre espace ${org} vient d’être préparé pour accueillir votre cabinet de courtage dans un environnement sécurisé, structuré et prêt à l’emploi.`,
+    welcomeRole:
+      "Vous êtes invité comme premier gestionnaire. Ce rôle vous donne la main pour finaliser l’accès de votre cabinet, inviter vos collaborateurs et ouvrir les premiers dossiers clients.",
+    welcomeValue:
+      "FalconDraft aide votre cabinet à centraliser les informations clients, gérer la documentation (contrats, RIB, devis compagnies), exploiter les devis des compagnies, préparer les devoirs de conseil et suivre les dossiers jusqu’à la signature.",
+    capabilities: [
+      "inviter les collaborateurs qui interviennent sur les dossiers clients ;",
+      "ouvrir vos premiers dossiers et centraliser les informations client ;",
+      "importer et classer les documents (contrats, RIB, devis compagnies) ;",
+      "préparer les devoirs de conseil et suivre les dossiers jusqu’à la signature.",
+    ],
+  },
+};
+
+function getProductCopy(workspaceType?: string): ProductCopy {
+  return workspaceType === "insurance_broker"
+    ? PRODUCT_COPY.insurance_broker
+    : PRODUCT_COPY.sales_automation;
+}
 
 function escapeHtml(value: string) {
   return value
@@ -31,12 +87,13 @@ function getGreeting(input: InvitationEmailInput) {
 }
 
 function buildInvitationText(input: InvitationEmailInput) {
+  const c = getProductCopy(input.workspaceType);
   return [
     "Bonjour,",
     "",
     `Vous avez été invité à rejoindre l’espace ${input.organizationName} sur FalconDraft.`,
     "",
-    "FalconDraft permet à votre équipe de centraliser ses dossiers commerciaux, générer ses propositions et suivre ses documents depuis un espace sécurisé.",
+    c.inviteValueProp,
     "",
     `Rôle attribué : ${input.roleLabel}`,
     "",
@@ -53,10 +110,12 @@ function buildInvitationText(input: InvitationEmailInput) {
 }
 
 function buildInvitationHtml(input: InvitationEmailInput) {
+  const c = getProductCopy(input.workspaceType);
   const organizationName = escapeHtml(input.organizationName);
   const roleLabel = escapeHtml(input.roleLabel);
   const acceptUrl = escapeHtml(input.acceptUrl);
   const logoUrl = escapeHtml(LOGO_URL);
+  const inviteValueProp = escapeHtml(c.inviteValueProp);
 
   return `
     <!doctype html>
@@ -100,7 +159,7 @@ function buildInvitationHtml(input: InvitationEmailInput) {
                     </p>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      FalconDraft permet à votre équipe de centraliser ses dossiers commerciaux, générer ses propositions et suivre ses documents depuis un espace sécurisé.
+                      ${inviteValueProp}
                     </p>
 
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0;border-collapse:collapse;">
@@ -159,20 +218,18 @@ function buildInvitationHtml(input: InvitationEmailInput) {
 }
 
 function buildFirstManagerWelcomeText(input: InvitationEmailInput) {
+  const c = getProductCopy(input.workspaceType);
   return [
     getGreeting(input),
     "",
-    `Bienvenue sur FalconDraft. Votre espace ${input.organizationName} vient d’être préparé pour accueillir votre équipe commerciale dans un environnement sécurisé, structuré et prêt à l’emploi.`,
+    `Bienvenue sur FalconDraft. ${c.welcomeIntro(input.organizationName)}`,
     "",
-    "Vous êtes invité comme premier gestionnaire de ce workspace. Cela vous donne la main pour finaliser l’accès de votre organisation, inviter les bons collaborateurs et lancer les premiers dossiers depuis un espace conçu pour professionnaliser la production commerciale.",
+    c.welcomeRole,
     "",
-    "Avec FalconDraft, votre équipe peut centraliser les informations clés d’un dossier, transformer les notes d’appel en comptes rendus exploitables, générer des propositions commerciales mieux structurées et suivre les documents jusqu’à leur validation.",
+    c.welcomeValue,
     "",
     "Votre accès vous permettra notamment de :",
-    "- rejoindre le workspace sécurisé de votre organisation ;",
-    "- inviter les collaborateurs qui doivent intervenir sur les dossiers ;",
-    "- créer et piloter les premières opportunités commerciales ;",
-    "- préparer plus rapidement les propositions, documents et brouillons email liés aux échanges client.",
+    ...c.capabilities.map((cap) => `- ${cap}`),
     "",
     `Workspace : ${input.organizationName}`,
     `Rôle attribué : ${input.roleLabel}`,
@@ -191,11 +248,22 @@ function buildFirstManagerWelcomeText(input: InvitationEmailInput) {
 }
 
 function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
+  const c = getProductCopy(input.workspaceType);
   const organizationName = escapeHtml(input.organizationName);
   const roleLabel = escapeHtml(input.roleLabel);
   const acceptUrl = escapeHtml(input.acceptUrl);
   const logoUrl = escapeHtml(LOGO_URL);
   const greeting = escapeHtml(getGreeting(input));
+  const readyBadge = escapeHtml(c.readyBadge);
+  const welcomeIntro = escapeHtml(c.welcomeIntro(input.organizationName));
+  const welcomeRole = escapeHtml(c.welcomeRole);
+  const welcomeValue = escapeHtml(c.welcomeValue);
+  const capabilitiesHtml = c.capabilities
+    .map(
+      (cap, i) =>
+        `<span style="display:block;${i < c.capabilities.length - 1 ? "margin:0 0 6px;" : ""}">• ${escapeHtml(cap)}</span>`,
+    )
+    .join("");
 
   return `
     <!doctype html>
@@ -226,7 +294,7 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
                 <tr>
                   <td style="padding:0 38px 38px;">
                     <p style="display:inline-block;margin:0 0 16px;padding:7px 11px;background:#f6efe5;border:1px solid #efd8ba;border-radius:999px;color:#8b5519;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">
-                      Espace client prêt
+                      ${readyBadge}
                     </p>
 
                     <h1 style="margin:0 0 22px;color:#0d223d;font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-0.025em;">
@@ -238,15 +306,15 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
                     </p>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      Votre espace <strong style="color:#0d223d;font-weight:700;">${organizationName}</strong> vient d’être préparé pour accueillir votre équipe commerciale dans un environnement sécurisé, structuré et prêt à l’emploi.
+                      ${welcomeIntro}
                     </p>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      Vous êtes invité comme premier gestionnaire. Ce rôle vous donne la main pour finaliser l’accès de votre organisation, inviter les bons collaborateurs et lancer les premiers dossiers depuis un espace conçu pour professionnaliser la production commerciale.
+                      ${welcomeRole}
                     </p>
 
                     <p style="margin:0 0 18px;color:#344156;font-size:15px;line-height:1.72;">
-                      FalconDraft aide votre équipe à centraliser les informations clés d’un dossier, transformer les notes d’appel en comptes rendus exploitables, générer des propositions mieux structurées et suivre les documents jusqu’à leur validation.
+                      ${welcomeValue}
                     </p>
 
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0;border-collapse:collapse;">
@@ -264,10 +332,7 @@ function buildFirstManagerWelcomeHtml(input: InvitationEmailInput) {
                       <tr>
                         <td style="padding:18px 20px;background:#fffaf3;border:1px solid #efd8ba;border-radius:12px;color:#5f4a2f;font-size:14px;line-height:1.75;">
                           <strong style="display:block;margin:0 0 8px;color:#0d223d;font-weight:800;">Ce que vous pouvez lancer dès maintenant</strong>
-                          <span style="display:block;margin:0 0 6px;">• inviter les collaborateurs qui doivent intervenir sur les dossiers commerciaux ;</span>
-                          <span style="display:block;margin:0 0 6px;">• créer vos premières opportunités et centraliser les informations client ;</span>
-                          <span style="display:block;margin:0 0 6px;">• préparer plus rapidement les propositions, documents et brouillons email ;</span>
-                          <span style="display:block;">• suivre l’avancement des dossiers dans un espace clair et partagé.</span>
+                          ${capabilitiesHtml}
                         </td>
                       </tr>
                     </table>

@@ -11,8 +11,12 @@ import { encryptToken } from "@/lib/email/token-crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
-function settingsRedirect(requestUrl: string, status: string) {
-  const url = new URL("/dashboard/settings/integrations", requestUrl);
+function settingsRedirect(
+  requestUrl: string,
+  status: string,
+  basePath = "/dashboard/settings/integrations",
+) {
+  const url = new URL(basePath, requestUrl);
   url.searchParams.set("outlook", status);
   return NextResponse.redirect(url);
 }
@@ -23,19 +27,20 @@ export async function GET(request: NextRequest) {
   const state = verifyMicrosoftOAuthState(
     request.nextUrl.searchParams.get("state"),
   );
+  const basePath = state?.returnTo ?? "/dashboard/settings/integrations";
 
   if (oauthError) {
-    return settingsRedirect(request.url, "denied");
+    return settingsRedirect(request.url, "denied", basePath);
   }
 
   if (!code || !state) {
-    return settingsRedirect(request.url, "invalid");
+    return settingsRedirect(request.url, "invalid", basePath);
   }
 
   const supabase = await getSupabaseServerClient();
 
   if (!supabase) {
-    return settingsRedirect(request.url, "unavailable");
+    return settingsRedirect(request.url, "unavailable", basePath);
   }
 
   const {
@@ -51,7 +56,7 @@ export async function GET(request: NextRequest) {
   const adminSupabase = getSupabaseAdminClient();
 
   if (!adminSupabase) {
-    return settingsRedirect(request.url, "unavailable");
+    return settingsRedirect(request.url, "unavailable", basePath);
   }
 
   const context = await loadUserOrganizationContextWithAdmin(
@@ -64,7 +69,7 @@ export async function GET(request: NextRequest) {
     !context.membership ||
     context.organization.id !== state.organizationId
   ) {
-    return settingsRedirect(request.url, "forbidden");
+    return settingsRedirect(request.url, "forbidden", basePath);
   }
 
   try {
@@ -94,7 +99,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error || !connection) {
-      return settingsRedirect(request.url, "error");
+      return settingsRedirect(request.url, "error", basePath);
     }
 
     // Disconnect the competing provider when a new one is connected
@@ -113,8 +118,8 @@ export async function GET(request: NextRequest) {
       entity_id: connection.id,
     });
 
-    return settingsRedirect(request.url, "connected");
+    return settingsRedirect(request.url, "connected", basePath);
   } catch {
-    return settingsRedirect(request.url, "error");
+    return settingsRedirect(request.url, "error", basePath);
   }
 }

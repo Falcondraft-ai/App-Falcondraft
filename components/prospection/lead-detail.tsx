@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Check,
@@ -73,6 +74,19 @@ const taskTypeLabels: Record<string, string> = {
   qualification: "Qualification",
 };
 
+function getErrorMessage(result: unknown, fallback: string) {
+  if (
+    result &&
+    typeof result === "object" &&
+    "message" in result &&
+    typeof result.message === "string"
+  ) {
+    return result.message;
+  }
+
+  return fallback;
+}
+
 export function LeadDetail({
   company,
   initialInteractions,
@@ -110,7 +124,10 @@ export function LeadDetail({
       });
       return await res.json();
     } catch {
-      return { success: false };
+      return {
+        success: false,
+        message: "La mise à jour du lead a échoué.",
+      };
     } finally {
       setSaving(false);
     }
@@ -120,6 +137,10 @@ export function LeadDetail({
     const result = await handleApi({ action: "change_status", status: newStatus });
     if (result.success) {
       setData((prev) => ({ ...prev, status: newStatus }));
+    } else {
+      toast.error(
+        getErrorMessage(result, "La mise à jour du statut a échoué."),
+      );
     }
   }
 

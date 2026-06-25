@@ -25,7 +25,321 @@ export type OrganizationRow = {
   default_quote_tax_rate: number;
   default_billing_provider: string;
   meeting_bot_name: string;
+  workspace_type: "sales_automation" | "insurance_broker" | string;
+  storage_limit_bytes: number;
+  storage_used_bytes: number;
+  broker_settings: Record<string, unknown>;
   created_at: string;
+};
+
+export type WorkspaceType = "sales_automation" | "insurance_broker";
+
+export type BrokerClientRow = {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  client_type: "individual" | "company" | string;
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  insurance_type: string | null;
+  status:
+    | "new"
+    | "in_progress"
+    | "advice_ready"
+    | "awaiting_signature"
+    | "signed"
+    | "closed"
+    | "lost"
+    | string;
+  needs: string | null;
+  structured_needs: Record<string, unknown>;
+  notes: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerActivityRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  user_id: string | null;
+  type: string;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type BrokerDocumentRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  uploaded_by: string;
+  category:
+    | "contract"
+    | "id_document"
+    | "rib"
+    | "company_quote"
+    | "advice_document"
+    | "other"
+    | string;
+  title: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerAgentMessageRow = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: "user" | "assistant" | string;
+  content: string;
+  created_at: string;
+};
+
+export type BrokerAdviceRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  quote_id: string | null;
+  created_by: string;
+  title: string;
+  content: string;
+  status: "draft" | "validated" | "sent_for_signature" | "signed" | string;
+  docuseal_submission_id: string | null;
+  signature_status: string | null;
+  signature_url: string | null;
+  outlook_draft_id: string | null;
+  generated_at: string | null;
+  validated_by: string | null;
+  validated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerQuoteRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  document_id: string | null;
+  created_by: string;
+  insurer_name: string | null;
+  product_name: string | null;
+  premium_monthly: number | null;
+  premium_annual: number | null;
+  currency: string;
+  coverage_summary: string | null;
+  deductible: string | null;
+  notes: string | null;
+  extracted_data: Record<string, unknown>;
+  extraction_status: "pending" | "extracted" | "validated" | "failed" | string;
+  validated_by: string | null;
+  validated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerContractRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  created_by: string;
+  document_id: string | null;
+  insurer_name: string | null;
+  product_name: string | null;
+  insurance_type: string | null;
+  policy_number: string | null;
+  status:
+    | "active"
+    | "pending"
+    | "suspended"
+    | "terminated"
+    | "expired"
+    | string;
+  effective_date: string | null;
+  renewal_date: string | null;
+  premium_amount: number | null;
+  premium_frequency:
+    | "monthly"
+    | "quarterly"
+    | "biannual"
+    | "annual"
+    | "single"
+    | string;
+  currency: string;
+  tacit_renewal: boolean;
+  commission_rate: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerComplianceRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  created_by: string;
+  updated_by: string | null;
+  identity_verified: boolean;
+  identity_document_id: string | null;
+  identity_verified_at: string | null;
+  identity_verified_by: string | null;
+  risk_level: "low" | "standard" | "high" | null;
+  is_pep: boolean;
+  pep_details: string | null;
+  funds_origin: string | null;
+  lcbft_notes: string | null;
+  consent_data_processing: boolean;
+  consent_data_processing_at: string | null;
+  consent_marketing: boolean;
+  consent_marketing_at: string | null;
+  erasure_requested: boolean;
+  erasure_requested_at: string | null;
+  erased_at: string | null;
+  info_sheet_delivered: boolean;
+  info_sheet_delivered_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerCommissionStatementRow = {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  document_id: string | null;
+  insurer_name: string | null;
+  period_label: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  total_amount: number | null;
+  currency: string;
+  status: "received" | "reconciled" | "disputed" | string;
+  notes: string | null;
+  reconciled_at: string | null;
+  reconciled_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerCommissionRow = {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  statement_id: string | null;
+  contract_id: string | null;
+  client_id: string | null;
+  insurer_name: string | null;
+  label: string | null;
+  base_amount: number | null;
+  rate: number | null;
+  commission_amount: number | null;
+  retrocession_rate: number | null;
+  retrocession_amount: number | null;
+  retrocession_beneficiary: string | null;
+  period_label: string | null;
+  currency: string;
+  status: "expected" | "received" | "reconciled" | string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerClaimRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  contract_id: string | null;
+  created_by: string;
+  insurer_name: string | null;
+  claim_type: string | null;
+  reference: string | null;
+  status:
+    | "declared"
+    | "in_progress"
+    | "awaiting_docs"
+    | "settled"
+    | "closed"
+    | "rejected"
+    | string;
+  occurrence_date: string | null;
+  declaration_date: string | null;
+  amount_estimate: number | null;
+  amount_settled: number | null;
+  currency: string;
+  description: string | null;
+  notes: string | null;
+  settled_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerEmailDigestRow = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  status: "generating" | "ready" | "failed" | string;
+  narrative: string | null;
+  window_start: string | null;
+  window_end: string | null;
+  relevant_count: number;
+  excluded_count: number;
+  generated_at: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerEmailItemRow = {
+  id: string;
+  organization_id: string;
+  digest_id: string;
+  user_id: string;
+  graph_message_id: string;
+  from_name: string | null;
+  from_email: string | null;
+  subject: string | null;
+  received_at: string | null;
+  web_link: string | null;
+  category: string | null;
+  summary: string | null;
+  urgency: "normal" | "high" | string;
+  suggested_client_id: string | null;
+  has_attachments: boolean;
+  status: "pending" | "reviewed" | "dismissed" | string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerEmailSuggestionRow = {
+  id: string;
+  organization_id: string;
+  item_id: string;
+  user_id: string;
+  type:
+    | "attach_document"
+    | "draft_reply"
+    | "create_client"
+    | "declare_claim"
+    | "flag_renewal"
+    | string;
+  status: "pending" | "accepted" | "rejected" | "done" | "failed" | string;
+  confidence: string | null;
+  payload: Record<string, unknown>;
+  result: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ProfileRow = {
@@ -417,6 +731,10 @@ export type Database = {
           default_quote_tax_rate?: number;
           default_billing_provider?: string;
           meeting_bot_name?: string;
+          workspace_type?: string;
+          storage_limit_bytes?: number;
+          storage_used_bytes?: number;
+          broker_settings?: Record<string, unknown>;
           created_at?: string;
         },
         {
@@ -431,6 +749,10 @@ export type Database = {
           default_quote_tax_rate?: number;
           default_billing_provider?: string;
           meeting_bot_name?: string;
+          workspace_type?: string;
+          storage_limit_bytes?: number;
+          storage_used_bytes?: number;
+          broker_settings?: Record<string, unknown>;
           created_at?: string;
         }
       >;
@@ -922,6 +1244,488 @@ export type Database = {
           status?: string;
           deleted_at?: string | null;
           created_at?: string;
+          updated_at?: string;
+        }
+      >;
+
+      broker_clients: TableDefinition<
+        BrokerClientRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by: string;
+          client_type?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          company_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          postal_code?: string | null;
+          city?: string | null;
+          insurance_type?: string | null;
+          status?: string;
+          needs?: string | null;
+          structured_needs?: Record<string, unknown>;
+          notes?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          client_type?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          company_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          postal_code?: string | null;
+          city?: string | null;
+          insurance_type?: string | null;
+          status?: string;
+          needs?: string | null;
+          structured_needs?: Record<string, unknown>;
+          notes?: string | null;
+          archived_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_activity: TableDefinition<
+        BrokerActivityRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          user_id?: string | null;
+          type: string;
+          description?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        }
+      >;
+
+      broker_documents: TableDefinition<
+        BrokerDocumentRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          uploaded_by: string;
+          category?: string;
+          title: string;
+          file_name: string;
+          storage_path: string;
+          mime_type: string;
+          size_bytes?: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          category?: string;
+          title?: string;
+          status?: string;
+          updated_at?: string;
+        }
+      >;
+
+      broker_quotes: TableDefinition<
+        BrokerQuoteRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          document_id?: string | null;
+          created_by: string;
+          insurer_name?: string | null;
+          product_name?: string | null;
+          premium_monthly?: number | null;
+          premium_annual?: number | null;
+          currency?: string;
+          coverage_summary?: string | null;
+          deductible?: string | null;
+          notes?: string | null;
+          extracted_data?: Record<string, unknown>;
+          extraction_status?: string;
+          validated_by?: string | null;
+          validated_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          document_id?: string | null;
+          insurer_name?: string | null;
+          product_name?: string | null;
+          premium_monthly?: number | null;
+          premium_annual?: number | null;
+          currency?: string;
+          coverage_summary?: string | null;
+          deductible?: string | null;
+          notes?: string | null;
+          extracted_data?: Record<string, unknown>;
+          extraction_status?: string;
+          validated_by?: string | null;
+          validated_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_contracts: TableDefinition<
+        BrokerContractRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          created_by: string;
+          document_id?: string | null;
+          insurer_name?: string | null;
+          product_name?: string | null;
+          insurance_type?: string | null;
+          policy_number?: string | null;
+          status?: string;
+          effective_date?: string | null;
+          renewal_date?: string | null;
+          premium_amount?: number | null;
+          premium_frequency?: string;
+          currency?: string;
+          tacit_renewal?: boolean;
+          commission_rate?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          document_id?: string | null;
+          insurer_name?: string | null;
+          product_name?: string | null;
+          insurance_type?: string | null;
+          policy_number?: string | null;
+          status?: string;
+          effective_date?: string | null;
+          renewal_date?: string | null;
+          premium_amount?: number | null;
+          premium_frequency?: string;
+          currency?: string;
+          tacit_renewal?: boolean;
+          commission_rate?: number | null;
+          notes?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_agent_messages: TableDefinition<
+        BrokerAgentMessageRow,
+        {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          role: string;
+          content: string;
+          created_at?: string;
+        }
+      >;
+
+      broker_commission_statements: TableDefinition<
+        BrokerCommissionStatementRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by: string;
+          document_id?: string | null;
+          insurer_name?: string | null;
+          period_label?: string | null;
+          period_start?: string | null;
+          period_end?: string | null;
+          total_amount?: number | null;
+          currency?: string;
+          status?: string;
+          notes?: string | null;
+          reconciled_at?: string | null;
+          reconciled_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          document_id?: string | null;
+          insurer_name?: string | null;
+          period_label?: string | null;
+          period_start?: string | null;
+          period_end?: string | null;
+          total_amount?: number | null;
+          currency?: string;
+          status?: string;
+          notes?: string | null;
+          reconciled_at?: string | null;
+          reconciled_by?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_commissions: TableDefinition<
+        BrokerCommissionRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by: string;
+          statement_id?: string | null;
+          contract_id?: string | null;
+          client_id?: string | null;
+          insurer_name?: string | null;
+          label?: string | null;
+          base_amount?: number | null;
+          rate?: number | null;
+          commission_amount?: number | null;
+          retrocession_rate?: number | null;
+          retrocession_amount?: number | null;
+          retrocession_beneficiary?: string | null;
+          period_label?: string | null;
+          currency?: string;
+          status?: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          statement_id?: string | null;
+          contract_id?: string | null;
+          client_id?: string | null;
+          insurer_name?: string | null;
+          label?: string | null;
+          base_amount?: number | null;
+          rate?: number | null;
+          commission_amount?: number | null;
+          retrocession_rate?: number | null;
+          retrocession_amount?: number | null;
+          retrocession_beneficiary?: string | null;
+          period_label?: string | null;
+          currency?: string;
+          status?: string;
+          notes?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_email_digests: TableDefinition<
+        BrokerEmailDigestRow,
+        {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          status?: string;
+          narrative?: string | null;
+          window_start?: string | null;
+          window_end?: string | null;
+          relevant_count?: number;
+          excluded_count?: number;
+          generated_at?: string | null;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          status?: string;
+          narrative?: string | null;
+          window_start?: string | null;
+          window_end?: string | null;
+          relevant_count?: number;
+          excluded_count?: number;
+          generated_at?: string | null;
+          error?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_email_items: TableDefinition<
+        BrokerEmailItemRow,
+        {
+          id?: string;
+          organization_id: string;
+          digest_id: string;
+          user_id: string;
+          graph_message_id: string;
+          from_name?: string | null;
+          from_email?: string | null;
+          subject?: string | null;
+          received_at?: string | null;
+          web_link?: string | null;
+          category?: string | null;
+          summary?: string | null;
+          urgency?: string;
+          suggested_client_id?: string | null;
+          has_attachments?: boolean;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          category?: string | null;
+          summary?: string | null;
+          urgency?: string;
+          suggested_client_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        }
+      >;
+
+      broker_email_suggestions: TableDefinition<
+        BrokerEmailSuggestionRow,
+        {
+          id?: string;
+          organization_id: string;
+          item_id: string;
+          user_id: string;
+          type: string;
+          status?: string;
+          confidence?: string | null;
+          payload?: Record<string, unknown>;
+          result?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          status?: string;
+          payload?: Record<string, unknown>;
+          result?: Record<string, unknown>;
+          updated_at?: string;
+        }
+      >;
+
+      broker_claims: TableDefinition<
+        BrokerClaimRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          contract_id?: string | null;
+          created_by: string;
+          insurer_name?: string | null;
+          claim_type?: string | null;
+          reference?: string | null;
+          status?: string;
+          occurrence_date?: string | null;
+          declaration_date?: string | null;
+          amount_estimate?: number | null;
+          amount_settled?: number | null;
+          currency?: string;
+          description?: string | null;
+          notes?: string | null;
+          settled_at?: string | null;
+          closed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          contract_id?: string | null;
+          insurer_name?: string | null;
+          claim_type?: string | null;
+          reference?: string | null;
+          status?: string;
+          occurrence_date?: string | null;
+          declaration_date?: string | null;
+          amount_estimate?: number | null;
+          amount_settled?: number | null;
+          currency?: string;
+          description?: string | null;
+          notes?: string | null;
+          settled_at?: string | null;
+          closed_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_compliance: TableDefinition<
+        BrokerComplianceRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          created_by: string;
+          updated_by?: string | null;
+          identity_verified?: boolean;
+          identity_document_id?: string | null;
+          identity_verified_at?: string | null;
+          identity_verified_by?: string | null;
+          risk_level?: string | null;
+          is_pep?: boolean;
+          pep_details?: string | null;
+          funds_origin?: string | null;
+          lcbft_notes?: string | null;
+          consent_data_processing?: boolean;
+          consent_data_processing_at?: string | null;
+          consent_marketing?: boolean;
+          consent_marketing_at?: string | null;
+          erasure_requested?: boolean;
+          erasure_requested_at?: string | null;
+          erased_at?: string | null;
+          info_sheet_delivered?: boolean;
+          info_sheet_delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          updated_by?: string | null;
+          identity_verified?: boolean;
+          identity_document_id?: string | null;
+          identity_verified_at?: string | null;
+          identity_verified_by?: string | null;
+          risk_level?: string | null;
+          is_pep?: boolean;
+          pep_details?: string | null;
+          funds_origin?: string | null;
+          lcbft_notes?: string | null;
+          consent_data_processing?: boolean;
+          consent_data_processing_at?: string | null;
+          consent_marketing?: boolean;
+          consent_marketing_at?: string | null;
+          erasure_requested?: boolean;
+          erasure_requested_at?: string | null;
+          erased_at?: string | null;
+          info_sheet_delivered?: boolean;
+          info_sheet_delivered_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_advice: TableDefinition<
+        BrokerAdviceRow,
+        {
+          id?: string;
+          organization_id: string;
+          client_id: string;
+          quote_id?: string | null;
+          created_by: string;
+          title?: string;
+          content?: string;
+          status?: string;
+          docuseal_submission_id?: string | null;
+          signature_status?: string | null;
+          signature_url?: string | null;
+          outlook_draft_id?: string | null;
+          generated_at?: string | null;
+          validated_by?: string | null;
+          validated_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          quote_id?: string | null;
+          title?: string;
+          content?: string;
+          status?: string;
+          docuseal_submission_id?: string | null;
+          signature_status?: string | null;
+          signature_url?: string | null;
+          outlook_draft_id?: string | null;
+          generated_at?: string | null;
+          validated_by?: string | null;
+          validated_at?: string | null;
           updated_at?: string;
         }
       >;

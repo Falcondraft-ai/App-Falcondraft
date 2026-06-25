@@ -7,6 +7,9 @@ import {
 } from "@/lib/internal-admin/workflows";
 
 const billingStatuses = ["active", "pending", "trial", "suspended"] as const;
+const workspaceTypes = ["sales_automation", "insurance_broker"] as const;
+const DEFAULT_STORAGE_LIMIT_GB = 250;
+const GIGABYTE = 1024 * 1024 * 1024;
 
 const meetingBotNameSchema = z
   .string()
@@ -29,6 +32,8 @@ const organizationCreateSchema = z.object({
       "Le slug doit contenir uniquement lettres minuscules, chiffres et tirets.",
     ),
   billing_status: z.enum(billingStatuses),
+  workspace_type: z.enum(workspaceTypes).default("sales_automation"),
+  storage_limit_gb: z.coerce.number().min(1).max(10000).optional().nullable(),
   setup_amount: z.coerce.number().min(0).optional().nullable(),
   monthly_subscription_amount: z.coerce.number().min(0).optional().nullable(),
   allow_member_company_visibility: z.boolean().default(true),
@@ -107,19 +112,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const storageLimitBytes = Math.round(
+    (values.storage_limit_gb ?? DEFAULT_STORAGE_LIMIT_GB) * GIGABYTE,
+  );
+
   const { data: organization, error } = await internalAdmin.adminSupabase
     .from("organizations")
     .insert({
       name: values.name,
       slug: values.slug,
       billing_status: values.billing_status,
+      workspace_type: values.workspace_type,
+      storage_limit_bytes: storageLimitBytes,
       setup_amount: values.setup_amount ?? null,
       monthly_subscription_amount: values.monthly_subscription_amount ?? null,
       allow_member_company_visibility: values.allow_member_company_visibility,
       meeting_bot_name: values.meeting_bot_name,
     })
     .select(
-      "id, name, slug, billing_status, setup_amount, monthly_subscription_amount, allow_member_company_visibility, meeting_bot_name, created_at",
+      "id, name, slug, billing_status, workspace_type, storage_limit_bytes, storage_used_bytes, setup_amount, monthly_subscription_amount, allow_member_company_visibility, meeting_bot_name, created_at",
     )
     .single();
 
@@ -139,7 +150,12 @@ export async function POST(request: NextRequest) {
     entity_id: organization.id,
   });
 
-  const workflowConfigRows = values.workflow_configs.map((config) => ({
+  // The insurance-broker module does not use the commercial n8n workflow
+  // configs; only sales-automation workspaces wire those up at creation.
+  const workflowConfigsToCreate =
+    values.workspace_type === "insurance_broker" ? [] : values.workflow_configs;
+
+  const workflowConfigRows = workflowConfigsToCreate.map((config) => ({
     organization_id: organization.id,
     workflow_type: config.workflow_type,
     n8n_webhook_url: config.n8n_webhook_url,
@@ -171,6 +187,9 @@ export async function POST(request: NextRequest) {
       name: organization.name,
       slug: organization.slug,
       billingStatus: organization.billing_status,
+      workspaceType: organization.workspace_type,
+      storageLimitBytes: organization.storage_limit_bytes,
+      storageUsedBytes: organization.storage_used_bytes,
       setupAmount: organization.setup_amount,
       monthlySubscriptionAmount: organization.monthly_subscription_amount,
       allowMemberCompanyVisibility:

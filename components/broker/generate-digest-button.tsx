@@ -1,0 +1,81 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { toast } from "sonner";
+import { MailSearch, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export function GenerateDigestButton({
+  variant = "primary",
+  label = "Générer mon briefing",
+}: {
+  variant?: "primary" | "ghost";
+  label?: string;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState(false);
+
+  async function generate() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/courtier/outlook/digest", {
+        method: "POST",
+      }).catch(() => null);
+      const result = (await res?.json().catch(() => null)) as
+        | { success?: boolean; message?: string; relevant?: number }
+        | null;
+
+      if (!res?.ok || !result?.success) {
+        toast.error("Briefing non généré.", {
+          description: result?.message ?? "Veuillez réessayer.",
+        });
+        return;
+      }
+      toast.success(
+        result.relevant && result.relevant > 0
+          ? `Briefing prêt — ${result.relevant} email${result.relevant > 1 ? "s" : ""} à traiter.`
+          : "Briefing à jour — rien de neuf côté courtage.",
+      );
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (variant === "ghost") {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={generate}
+        disabled={loading}
+        className="inline-flex items-center gap-1.5"
+      >
+        <RefreshCw
+          className={cn("size-3.5", loading && "animate-spin")}
+          strokeWidth={1.75}
+        />
+        {loading ? "Analyse…" : "Actualiser"}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      onClick={generate}
+      disabled={loading}
+      className="inline-flex items-center gap-2"
+    >
+      <MailSearch
+        className={cn("size-4", loading && "animate-pulse")}
+        strokeWidth={1.75}
+      />
+      {loading ? "Analyse de vos emails…" : label}
+    </Button>
+  );
+}

@@ -44,6 +44,7 @@ import {
   type WorkflowConfigStatus,
 } from "@/lib/internal-admin/workflows";
 import { cn } from "@/lib/utils";
+import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
 import type {
   InternalAdminOrganization,
   InternalAdminWorkspaceAccount,
@@ -366,6 +367,8 @@ export function InternalAdminConsole({
     name: "",
     slug: "",
     billingStatus: "pending",
+    workspaceType: "sales_automation",
+    storageLimitGb: "250",
     setupAmount: "",
     monthlySubscriptionAmount: "",
     workflowStatus: "inactive" as WorkflowConfigStatus,
@@ -438,6 +441,8 @@ export function InternalAdminConsole({
         name: workspaceForm.name,
         slug: workspaceForm.slug,
         billing_status: workspaceForm.billingStatus,
+        workspace_type: workspaceForm.workspaceType,
+        storage_limit_gb: amountFromInput(workspaceForm.storageLimitGb),
         setup_amount: amountFromInput(workspaceForm.setupAmount),
         monthly_subscription_amount: amountFromInput(
           workspaceForm.monthlySubscriptionAmount,
@@ -446,10 +451,13 @@ export function InternalAdminConsole({
           workspaceForm.allowMemberCompanyVisibility,
         meeting_bot_name: workspaceForm.meetingBotName,
         workflow_status: workspaceForm.workflowStatus,
-        workflow_configs: buildWorkflowPayload(
-          workspaceForm.workflowUrls,
-          workspaceForm.workflowStatus,
-        ),
+        workflow_configs:
+          workspaceForm.workspaceType === "insurance_broker"
+            ? []
+            : buildWorkflowPayload(
+                workspaceForm.workflowUrls,
+                workspaceForm.workflowStatus,
+              ),
       }),
     }).catch(() => null);
 
@@ -481,6 +489,8 @@ export function InternalAdminConsole({
       name: "",
       slug: "",
       billingStatus: "pending",
+      workspaceType: "sales_automation",
+      storageLimitGb: "250",
       setupAmount: "",
       monthlySubscriptionAmount: "",
       workflowStatus: "inactive",
@@ -950,26 +960,78 @@ export function InternalAdminConsole({
                           required
                         />
                       </div>
+                      {workspaceForm.workspaceType !== "insurance_broker" ? (
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label htmlFor="workspace-meeting-bot-name">
+                            Nom de l’assistant de réunion
+                          </Label>
+                          <Input
+                            id="workspace-meeting-bot-name"
+                            value={workspaceForm.meetingBotName}
+                            onChange={(event) =>
+                              setWorkspaceForm((current) => ({
+                                ...current,
+                                meetingBotName: event.target.value,
+                              }))
+                            }
+                            placeholder="FalconDraft"
+                            maxLength={60}
+                            required
+                          />
+                          <p className="text-muted-foreground text-xs">
+                            Nom visible par les participants quand l’assistant
+                            rejoint une réunion.
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="space-y-1.5 md:col-span-2">
-                        <Label htmlFor="workspace-meeting-bot-name">
-                          Nom de l’assistant de réunion
+                        <Label>Type d’espace de travail</Label>
+                        <Select
+                          value={workspaceForm.workspaceType}
+                          onValueChange={(workspaceType) =>
+                            setWorkspaceForm((current) => ({
+                              ...current,
+                              workspaceType,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sales_automation">
+                              Automatisation commerciale
+                            </SelectItem>
+                            <SelectItem value="insurance_broker">
+                              CRM Courtier (assurance)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-muted-foreground text-xs">
+                          {workspaceForm.workspaceType === "insurance_broker"
+                            ? "Espace courtier : dossiers clients, devoir de conseil, signatures. Les workflows commerciaux n8n ne sont pas créés."
+                            : "Espace commercial historique : propositions, devis, brouillons d’emails."}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label htmlFor="storage-limit-gb">
+                          Limite de stockage (Go)
                         </Label>
                         <Input
-                          id="workspace-meeting-bot-name"
-                          value={workspaceForm.meetingBotName}
+                          id="storage-limit-gb"
+                          inputMode="numeric"
+                          value={workspaceForm.storageLimitGb}
                           onChange={(event) =>
                             setWorkspaceForm((current) => ({
                               ...current,
-                              meetingBotName: event.target.value,
+                              storageLimitGb: event.target.value,
                             }))
                           }
-                          placeholder="FalconDraft"
-                          maxLength={60}
-                          required
+                          placeholder="250"
                         />
                         <p className="text-muted-foreground text-xs">
-                          Nom visible par les participants quand l’assistant
-                          rejoint une réunion.
+                          Quota Supabase par workspace. Au-delà, les imports sont
+                          bloqués.
                         </p>
                       </div>
                     </div>
@@ -1046,6 +1108,7 @@ export function InternalAdminConsole({
                   </section>
                 </div>
 
+                {workspaceForm.workspaceType !== "insurance_broker" ? (
                 <section className="mt-6 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1099,6 +1162,7 @@ export function InternalAdminConsole({
                     ))}
                   </div>
                 </section>
+                ) : null}
 
                 <div className="mt-5 flex justify-end">
                   <Button type="submit" disabled={isCreatingWorkspace}>
@@ -1160,6 +1224,10 @@ export function InternalAdminConsole({
                           {organization.isInternalWorkspace ? (
                             <Badge variant="outline">Interne FalconDraft</Badge>
                           ) : null}
+                          {organization.workspaceType ===
+                          "insurance_broker" ? (
+                            <Badge variant="outline">Courtier</Badge>
+                          ) : null}
                           <Badge
                             variant={
                               organization.billingStatus === "active"
@@ -1170,21 +1238,42 @@ export function InternalAdminConsole({
                             {billingStatusLabels[organization.billingStatus] ??
                               organization.billingStatus}
                           </Badge>
-                          <Badge variant={automationState.badge}>
-                            <span
-                              className={cn(
-                                "mr-1.5 inline-block size-2 rounded-full",
-                                automationState.className,
-                              )}
-                            />
-                            {automationState.label}
-                          </Badge>
+                          {organization.workspaceType !==
+                          "insurance_broker" ? (
+                            <Badge variant={automationState.badge}>
+                              <span
+                                className={cn(
+                                  "mr-1.5 inline-block size-2 rounded-full",
+                                  automationState.className,
+                                )}
+                              />
+                              {automationState.label}
+                            </Badge>
+                          ) : null}
                         </div>
                         <p className="text-muted-foreground mt-1 truncate text-sm">
                           /{organization.slug} · setup{" "}
                           {formatAmount(organization.setupAmount)} · mensuel{" "}
                           {formatAmount(organization.monthlySubscriptionAmount)}
                         </p>
+                        {organization.workspaceType === "insurance_broker"
+                          ? (() => {
+                              const usage = computeStorageUsage({
+                                storage_used_bytes:
+                                  organization.storageUsedBytes,
+                                storage_limit_bytes:
+                                  organization.storageLimitBytes,
+                              });
+                              return (
+                                <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                                  Stockage&nbsp;:{" "}
+                                  {formatBytes(usage.usedBytes)} /{" "}
+                                  {formatBytes(usage.limitBytes)} ·{" "}
+                                  {usage.percent}%
+                                </p>
+                              );
+                            })()
+                          : null}
                       </div>
                     </button>
                     <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -1196,10 +1285,12 @@ export function InternalAdminConsole({
                         {organization.pendingInvitationCount} invitation
                         {organization.pendingInvitationCount > 1 ? "s" : ""}
                       </Badge>
-                      <Badge variant="secondary">
-                        {organization.workflowConfigs.length} webhook
-                        {organization.workflowConfigs.length > 1 ? "s" : ""}
-                      </Badge>
+                      {organization.workspaceType !== "insurance_broker" ? (
+                        <Badge variant="secondary">
+                          {organization.workflowConfigs.length} webhook
+                          {organization.workflowConfigs.length > 1 ? "s" : ""}
+                        </Badge>
+                      ) : null}
                       <Button
                         type="button"
                         size="sm"
@@ -1238,28 +1329,34 @@ export function InternalAdminConsole({
                           <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
                             <section className="space-y-3">
                               <h3 className="text-sm font-semibold">
-                                Facturation, visibilité et réunion
+                                {organization.workspaceType ===
+                                "insurance_broker"
+                                  ? "Facturation et visibilité"
+                                  : "Facturation, visibilité et réunion"}
                               </h3>
-                              <div className="space-y-1.5">
-                                <Label>Nom de l’assistant de réunion</Label>
-                                <Input
-                                  value={draft.meetingBotName ?? ""}
-                                  onChange={(event) =>
-                                    setWorkspaceDrafts((current) => ({
-                                      ...current,
-                                      [organization.id]: {
-                                        ...draft,
-                                        meetingBotName: event.target.value,
-                                      },
-                                    }))
-                                  }
-                                  placeholder="FalconDraft"
-                                  maxLength={60}
-                                />
-                                <p className="text-muted-foreground text-xs">
-                                  Nom affiché dans Google Meet, Zoom ou Teams.
-                                </p>
-                              </div>
+                              {organization.workspaceType !==
+                              "insurance_broker" ? (
+                                <div className="space-y-1.5">
+                                  <Label>Nom de l’assistant de réunion</Label>
+                                  <Input
+                                    value={draft.meetingBotName ?? ""}
+                                    onChange={(event) =>
+                                      setWorkspaceDrafts((current) => ({
+                                        ...current,
+                                        [organization.id]: {
+                                          ...draft,
+                                          meetingBotName: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    placeholder="FalconDraft"
+                                    maxLength={60}
+                                  />
+                                  <p className="text-muted-foreground text-xs">
+                                    Nom affiché dans Google Meet, Zoom ou Teams.
+                                  </p>
+                                </div>
+                              ) : null}
                               <div className="grid gap-3 md:grid-cols-3">
                                 <div className="space-y-1.5">
                                   <Label>Montant setup</Label>
@@ -1346,6 +1443,8 @@ export function InternalAdminConsole({
                               </label>
                             </section>
 
+                            {organization.workspaceType !==
+                            "insurance_broker" ? (
                             <section className="space-y-3">
                               <h3 className="text-sm font-semibold">
                                 Webhooks n8n
@@ -1414,12 +1513,16 @@ export function InternalAdminConsole({
                                 ))}
                               </div>
                             </section>
+                            ) : null}
                           </div>
 
-                          <InternalAdminBillingProvider
-                            organizationId={organization.id}
-                            visible={isExpanded}
-                          />
+                          {organization.workspaceType !==
+                          "insurance_broker" ? (
+                            <InternalAdminBillingProvider
+                              organizationId={organization.id}
+                              visible={isExpanded}
+                            />
+                          ) : null}
 
                           <section className="space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">

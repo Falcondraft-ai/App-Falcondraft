@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
     organizationName: permission.organization.name,
     roleLabel: getWorkspaceRoleLabel(values.role),
     acceptUrl,
+    workspaceType: permission.organization.workspace_type,
   });
 
   if (!emailResult.success) {

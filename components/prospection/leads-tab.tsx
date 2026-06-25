@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ExternalLink, MoreHorizontal, Phone, Eye } from "lucide-react";
+import { toast } from "sonner";
 import { T } from "@/components/i18n/translated-text";
 import { useI18n } from "@/components/i18n/language-provider";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,19 @@ const qualityColor = (company: ProspectCompanyRow): string => {
   if (company.fit_score != null) return "text-emerald-600 dark:text-emerald-400";
   return "text-muted-foreground";
 };
+
+function getErrorMessage(result: unknown, fallback: string) {
+  if (
+    result &&
+    typeof result === "object" &&
+    "message" in result &&
+    typeof result.message === "string"
+  ) {
+    return result.message;
+  }
+
+  return fallback;
+}
 
 export function LeadsTab({
   initialData,
@@ -188,9 +202,13 @@ export function LeadsTab({
             return updated;
           }),
         );
+      } else {
+        toast.error(
+          getErrorMessage(result, "La mise à jour du lead a échoué."),
+        );
       }
     } catch {
-      // silently fail
+      toast.error("La mise à jour du lead a échoué.");
     } finally {
       setActionId(null);
       setLoading(false);

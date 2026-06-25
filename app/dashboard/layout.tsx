@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import {
   canManageWorkspace,
   normalizeWorkspaceRole,
 } from "@/lib/auth/workspace-permissions";
+import { isBrokerWorkspace } from "@/lib/broker/access";
 import { canAccessProspection, canViewInternalAdmin } from "@/lib/internal-access";
 
 export default async function DashboardLayout({
@@ -12,6 +14,12 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const context = await requireActiveWorkspaceContext();
+
+  // Insurance-broker workspaces run a separate module with its own shell.
+  if (isBrokerWorkspace(context.organization)) {
+    redirect("/courtier");
+  }
+
   const displayName =
     context.profile?.full_name ?? context.user.email ?? "Utilisateur";
 

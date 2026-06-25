@@ -94,7 +94,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { data: organization, error: organizationError } =
     await internalAdmin.adminSupabase
       .from("organizations")
-      .select("id, name")
+      .select("id, name, workspace_type")
       .eq("id", organizationId)
       .maybeSingle();
 
@@ -234,6 +234,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     roleLabel: getWorkspaceRoleLabel("manager"),
     acceptUrl,
     recipientName,
+    workspaceType: organization.workspace_type,
   });
 
   if (!emailResult.success) {
