@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
  * workflow (or any scheduler) with the shared secret header — never from the
  * browser. No user session: it runs with the service-role client.
  *
- *   Authorization: header `x-cron-secret: <CRON_SECRET>`
+ *   header `X-N8N-Secret: <CRON_SECRET>` (or `x-cron-secret` — both accepted).
+ *   Header names are case-insensitive.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -22,7 +23,10 @@ export async function POST(request: NextRequest) {
       { status: 503 },
     );
   }
-  if (request.headers.get("x-cron-secret") !== secret) {
+  const provided =
+    request.headers.get("x-n8n-secret") ??
+    request.headers.get("x-cron-secret");
+  if (!provided || provided !== secret) {
     return NextResponse.json(
       { success: false, reason: "unauthorized" },
       { status: 401 },
