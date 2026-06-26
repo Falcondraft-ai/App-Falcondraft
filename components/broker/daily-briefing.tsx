@@ -83,17 +83,32 @@ export type EmailBriefingSummary = {
   top: { id: string; from: string; subject: string; urgency: string }[];
 };
 
-function MiniStat({ value, label }: { value: number; label: string }) {
+function Figure({
+  value,
+  label,
+  tone,
+}: {
+  value: number;
+  label: string;
+  tone?: "accent" | "amber";
+}) {
   return (
-    <div
-      className="rounded-md border px-2.5 py-1.5 text-center"
-      style={{ borderColor: "var(--border-1)", background: "var(--bg-sunken)" }}
-    >
-      <p className="text-[15px] font-semibold leading-none text-[var(--fg-1)]">
+    <span className="inline-flex items-baseline gap-1">
+      <span
+        className="text-[15px] font-semibold leading-none"
+        style={{
+          color:
+            tone === "amber"
+              ? "var(--brand-amber-800, #92610f)"
+              : tone === "accent"
+                ? "var(--brand-navy-800)"
+                : "var(--fg-1)",
+        }}
+      >
         {value}
-      </p>
-      <p className="mt-0.5 text-[10.5px] text-[var(--fg-3)]">{label}</p>
-    </div>
+      </span>
+      <span className="text-[12px] text-[var(--fg-3)]">{label}</span>
+    </span>
   );
 }
 
@@ -101,7 +116,7 @@ function PrimaryLink({ children }: { children: ReactNode }) {
   return (
     <Link
       href="/courtier/inbox"
-      className="inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-[13px] font-semibold transition-colors"
+      className="inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-[13px] font-semibold transition-colors hover:opacity-95"
       style={{
         background: "var(--brand-navy-800)",
         color: "#FFFFFF",
@@ -114,13 +129,21 @@ function PrimaryLink({ children }: { children: ReactNode }) {
   );
 }
 
+function Dot() {
+  return (
+    <span aria-hidden className="text-[var(--fg-4)]">
+      ·
+    </span>
+  );
+}
+
 function BriefingSummaryPanel({ summary }: { summary?: EmailBriefingSummary }) {
   const data = summary;
   const nothing =
     data?.hasDigest && data.toProcess === 0 && data.toConfirm === 0;
 
   return (
-    <Panel className="flex flex-col">
+    <Panel>
       <PanelHeader
         icon={<Mail className="size-4" strokeWidth={1.75} />}
         title="Résumé de vos emails"
@@ -139,55 +162,58 @@ function BriefingSummaryPanel({ summary }: { summary?: EmailBriefingSummary }) {
           ) : null
         }
       />
-      <div className="flex flex-1 flex-col px-4 py-4">
+      <div className="space-y-3.5 px-4 py-4">
         {!data || !data.connected ? (
           <>
             <p className="text-[13px] leading-6 text-[var(--fg-2)]">
               Connectez votre boîte Outlook : FalconDraft trie vos emails de
-              courtage, résume l’essentiel et vous propose les bonnes actions — à
-              valider une par une.
+              courtage, résume l’essentiel et propose les bonnes actions à valider.
             </p>
-            <div className="mt-auto pt-5">
-              <PrimaryLink>Connecter Outlook</PrimaryLink>
-            </div>
+            <PrimaryLink>Connecter Outlook</PrimaryLink>
           </>
         ) : !data.hasDigest ? (
           <>
             <p className="text-[13px] leading-6 text-[var(--fg-2)]">
-              Votre boîte est connectée. Générez votre briefing du jour pour voir
-              l’essentiel de vos emails, triés et prêts à traiter.
+              Votre boîte est connectée. Générez votre briefing du jour : vos
+              emails de courtage, triés et prêts à traiter.
             </p>
-            <div className="mt-auto pt-5">
-              <PrimaryLink>Générer mon briefing</PrimaryLink>
-            </div>
+            <PrimaryLink>Générer mon briefing</PrimaryLink>
           </>
         ) : (
           <>
-            {data.narrative ? (
-              <p className="line-clamp-3 text-[13px] leading-6 text-[var(--fg-1)]">
-                {data.narrative}
-              </p>
-            ) : (
-              <p className="text-[13px] leading-6 text-[var(--fg-2)]">
-                Briefing du jour prêt.
-              </p>
-            )}
+            <p className="line-clamp-3 text-[13.5px] leading-6 text-[var(--fg-1)]">
+              {data.narrative || "Votre briefing du jour est prêt."}
+            </p>
 
             {nothing ? (
-              <p className="mt-3 text-[12.5px] text-[var(--fg-3)]">
-                Rien à traiter côté courtage — boîte à jour.
+              <p className="text-[12.5px] text-[var(--fg-3)]">
+                Rien à traiter côté courtage, boîte à jour.
               </p>
             ) : (
               <>
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <MiniStat value={data.toProcess} label="à traiter" />
-                  <MiniStat value={data.toConfirm} label="à confirmer" />
-                  <MiniStat value={data.pendingActions} label="actions" />
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <Figure value={data.toProcess} label="à traiter" tone="accent" />
+                  {data.toConfirm > 0 ? (
+                    <>
+                      <Dot />
+                      <Figure
+                        value={data.toConfirm}
+                        label="à confirmer"
+                        tone="amber"
+                      />
+                    </>
+                  ) : null}
+                  <Dot />
+                  <Figure value={data.pendingActions} label="actions" />
                 </div>
+
                 {data.top.length > 0 ? (
-                  <ul className="mt-3 space-y-1.5">
+                  <ul
+                    className="space-y-2 border-t pt-3"
+                    style={{ borderColor: "var(--border-1)" }}
+                  >
                     {data.top.map((t) => (
-                      <li key={t.id} className="flex items-center gap-2">
+                      <li key={t.id} className="flex items-center gap-2.5">
                         <span
                           aria-hidden
                           className="size-1.5 shrink-0 rounded-full"
@@ -198,11 +224,11 @@ function BriefingSummaryPanel({ summary }: { summary?: EmailBriefingSummary }) {
                                 : "var(--accent)",
                           }}
                         />
-                        <span className="min-w-0 truncate text-[12px] text-[var(--fg-2)]">
+                        <span className="min-w-0 flex-1 truncate text-[12.5px]">
                           <span className="font-medium text-[var(--fg-1)]">
                             {t.from}
-                          </span>{" "}
-                          — {t.subject}
+                          </span>
+                          <span className="text-[var(--fg-3)]"> · {t.subject}</span>
                         </span>
                       </li>
                     ))}
@@ -211,7 +237,7 @@ function BriefingSummaryPanel({ summary }: { summary?: EmailBriefingSummary }) {
               </>
             )}
 
-            <div className="mt-auto pt-5">
+            <div className="pt-0.5">
               <PrimaryLink>Ouvrir l’Assistant Outlook</PrimaryLink>
             </div>
           </>
@@ -360,7 +386,7 @@ export function DailyBriefing({
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[1.1fr_1fr]">
         <BriefingSummaryPanel summary={emailSummary} />
         <div className="grid gap-4">
           <AttentionPanel clients={attentionClients} />
