@@ -18,7 +18,9 @@ import {
 import type { BrokerClientRow, Database } from "@/types/database";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const DIGEST_MODEL = "gpt-5.5";
+// High-volume email triage (runs daily per broker). Configurable via env so the
+// model/cost can be tuned without a code change.
+const DIGEST_MODEL = process.env.COURTIER_DIGEST_MODEL || "gpt-5.5";
 const MAX_EMAILS = 40;
 const MAX_WINDOW_DAYS = 7;
 

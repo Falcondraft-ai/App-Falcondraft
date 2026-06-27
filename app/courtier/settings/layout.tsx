@@ -9,13 +9,15 @@ export default function CourtierSettingsLayout({
 }) {
   return (
     <PageTransition>
-      <div className="mx-auto max-w-4xl space-y-5">
+      <div className="mx-auto max-w-5xl space-y-6">
         <PageHeader
           title="Paramètres"
           description="Gérez votre espace courtier, vos types de contrat, votre équipe et vos intégrations."
         />
-        <CourtierSettingsNav />
-        <div>{children}</div>
+        <div className="flex flex-col gap-6 lg:flex-row lg:gap-10">
+          <CourtierSettingsNav />
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
       </div>
     </PageTransition>
   );

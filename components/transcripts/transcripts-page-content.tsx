@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { EmptyState } from "@/components/common/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -252,9 +253,10 @@ function TranscriptRowActions({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const router = useRouter();
+  const basePath = useBasePath();
 
   const isDealBased = transcript.id.startsWith("deal-");
-  const href = `/dashboard/transcripts/${transcript.id}`;
+  const href = `${basePath}/transcripts/${transcript.id}`;
 
   async function handleArchive() {
     if (isDealBased) {
@@ -385,8 +387,9 @@ function TranscriptRow({
   onRefresh: () => void;
 }) {
   const { t, language } = useI18n();
+  const basePath = useBasePath();
 
-  const href = `/dashboard/transcripts/${transcript.id}`;
+  const href = `${basePath}/transcripts/${transcript.id}`;
 
   return (
     <div className="group flex items-start justify-between gap-4 border-b px-1 py-3.5 last:border-b-0">
@@ -467,6 +470,7 @@ export function TranscriptsPageContent({
 }) {
   const router = useRouter();
   const { t } = useI18n();
+  const basePath = useBasePath();
   const canCreate = userRole !== "viewer";
   const canDelete = userRole === "manager";
 
@@ -490,13 +494,13 @@ export function TranscriptsPageContent({
             canCreate ? (
               <div className="flex gap-2">
                 <Button asChild variant="outline">
-                  <Link href="/dashboard/transcripts/recall">
+                  <Link href={`${basePath}/transcripts/recall`}>
                     <Radio className="mr-2 size-4" />
                     {t("transcripts.recall.button")}
                   </Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/dashboard/transcripts/new">
+                  <Link href={`${basePath}/transcripts/new`}>
                     <Plus className="mr-2 size-4" />
                     {t("transcripts.new")}
                   </Link>
@@ -520,13 +524,13 @@ export function TranscriptsPageContent({
         {canCreate && (
           <div className="flex gap-2">
             <Button asChild variant="outline">
-              <Link href="/dashboard/transcripts/recall">
+              <Link href={`${basePath}/transcripts/recall`}>
                 <Radio className="mr-2 size-4" />
                 {t("transcripts.recall.button")}
               </Link>
             </Button>
             <Button asChild>
-              <Link href="/dashboard/transcripts/new">
+              <Link href={`${basePath}/transcripts/new`}>
                 <Plus className="mr-2 size-4" />
                 {t("transcripts.new")}
               </Link>

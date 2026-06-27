@@ -7,6 +7,7 @@ import { Archive, Ellipsis, RotateCcw, Search, Trash2 } from "lucide-react";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { MarkEmailSentButton } from "@/components/deals/mark-email-sent-button";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +70,7 @@ export function DealsTable({
 }) {
   const router = useRouter();
   const { t, language } = useI18n();
+  const basePath = useBasePath();
   const [query, setQuery] = React.useState("");
   const [confirmAction, setConfirmAction] = React.useState<{
     type: "delete" | "archive";
@@ -243,7 +245,7 @@ export function DealsTable({
               <TableCell>
                 <div className="max-w-72">
                   <Link
-                    href={`/dashboard/deals/${deal.id}`}
+                    href={`${basePath}/deals/${deal.id}`}
                     className="hover:text-primary font-medium transition-colors"
                   >
                     {deal.name}
@@ -283,7 +285,7 @@ export function DealsTable({
                     size="sm"
                     className="border-[var(--border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--background-subtle)] hover:text-[var(--foreground)]"
                   >
-                    <Link href={`/dashboard/deals/${deal.id}`}>
+                    <Link href={`${basePath}/deals/${deal.id}`}>
                       {t("deals.open")}
                     </Link>
                   </Button>

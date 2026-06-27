@@ -8,6 +8,7 @@ import { AdviceStatusBadge } from "@/components/broker/advice-status-badge";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
 import { ClaimManager } from "@/components/broker/claim-manager";
 import { ClientDocuments } from "@/components/broker/client-documents";
+import { ClientIntroducerSelect } from "@/components/broker/client-introducer-select";
 import { ClientStatusControl } from "@/components/broker/client-status-control";
 import { CommissionStatusBadge } from "@/components/broker/commission-status-badge";
 import { CompliancePanel } from "@/components/broker/compliance-panel";
@@ -32,6 +33,7 @@ import {
   getBrokerClientContracts,
   getBrokerClientDocuments,
   getBrokerClientQuotes,
+  getBrokerIntroducers,
 } from "@/lib/broker/data";
 import { formatEuro, netCommission } from "@/lib/broker/commissions";
 import { parseBrokerSettings } from "@/lib/broker/settings";
@@ -111,6 +113,7 @@ export default async function BrokerClientDetailPage({
     compliance,
     commissions,
     claims,
+    introducers,
   ] = await Promise.all([
     getBrokerClientActivity(organizationId, id),
     getBrokerClientDocuments(organizationId, id),
@@ -120,6 +123,7 @@ export default async function BrokerClientDetailPage({
     getBrokerClientCompliance(organizationId, id),
     getBrokerClientCommissions(organizationId, id),
     getBrokerClientClaims(organizationId, id),
+    getBrokerIntroducers(organizationId),
   ]);
   const claimContractOptions = contracts.map((c) => ({
     id: c.id,
@@ -423,6 +427,21 @@ export default async function BrokerClientDetailPage({
           </div>
 
           <div className="space-y-5">
+            <Card
+              title="Apporteur"
+              description="L’apporteur qui a amené ce client. Sa rétrocession s’applique automatiquement à ses commissions."
+            >
+              <ClientIntroducerSelect
+                clientId={client.id}
+                introducers={introducers.map((i) => ({
+                  id: i.id,
+                  name: i.name,
+                }))}
+                currentIntroducerId={client.introducer_id}
+                canEdit={canEdit}
+              />
+            </Card>
+
             <Card
               title="Historique"
               description="Toutes les actions sur ce dossier."

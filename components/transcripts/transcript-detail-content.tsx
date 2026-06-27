@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +56,7 @@ export function TranscriptDetailContent({
 }) {
   const router = useRouter();
   const { t, language } = useI18n();
+  const basePath = useBasePath();
   const [deleting, setDeleting] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -93,7 +95,7 @@ export function TranscriptDetailContent({
         return;
       }
       toast.success(t("transcripts.delete.success"));
-      router.replace("/dashboard/transcripts");
+      router.replace(`${basePath}/transcripts`);
       router.refresh();
     } finally {
       setDeleting(false);
@@ -134,7 +136,7 @@ export function TranscriptDetailContent({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboard/transcripts">
+          <Link href={`${basePath}/transcripts`}>
             <ArrowLeft className="mr-2 size-3.5" />
             {t("transcripts.detail.back")}
           </Link>
@@ -242,7 +244,7 @@ export function TranscriptDetailContent({
             </span>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/deals/${transcript.dealId}`}>
+            <Link href={`${basePath}/deals/${transcript.dealId}`}>
               {t("transcripts.view")}
               <ExternalLink className="ml-1.5 size-3" />
             </Link>

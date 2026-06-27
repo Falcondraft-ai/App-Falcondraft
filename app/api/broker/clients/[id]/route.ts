@@ -27,6 +27,7 @@ const updateClientSchema = z.object({
   postalCode: z.string().trim().max(20).optional().nullable(),
   city: z.string().trim().max(120).optional().nullable(),
   insuranceType: z.string().trim().max(40).optional().nullable(),
+  introducerId: z.string().uuid().optional().nullable(),
   needs: z.string().trim().max(5000).optional().nullable(),
   structuredNeeds: z
     .record(
@@ -84,6 +85,19 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   }
 
   const values = parsed.data;
+
+  if (values.introducerId) {
+    const { data: intro } = await auth.adminSupabase
+      .from("broker_introducers")
+      .select("id")
+      .eq("organization_id", auth.organizationId)
+      .eq("id", values.introducerId)
+      .maybeSingle();
+    if (!intro) {
+      return jsonError("Apporteur introuvable.", 404, "introducer_not_found");
+    }
+  }
+
   const update: BrokerClientUpdate = { updated_at: new Date().toISOString() };
 
   if (values.status !== undefined) update.status = values.status;
@@ -102,6 +116,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   if (values.city !== undefined) update.city = trimmedOrNull(values.city);
   if (values.insuranceType !== undefined)
     update.insurance_type = trimmedOrNull(values.insuranceType);
+  if (values.introducerId !== undefined)
+    update.introducer_id = values.introducerId;
   if (values.needs !== undefined) update.needs = trimmedOrNull(values.needs);
   if (values.structuredNeeds !== undefined)
     update.structured_needs = values.structuredNeeds;

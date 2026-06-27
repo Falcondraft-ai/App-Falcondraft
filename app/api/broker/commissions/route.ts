@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import { brokerCommissionStatuses } from "@/lib/broker/commissions";
+import {
+  type IntroducerLite,
+  resolveRetrocession,
+} from "@/lib/broker/introducers";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
 
 const schema = z.object({
@@ -74,11 +78,48 @@ export async function POST(request: NextRequest) {
   ) {
     return jsonError("Contrat introuvable.", 404, "contract_not_found");
   }
-  if (
-    values.clientId &&
-    !(await belongsToOrg(auth, "broker_clients", values.clientId))
-  ) {
-    return jsonError("Dossier introuvable.", 404, "client_not_found");
+  // Resolve the retrocession: when the client has an introducer, link it and
+  // auto-compute the retrocession unless an amount was entered by hand.
+  let resolvedRetro = resolveRetrocession({
+    commissionAmount: values.commissionAmount ?? null,
+    retrocessionAmount: values.retrocessionAmount ?? null,
+    retrocessionRate: values.retrocessionRate ?? null,
+    retrocessionBeneficiary: values.retrocessionBeneficiary ?? null,
+    introducer: null,
+  });
+  if (values.clientId) {
+    const { data: clientRow } = await auth.adminSupabase
+      .from("broker_clients")
+      .select("introducer_id")
+      .eq("organization_id", auth.organizationId)
+      .eq("id", values.clientId)
+      .maybeSingle();
+    if (!clientRow) {
+      return jsonError("Dossier introuvable.", 404, "client_not_found");
+    }
+    let introducer: IntroducerLite | null = null;
+    if (clientRow.introducer_id) {
+      const { data: intro } = await auth.adminSupabase
+        .from("broker_introducers")
+        .select("id, name, retrocession_rate")
+        .eq("organization_id", auth.organizationId)
+        .eq("id", clientRow.introducer_id)
+        .maybeSingle();
+      if (intro) {
+        introducer = {
+          id: intro.id,
+          name: intro.name,
+          rate: intro.retrocession_rate,
+        };
+      }
+    }
+    resolvedRetro = resolveRetrocession({
+      commissionAmount: values.commissionAmount ?? null,
+      retrocessionAmount: values.retrocessionAmount ?? null,
+      retrocessionRate: values.retrocessionRate ?? null,
+      retrocessionBeneficiary: values.retrocessionBeneficiary ?? null,
+      introducer,
+    });
   }
 
   const { data: commission, error } = await auth.adminSupabase
@@ -94,9 +135,10 @@ export async function POST(request: NextRequest) {
       base_amount: values.baseAmount ?? null,
       rate: values.rate ?? null,
       commission_amount: values.commissionAmount ?? null,
-      retrocession_rate: values.retrocessionRate ?? null,
-      retrocession_amount: values.retrocessionAmount ?? null,
-      retrocession_beneficiary: values.retrocessionBeneficiary?.trim() || null,
+      retrocession_rate: resolvedRetro.retrocession_rate,
+      retrocession_amount: resolvedRetro.retrocession_amount,
+      retrocession_beneficiary: resolvedRetro.retrocession_beneficiary,
+      introducer_id: resolvedRetro.introducer_id,
       period_label: values.periodLabel?.trim() || null,
       currency: values.currency?.trim() || "EUR",
       status: values.status ?? "expected",

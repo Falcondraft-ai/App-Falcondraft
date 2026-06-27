@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ function formatFileSize(bytes: number) {
 export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
   const router = useRouter();
   const { t, language } = useI18n();
+  const basePath = useBasePath();
   const shouldReduceMotion = useReducedMotion();
   const [stepIndex, setStepIndex] = React.useState(0);
   const [direction, setDirection] = React.useState(1);
@@ -165,7 +167,7 @@ export function NewTranscriptForm({ deals }: { deals: DealOption[] }) {
       toast.success(t("transcripts.form.success"), {
         description: title.trim(),
       });
-      router.replace("/dashboard/transcripts");
+      router.replace(`${basePath}/transcripts`);
       router.refresh();
     } finally {
       setIsSubmitting(false);

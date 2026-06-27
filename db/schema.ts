@@ -43,6 +43,13 @@ export const organizations = pgTable("organizations", {
     workspaceType: text("workspace_type")
       .default("sales_automation")
       .notNull(),
+    brokerOffering: text("broker_offering").default("saas").notNull(),
+    plan: text("plan"),
+    planSeats: integer("plan_seats"),
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
     storageLimitBytes: bigint("storage_limit_bytes", { mode: "number" })
       .default(268435456000)
       .notNull(),
@@ -405,6 +412,7 @@ export const brokerClients = pgTable(
     needs: text("needs"),
     structuredNeeds: jsonb("structured_needs").default({}).notNull(),
     notes: text("notes"),
+    introducerId: uuid("introducer_id"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -675,6 +683,10 @@ export const brokerCommissionStatements = pgTable(
     notes: text("notes"),
     reconciledAt: timestamp("reconciled_at", { withTimezone: true }),
     reconciledBy: uuid("reconciled_by"),
+    sourceStoragePath: text("source_storage_path"),
+    sourceFileName: text("source_file_name"),
+    sourceMimeType: text("source_mime_type"),
+    sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -714,6 +726,7 @@ export const brokerCommissions = pgTable(
     retrocessionRate: numeric("retrocession_rate", { mode: "number" }),
     retrocessionAmount: numeric("retrocession_amount", { mode: "number" }),
     retrocessionBeneficiary: text("retrocession_beneficiary"),
+    introducerId: uuid("introducer_id"),
     periodLabel: text("period_label"),
     currency: text("currency").default("EUR").notNull(),
     status: text("status").default("expected").notNull(),
@@ -733,6 +746,33 @@ export const brokerCommissions = pgTable(
     ),
     clientIdx: index("broker_commissions_client_id_idx").on(table.clientId),
     statusIdx: index("broker_commissions_status_idx").on(table.status),
+  }),
+);
+
+export const brokerIntroducers = pgTable(
+  "broker_introducers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").notNull(),
+    name: text("name").notNull(),
+    retrocessionRate: numeric("retrocession_rate", { mode: "number" }),
+    email: text("email"),
+    phone: text("phone"),
+    notes: text("notes"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("broker_introducers_organization_id_idx").on(
+      table.organizationId,
+    ),
+    archivedAtIdx: index("broker_introducers_archived_at_idx").on(
+      table.archivedAt,
+    ),
   }),
 );
 

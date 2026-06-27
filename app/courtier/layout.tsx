@@ -3,6 +3,7 @@ import { CourtierShell } from "@/components/broker/courtier-shell";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { isBrokerWorkspace } from "@/lib/broker/access";
+import { hasProposalAutomation } from "@/lib/billing/entitlements";
 import { computeStorageUsage } from "@/lib/broker/storage";
 
 export default async function CourtierLayout({
@@ -32,6 +33,7 @@ export default async function CourtierLayout({
         roleKey: normalizeWorkspaceRole(context.membership?.role) ?? "member",
       }}
       usage={usage}
+      showProposals={hasProposalAutomation(organization)}
     >
       {children}
     </CourtierShell>

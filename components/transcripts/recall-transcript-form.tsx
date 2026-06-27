@@ -6,6 +6,7 @@ import { Radio, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,7 @@ const LANGUAGE_OPTIONS = [
 export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
   const router = useRouter();
   const { t, language: uiLanguage } = useI18n();
+  const basePath = useBasePath();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [meetingUrl, setMeetingUrl] = React.useState("");
@@ -74,7 +76,7 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
       }
 
       toast.success(t("transcripts.recall.success"));
-      router.replace("/dashboard/transcripts");
+      router.replace(`${basePath}/transcripts`);
       router.refresh();
     } finally {
       setIsSubmitting(false);
@@ -181,7 +183,7 @@ export function RecallTranscriptForm({ deals }: { deals: DealOption[] }) {
 
       <div className="bg-muted/35 flex items-center justify-between border-t px-5 py-4 sm:px-6">
         <Button type="button" variant="outline" asChild>
-          <Link href="/dashboard/transcripts">
+          <Link href={`${basePath}/transcripts`}>
             <ArrowLeft className="mr-2 size-4" />
             {t("transcripts.detail.back")}
           </Link>

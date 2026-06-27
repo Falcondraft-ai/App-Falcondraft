@@ -26,6 +26,13 @@ export type OrganizationRow = {
   default_billing_provider: string;
   meeting_bot_name: string;
   workspace_type: "sales_automation" | "insurance_broker" | string;
+  broker_offering: "saas" | "custom" | string;
+  plan: "essentiel" | "cabinet" | "performance" | null;
+  plan_seats: number | null;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
   storage_limit_bytes: number;
   storage_used_bytes: number;
   broker_settings: Record<string, unknown>;
@@ -33,6 +40,10 @@ export type OrganizationRow = {
 };
 
 export type WorkspaceType = "sales_automation" | "insurance_broker";
+
+export type BrokerOffering = "saas" | "custom";
+
+export type Plan = "essentiel" | "cabinet" | "performance";
 
 export type BrokerClientRow = {
   id: string;
@@ -60,6 +71,7 @@ export type BrokerClientRow = {
   needs: string | null;
   structured_needs: Record<string, unknown>;
   notes: string | null;
+  introducer_id: string | null;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -150,6 +162,20 @@ export type BrokerQuoteRow = {
   updated_at: string;
 };
 
+export type BrokerIntroducerRow = {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  name: string;
+  retrocession_rate: number | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type BrokerContractRow = {
   id: string;
   organization_id: string;
@@ -228,6 +254,10 @@ export type BrokerCommissionStatementRow = {
   notes: string | null;
   reconciled_at: string | null;
   reconciled_by: string | null;
+  source_storage_path: string | null;
+  source_file_name: string | null;
+  source_mime_type: string | null;
+  source_size_bytes: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -247,6 +277,7 @@ export type BrokerCommissionRow = {
   retrocession_rate: number | null;
   retrocession_amount: number | null;
   retrocession_beneficiary: string | null;
+  introducer_id: string | null;
   period_label: string | null;
   currency: string;
   status: "expected" | "received" | "reconciled" | string;
@@ -734,6 +765,13 @@ export type Database = {
           default_billing_provider?: string;
           meeting_bot_name?: string;
           workspace_type?: string;
+          broker_offering?: string;
+          plan?: string | null;
+          plan_seats?: number | null;
+          trial_ends_at?: string | null;
+          current_period_end?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
           storage_limit_bytes?: number;
           storage_used_bytes?: number;
           broker_settings?: Record<string, unknown>;
@@ -752,6 +790,13 @@ export type Database = {
           default_billing_provider?: string;
           meeting_bot_name?: string;
           workspace_type?: string;
+          broker_offering?: string;
+          plan?: string | null;
+          plan_seats?: number | null;
+          trial_ends_at?: string | null;
+          current_period_end?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
           storage_limit_bytes?: number;
           storage_used_bytes?: number;
           broker_settings?: Record<string, unknown>;
@@ -1270,6 +1315,7 @@ export type Database = {
           needs?: string | null;
           structured_needs?: Record<string, unknown>;
           notes?: string | null;
+          introducer_id?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1289,6 +1335,33 @@ export type Database = {
           status?: string;
           needs?: string | null;
           structured_needs?: Record<string, unknown>;
+          notes?: string | null;
+          introducer_id?: string | null;
+          archived_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_introducers: TableDefinition<
+        BrokerIntroducerRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by: string;
+          name: string;
+          retrocession_rate?: number | null;
+          email?: string | null;
+          phone?: string | null;
+          notes?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          name?: string;
+          retrocession_rate?: number | null;
+          email?: string | null;
+          phone?: string | null;
           notes?: string | null;
           archived_at?: string | null;
           updated_at?: string;
@@ -1450,6 +1523,10 @@ export type Database = {
           notes?: string | null;
           reconciled_at?: string | null;
           reconciled_by?: string | null;
+          source_storage_path?: string | null;
+          source_file_name?: string | null;
+          source_mime_type?: string | null;
+          source_size_bytes?: number | null;
           created_at?: string;
           updated_at?: string;
         },
@@ -1465,6 +1542,10 @@ export type Database = {
           notes?: string | null;
           reconciled_at?: string | null;
           reconciled_by?: string | null;
+          source_storage_path?: string | null;
+          source_file_name?: string | null;
+          source_mime_type?: string | null;
+          source_size_bytes?: number | null;
           updated_at?: string;
         }
       >;
@@ -1486,6 +1567,7 @@ export type Database = {
           retrocession_rate?: number | null;
           retrocession_amount?: number | null;
           retrocession_beneficiary?: string | null;
+          introducer_id?: string | null;
           period_label?: string | null;
           currency?: string;
           status?: string;
@@ -1505,6 +1587,7 @@ export type Database = {
           retrocession_rate?: number | null;
           retrocession_amount?: number | null;
           retrocession_beneficiary?: string | null;
+          introducer_id?: string | null;
           period_label?: string | null;
           currency?: string;
           status?: string;

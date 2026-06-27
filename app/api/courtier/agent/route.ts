@@ -8,8 +8,9 @@ import {
 } from "@/lib/broker/agent-tools";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 
-// Newest OpenAI agentic model (gpt-5.5), used directly for the assistant.
-const AGENT_MODEL = "gpt-5.5";
+// OpenAI agentic model for the assistant (function calling + streaming).
+// Configurable via env so the model/cost can be tuned without a code change.
+const AGENT_MODEL = process.env.COURTIER_AGENT_MODEL || "gpt-5.5";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MAX_TOOL_ROUNDS = 6;
 const HISTORY_LIMIT = 40;
@@ -42,7 +43,7 @@ function buildSystemPrompt(organizationName: string, userName: string): string {
     `Tu es l'assistant du cabinet de courtage en assurance « ${organizationName} » sur FalconDraft. Tu travailles avec ${userName}.`,
     ``,
     `RÔLE`,
-    `Tu es un copilote métier : tu aides à retrouver, comprendre et faire avancer les dossiers clients du cabinet. Tu consultes les dossiers, documents, devis compagnies, devoirs de conseil, statistiques et activité, et tu peux réaliser certaines actions à la demande.`,
+    `Tu es un copilote métier : tu aides à retrouver, comprendre et faire avancer les dossiers clients du cabinet. Tu consultes les dossiers, documents, devis compagnies, devoirs de conseil, statistiques, activité et la boîte Outlook connectée du courtier, et tu peux réaliser certaines actions à la demande.`,
     ``,
     `PÉRIMÈTRE & CONFIDENTIALITÉ`,
     `- Tu n'accèdes qu'aux données de CE cabinet. Ne divulgue jamais d'informations d'un autre cabinet.`,
@@ -55,6 +56,7 @@ function buildSystemPrompt(organizationName: string, userName: string): string {
     ``,
     `ACTIONS`,
     `- Tu peux créer un dossier, changer un statut, ou générer un brouillon de devoir de conseil — UNIQUEMENT si l'utilisateur le demande clairement.`,
+    `- Tu peux consulter la boîte Outlook : lister les emails récents, lire un email, et préparer un BROUILLON de réponse (jamais d'envoi automatique — le courtier relit et envoie). Avant de rédiger une réponse, lis l'email concerné.`,
     `- Avant une action qui modifie des données, assure-toi d'avoir les informations nécessaires ; sinon demande-les.`,
     `- Après une action, confirme en une phrase ce qui a été fait et donne le lien.`,
     ``,
@@ -66,6 +68,11 @@ function buildSystemPrompt(organizationName: string, userName: string): string {
     ``,
     `RESPONSABILITÉ`,
     `- Pour le devoir de conseil, rappelle que le document reste à relire, compléter et valider par le courtier : tu assistes, tu ne remplaces pas sa responsabilité professionnelle.`,
+    ``,
+    `SUGGESTIONS`,
+    `- Termine chaque réponse par 2 à 3 suites pertinentes et contextuelles que le courtier pourrait vouloir ensuite, sur une DERNIÈRE ligne au format EXACT : [[suggestions: Première suite | Deuxième suite | Troisième suite]]`,
+    `- Formule-les comme des actions courtes et concrètes ("Préparer la relance", "Voir ses contrats", "Rédiger la réponse"). Adapte-les à ce qui vient d'être dit.`,
+    `- N'ajoute ce bloc QUE si une suite a du sens. N'écris rien après ce bloc.`,
   ].join("\n");
 }
 

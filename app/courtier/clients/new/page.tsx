@@ -4,6 +4,7 @@ import { NewClientForm } from "@/components/broker/new-client-form";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
+import { getBrokerIntroducers } from "@/lib/broker/data";
 import { parseBrokerSettings } from "@/lib/broker/settings";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function NewBrokerClientPage() {
   const context = await requireActiveWorkspaceContext();
   const settings = parseBrokerSettings(context.organization);
+  const introducers = await getBrokerIntroducers(context.organization!.id);
 
   return (
     <PageTransition>
@@ -35,7 +37,10 @@ export default async function NewBrokerClientPage() {
           description="Renseignez les informations du client et son besoin. Vous pourrez ensuite ajouter ses documents et générer son devoir de conseil."
         />
 
-        <NewClientForm branches={settings.enabledBranches} />
+        <NewClientForm
+          branches={settings.enabledBranches}
+          introducers={introducers.map((i) => ({ id: i.id, name: i.name }))}
+        />
       </div>
     </PageTransition>
   );

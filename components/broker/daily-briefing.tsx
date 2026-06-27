@@ -4,22 +4,16 @@ import {
   CheckCircle2,
   FileText,
   FileSignature,
-  History,
   Mail,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { brokerActivityLabel } from "@/lib/broker/activity";
 import {
   brokerClientDisplayName,
   insuranceTypeLabel,
 } from "@/lib/broker/clients";
-import { formatDateTime } from "@/lib/format";
-import type { BrokerActivityRow, BrokerClientRow } from "@/types/database";
+import type { BrokerClientRow } from "@/types/database";
 
-const attentionMeta: Record<
-  string,
-  { label: string; icon: ReactNode }
-> = {
+const attentionMeta: Record<string, { label: string; icon: ReactNode }> = {
   advice_ready: {
     label: "Devoir de conseil à valider",
     icon: <FileText className="size-4" strokeWidth={1.75} />,
@@ -137,7 +131,11 @@ function Dot() {
   );
 }
 
-function BriefingSummaryPanel({ summary }: { summary?: EmailBriefingSummary }) {
+export function BriefingSummaryPanel({
+  summary,
+}: {
+  summary?: EmailBriefingSummary;
+}) {
   const data = summary;
   const nothing =
     data?.hasDigest && data.toProcess === 0 && data.toConfirm === 0;
@@ -247,7 +245,7 @@ function BriefingSummaryPanel({ summary }: { summary?: EmailBriefingSummary }) {
   );
 }
 
-function AttentionPanel({ clients }: { clients: BrokerClientRow[] }) {
+export function AttentionPanel({ clients }: { clients: BrokerClientRow[] }) {
   return (
     <Panel>
       <PanelHeader
@@ -308,91 +306,5 @@ function AttentionPanel({ clients }: { clients: BrokerClientRow[] }) {
         </div>
       )}
     </Panel>
-  );
-}
-
-function ActivityPanel({ activity }: { activity: BrokerActivityRow[] }) {
-  return (
-    <Panel>
-      <PanelHeader
-        icon={<History className="size-4" strokeWidth={1.75} />}
-        title="Ce qui s’est passé"
-      />
-      {activity.length > 0 ? (
-        <ol className="px-4 py-4">
-          {activity.map((entry, index) => (
-            <li key={entry.id} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <span
-                  aria-hidden
-                  className="mt-1.5 size-2 shrink-0 rounded-full"
-                  style={{ background: "var(--accent)" }}
-                />
-                {index < activity.length - 1 ? (
-                  <span
-                    aria-hidden
-                    className="my-1 w-px flex-1"
-                    style={{ background: "var(--border-1)" }}
-                  />
-                ) : null}
-              </div>
-              <Link
-                href={`/courtier/clients/${entry.client_id}`}
-                className="min-w-0 flex-1 pb-4"
-              >
-                <p className="text-[13px] font-medium text-[var(--fg-1)] transition-colors hover:text-[var(--brand-navy-800)]">
-                  {brokerActivityLabel(entry.type)}
-                </p>
-                {entry.description ? (
-                  <p className="mt-0.5 truncate text-[12px] text-[var(--fg-3)]">
-                    {entry.description}
-                  </p>
-                ) : null}
-                <p className="mt-0.5 font-mono text-[11px] text-[var(--fg-4)]">
-                  {formatDateTime(entry.created_at)}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <div className="px-4 py-6 text-center">
-          <p className="text-[12.5px] text-[var(--fg-3)]">
-            L’activité de vos dossiers apparaîtra ici.
-          </p>
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-export function DailyBriefing({
-  attentionClients,
-  activity,
-  emailSummary,
-}: {
-  attentionClients: BrokerClientRow[];
-  activity: BrokerActivityRow[];
-  emailSummary?: EmailBriefingSummary;
-}) {
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
-          Votre briefing du jour
-        </h2>
-        <p className="mt-0.5 text-[12.5px] text-[var(--fg-3)]">
-          Ce qui demande votre attention et ce qui s’est passé sur vos dossiers.
-        </p>
-      </div>
-
-      <div className="grid items-start gap-4 lg:grid-cols-[1.1fr_1fr]">
-        <BriefingSummaryPanel summary={emailSummary} />
-        <div className="grid gap-4">
-          <AttentionPanel clients={attentionClients} />
-          <ActivityPanel activity={activity} />
-        </div>
-      </div>
-    </section>
   );
 }

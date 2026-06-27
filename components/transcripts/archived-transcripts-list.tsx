@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -54,6 +55,7 @@ function ArchivedTranscriptRow({
   onRefresh: () => void;
 }) {
   const { t, language } = useI18n();
+  const basePath = useBasePath();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
 
@@ -92,7 +94,7 @@ function ArchivedTranscriptRow({
   return (
     <div className="flex items-center justify-between gap-4 border-b px-1 py-3 last:border-b-0">
       <Link
-        href={`/dashboard/transcripts/${transcript.id}`}
+        href={`${basePath}/transcripts/${transcript.id}`}
         className="min-w-0 flex-1"
       >
         <p className="truncate text-sm font-medium hover:underline">

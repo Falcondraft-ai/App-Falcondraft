@@ -18,6 +18,7 @@ const createClientSchema = z
     postalCode: z.string().trim().max(20).optional().nullable(),
     city: z.string().trim().max(120).optional().nullable(),
     insuranceType: z.string().trim().max(40).optional().nullable(),
+    introducerId: z.string().uuid().optional().nullable(),
     needs: z.string().trim().max(5000).optional().nullable(),
     notes: z.string().trim().max(5000).optional().nullable(),
   })
@@ -72,6 +73,18 @@ export async function POST(request: NextRequest) {
   const values = parsed.data;
   const email = values.email?.trim() || null;
 
+  if (values.introducerId) {
+    const { data: intro } = await auth.adminSupabase
+      .from("broker_introducers")
+      .select("id")
+      .eq("organization_id", auth.organizationId)
+      .eq("id", values.introducerId)
+      .maybeSingle();
+    if (!intro) {
+      return jsonError("Apporteur introuvable.", 404, "introducer_not_found");
+    }
+  }
+
   const { data, error } = await auth.adminSupabase
     .from("broker_clients")
     .insert({
@@ -87,6 +100,7 @@ export async function POST(request: NextRequest) {
       postal_code: values.postalCode?.trim() || null,
       city: values.city?.trim() || null,
       insurance_type: values.insuranceType?.trim() || null,
+      introducer_id: values.introducerId ?? null,
       needs: values.needs?.trim() || null,
       notes: values.notes?.trim() || null,
       status: "new",

@@ -5,13 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
   Bell,
+  ChevronDown,
   ChevronRight,
+  ChevronsUpDown,
   Euro,
   FileText,
   FolderOpen,
   LayoutDashboard,
+  LogOut,
   Menu,
   Mic,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings,
   ShieldCheck,
@@ -23,7 +28,6 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n/language-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,15 +59,17 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceMemberRole } from "@/lib/auth/workspace-permissions";
 import type { TranslationKey } from "@/lib/i18n/translations";
 
-const SIDEBAR_WIDTH = 256;
-const SUBMENU_WIDTH = 208;
-const SUBMENU_CLOSE_DELAY = 120;
+const EXPANDED_WIDTH = 256;
+const COLLAPSED_WIDTH = 72;
+const FLYOUT_WIDTH = 208;
+const FLYOUT_CLOSE_DELAY = 120;
+const COLLAPSE_KEY = "dashboard-sidebar-collapsed";
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 type NavSubItem = {
   label: string;
   href: string;
   highlight?: boolean;
-  adminOnly?: boolean;
 };
 
 type NavItem = {
@@ -71,24 +77,13 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   submenu?: NavSubItem[];
-  comingSoon?: boolean;
+  badge?: string;
 };
 
-type InternalNavItem = {
-  href: string;
-  label: TranslationKey;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-};
-
-const internalNavItems: InternalNavItem[] = [
-  { href: "/admin", label: "nav.internalAdmin", icon: ShieldCheck },
-];
+type NavSection = { label: string | null; items: NavItem[] };
 
 function isNavItemActive(pathname: string, href: string): boolean {
-  if (href === "/dashboard") {
-    return pathname === href;
-  }
-
+  if (href === "/dashboard") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -98,23 +93,19 @@ function isSubItemActive(
   itemHref: string,
 ): boolean {
   const [path, query] = itemHref.split("?");
-  if (pathname !== path) {
-    if (query) return false;
-    return false;
-  }
-
-  if (!query) {
-    return !search || search === "?";
-  }
-
+  if (pathname !== path) return false;
+  if (!query) return !search || search === "?";
   const expected = new URLSearchParams(query);
   const current = new URLSearchParams(search);
-
   for (const [key, value] of expected.entries()) {
     if (current.get(key) !== value) return false;
   }
-
   return true;
+}
+
+function groupIsActive(pathname: string, search: string, item: NavItem) {
+  if (isNavItemActive(pathname, item.href)) return true;
+  return (item.submenu ?? []).some((s) => isSubItemActive(pathname, search, s.href));
 }
 
 type DashboardShellUser = {
@@ -123,277 +114,419 @@ type DashboardShellUser = {
   roleKey: WorkspaceMemberRole;
 };
 
-type DashboardShellOrganization = {
-  name: string;
-};
+type DashboardShellOrganization = { name: string };
 
 function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.at(0)?.toUpperCase() ?? "")
-    .join("");
-}
-
-function buildPrimaryNavItems(
-  t: (key: TranslationKey) => string,
-): NavItem[] {
-  return [
-    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
-    {
-      href: "/dashboard/deals",
-      label: t("nav.deals"),
-      icon: FolderOpen,
-      submenu: [
-        { label: t("deals.tabs.mine"), href: "/dashboard/deals?scope=mine" },
-        {
-          label: t("deals.tabs.organization"),
-          href: "/dashboard/deals?scope=organization",
-        },
-        {
-          label: t("common.actions.newDeal"),
-          href: "/dashboard/deals/new",
-          highlight: true,
-        },
-      ],
-    },
-    { href: "/dashboard/documents", label: t("nav.documents"), icon: FileText },
-    {
-      href: "/dashboard/transcripts",
-      label: t("nav.transcripts"),
-      icon: Mic,
-      submenu: [
-        { label: "Mes transcripts", href: "/dashboard/transcripts" },
-        { label: "Récupérer un appel", href: "/dashboard/transcripts/recall" },
-        {
-          label: "+ Nouveau transcript",
-          href: "/dashboard/transcripts/new",
-          highlight: true,
-        },
-      ],
-    },
-    {
-      href: "/dashboard/quotes",
-      label: t("nav.quotes"),
-      icon: Euro,
-      comingSoon: true,
-    },
-    {
-      href: "/dashboard/workflows",
-      label: t("nav.workflows"),
-      icon: Workflow,
-      comingSoon: true,
-    },
-    { href: "/dashboard/archive", label: t("nav.archives"), icon: Archive },
-  ];
-}
-
-function buildSettingsNavItem(
-  t: (key: TranslationKey) => string,
-  canManageBilling: boolean,
-): NavItem {
-  const submenu: NavSubItem[] = [
-    { label: t("settings.nav.general"), href: "/dashboard/settings" },
-    { label: t("settings.nav.team"), href: "/dashboard/settings/team" },
-    {
-      label: t("settings.nav.integrations"),
-      href: "/dashboard/settings/integrations",
-    },
-    {
-      label: t("settings.nav.billing"),
-      href: "/dashboard/settings/billing",
-      adminOnly: true,
-    },
-  ].filter((item) => (item.adminOnly ? canManageBilling : true));
-
-  return {
-    href: "/dashboard/settings",
-    label: t("nav.settings"),
-    icon: Settings,
-    submenu,
-  };
-}
-
-function WorkspaceContext({
-  organization,
-}: {
-  organization: DashboardShellOrganization | null;
-}) {
-  const { t } = useI18n();
-
   return (
-    <section
-      className="border-b px-4 py-3.5"
-      style={{
-        backgroundColor: "var(--sidebar-hover)",
-        borderColor: "var(--sidebar-border)",
-      }}
-    >
-      <div
-        className="border-l-2 pl-3"
-        style={{ borderColor: "rgba(148,163,184,0.35)" }}
-      >
-        <p
-          className="text-[9.5px] font-semibold uppercase"
-          style={{
-            color: "var(--sidebar-text)",
-            letterSpacing: "0.14em",
-          }}
-        >
-          Production commerciale
-        </p>
-        <p
-          className="mt-1 truncate text-[13px] font-medium"
-          style={{ color: "var(--sidebar-text-active)" }}
-        >
-          {organization?.name ?? t("shell.workspaceFallback")}
-        </p>
-      </div>
-    </section>
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.at(0)?.toUpperCase() ?? "")
+      .join("") || "FD"
   );
 }
 
-function SidebarBrandHeader({
+function buildNavSections(
+  t: (key: TranslationKey) => string,
+  showInternalAdmin: boolean,
+  showProspection: boolean,
+  canManageBilling: boolean,
+): NavSection[] {
+  const sections: NavSection[] = [
+    {
+      label: null,
+      items: [
+        { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
+        {
+          href: "/dashboard/deals",
+          label: t("nav.deals"),
+          icon: FolderOpen,
+          submenu: [
+            { label: t("deals.tabs.mine"), href: "/dashboard/deals?scope=mine" },
+            {
+              label: t("deals.tabs.organization"),
+              href: "/dashboard/deals?scope=organization",
+            },
+            {
+              label: t("common.actions.newDeal"),
+              href: "/dashboard/deals/new",
+              highlight: true,
+            },
+          ],
+        },
+        {
+          href: "/dashboard/documents",
+          label: t("nav.documents"),
+          icon: FileText,
+        },
+        {
+          href: "/dashboard/transcripts",
+          label: t("nav.transcripts"),
+          icon: Mic,
+          submenu: [
+            { label: "Mes transcripts", href: "/dashboard/transcripts" },
+            { label: "Récupérer un appel", href: "/dashboard/transcripts/recall" },
+            {
+              label: "+ Nouveau transcript",
+              href: "/dashboard/transcripts/new",
+              highlight: true,
+            },
+          ],
+        },
+        {
+          href: "/dashboard/quotes",
+          label: t("nav.quotes"),
+          icon: Euro,
+          badge: t("nav.comingSoon"),
+        },
+        {
+          href: "/dashboard/workflows",
+          label: t("nav.workflows"),
+          icon: Workflow,
+          badge: t("nav.comingSoon"),
+        },
+        { href: "/dashboard/archive", label: t("nav.archives"), icon: Archive },
+      ],
+    },
+  ];
+
+  const internal: NavItem[] = [];
+  if (showInternalAdmin) {
+    internal.push({
+      href: "/admin",
+      label: t("nav.internalAdmin"),
+      icon: ShieldCheck,
+      badge: t("nav.internalBadge"),
+    });
+  }
+  if (showProspection) {
+    internal.push({
+      href: "/prospection",
+      label: t("nav.prospection"),
+      icon: Target,
+      badge: t("nav.internalBadge"),
+    });
+  }
+  if (internal.length) {
+    sections.push({ label: t("nav.internal"), items: internal });
+  }
+
+  const settingsSubmenu: NavSubItem[] = [
+    { label: t("settings.nav.general"), href: "/dashboard/settings" },
+    { label: t("settings.nav.team"), href: "/dashboard/settings/team" },
+    { label: t("settings.nav.integrations"), href: "/dashboard/settings/integrations" },
+    ...(canManageBilling
+      ? [{ label: t("settings.nav.billing"), href: "/dashboard/settings/billing" }]
+      : []),
+  ];
+  sections.push({
+    label: null,
+    items: [
+      {
+        href: "/dashboard/settings",
+        label: t("nav.settings"),
+        icon: Settings,
+        submenu: settingsSubmenu,
+      },
+    ],
+  });
+
+  return sections;
+}
+
+// ---------------------------------------------------------------------------
+// Brand header (with integrated collapse toggle)
+// ---------------------------------------------------------------------------
+function BrandHeader({
+  collapsed,
+  onToggle,
   organizationName,
 }: {
+  collapsed: boolean;
+  onToggle?: () => void;
   organizationName?: string | null;
 }) {
-  return (
-    <div
-      className="flex items-center border-b px-4 py-4"
-      style={{
-        backgroundColor: "var(--sidebar-bg)",
-        borderColor: "var(--sidebar-border)",
-      }}
+  const toggleBtn = onToggle ? (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+      title={collapsed ? "Déplier" : "Replier"}
+      className="flex size-7 items-center justify-center rounded-[7px] transition-colors hover:bg-[var(--sidebar-hover)]"
+      style={{ color: "var(--sidebar-text)" }}
     >
-      <Link
-        href="/dashboard"
-        className="flex items-center gap-3 min-w-0"
-        aria-label="FalconDraft"
+      {collapsed ? (
+        <PanelLeftOpen className="size-[18px]" strokeWidth={1.75} />
+      ) : (
+        <PanelLeftClose className="size-[18px]" strokeWidth={1.75} />
+      )}
+    </button>
+  ) : null;
+
+  if (collapsed) {
+    return (
+      <div
+        className="flex flex-col items-center gap-2 border-b px-2 py-3"
+        style={{ borderColor: "var(--sidebar-border)" }}
       >
-        <div className="h-11 w-11 flex items-center justify-center shrink-0">
+        <Link href="/dashboard" aria-label="FalconDraft" className="flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/bimi/logo.svg"
             alt=""
             aria-hidden="true"
-            className="h-11 w-11 object-contain scale-[1.15]"
+            className="size-9 scale-[1.12] object-contain"
           />
-        </div>
+        </Link>
+        {toggleBtn}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex h-16 items-center justify-between border-b pl-3.5 pr-2.5"
+      style={{ borderColor: "var(--sidebar-border)" }}
+    >
+      <Link
+        href="/dashboard"
+        className="flex min-w-0 items-center gap-2.5"
+        aria-label="FalconDraft"
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/bimi/logo.svg"
+            alt=""
+            aria-hidden="true"
+            className="size-9 scale-[1.12] object-contain"
+          />
+        </span>
         <span className="min-w-0 leading-tight">
           <span
-            className="block text-[17px] font-semibold tracking-[-0.025em]"
+            className="block text-[15.5px] font-semibold tracking-[-0.025em]"
             style={{ color: "var(--sidebar-text-active)" }}
           >
             FalconDraft
           </span>
           {organizationName ? (
             <span
-              className="mt-[2px] block truncate text-[11px] font-medium"
-              style={{ color: "var(--sidebar-text)", letterSpacing: "0.01em" }}
+              className="mt-[1px] block truncate text-[10.5px] font-medium uppercase"
+              style={{ color: "var(--sidebar-text)", letterSpacing: "0.09em" }}
             >
               {organizationName}
             </span>
           ) : null}
         </span>
       </Link>
+      {toggleBtn}
     </div>
   );
 }
 
-type NavRowProps = {
-  href: string;
-  label: string;
-  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  active: boolean;
-  hasSubmenu?: boolean;
-  badge?: string;
-  onNavigate?: () => void;
-  onMouseEnter?: React.MouseEventHandler<HTMLAnchorElement>;
-};
+// ---------------------------------------------------------------------------
+// Nav rows
+// ---------------------------------------------------------------------------
+function rowBaseClass(active: boolean) {
+  return cn(
+    "group flex items-center rounded-[8px] border-l-2 text-[13px]",
+    "transition-[background-color,color,border-color] duration-150 ease-out",
+    !active &&
+      "hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text-active)]",
+  );
+}
 
-const NavRow = React.forwardRef<HTMLAnchorElement, NavRowProps>(
-  function NavRow(
-    { href, label, Icon, active, hasSubmenu, badge, onNavigate, onMouseEnter },
-    ref,
-  ) {
+function rowStyle(active: boolean): React.CSSProperties {
+  return active
+    ? {
+        color: "var(--sidebar-text-active)",
+        backgroundColor: "var(--sidebar-active)",
+        borderLeftColor: "var(--accent)",
+        fontWeight: 500,
+      }
+    : { color: "var(--sidebar-text)", borderLeftColor: "transparent" };
+}
+
+function BadgePill({ text }: { text: string }) {
+  return (
+    <span
+      className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium"
+      style={{
+        backgroundColor: "rgba(184,146,42,0.12)",
+        color: "var(--accent)",
+        borderRadius: "4px",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function NavLink({
+  item,
+  active,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  const { icon: Icon } = item;
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      title={collapsed ? item.label : undefined}
+      className={cn(
+        rowBaseClass(active),
+        "h-9",
+        collapsed ? "justify-center px-0" : "gap-2.5 pl-[13px] pr-2.5",
+      )}
+      style={rowStyle(active)}
+    >
+      <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+      {!collapsed ? (
+        <>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {item.badge ? <BadgePill text={item.badge} /> : null}
+        </>
+      ) : null}
+    </Link>
+  );
+}
+
+function NavGroup({
+  item,
+  pathname,
+  search,
+  collapsed,
+  open,
+  onToggle,
+  onNavigate,
+  onMouseEnter,
+}: {
+  item: NavItem;
+  pathname: string;
+  search: string;
+  collapsed: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
+  onMouseEnter?: React.MouseEventHandler<HTMLElement>;
+}) {
+  const { icon: Icon } = item;
+  const active = groupIsActive(pathname, search, item);
+  const sub = item.submenu ?? [];
+
+  if (collapsed) {
     return (
-      <Link
-        ref={ref}
-        href={href}
-        onClick={onNavigate}
+      <button
+        type="button"
         onMouseEnter={onMouseEnter}
-        className={cn(
-          "group flex w-full items-center gap-2.5 rounded-[7px] border-l-2",
-          "h-9 pl-[13px] pr-2.5 text-[13px]",
-          "transition-[background-color,color,border-color] duration-150 ease-out",
-          !active &&
-            "hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text-active)]",
-        )}
-        style={
-          active
-            ? {
-                color: "var(--sidebar-text-active)",
-                backgroundColor: "var(--sidebar-active)",
-                borderLeftColor: "var(--accent)",
-                fontWeight: 500,
-              }
-            : {
-                color: "var(--sidebar-text)",
-                borderLeftColor: "transparent",
-              }
-        }
+        title={item.label}
+        className={cn(rowBaseClass(active), "h-9 w-full justify-center px-0")}
+        style={rowStyle(active)}
+        aria-label={item.label}
       >
-        <Icon
-          className="size-[17px] shrink-0"
-          strokeWidth={1.75}
+        <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(rowBaseClass(active), "h-9 w-full gap-2.5 pl-[13px] pr-2.5")}
+        style={rowStyle(active)}
+        aria-expanded={open}
+      >
+        <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+        <ChevronDown
+          className={cn(
+            "size-[15px] shrink-0 opacity-60 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          strokeWidth={2}
           aria-hidden="true"
         />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        {badge ? (
-          <span
-            className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium"
-            style={{
-              backgroundColor: "rgba(184,146,42,0.12)",
-              color: "var(--accent)",
-              borderRadius: "4px",
-            }}
-          >
-            {badge}
-          </span>
-        ) : null}
-        {hasSubmenu ? (
-          <ChevronRight
-            className="size-[14px] shrink-0 opacity-50"
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-        ) : null}
-      </Link>
-    );
-  },
-);
+      </button>
 
-function SubmenuPanel({
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.24, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div
+              className="ml-[26px] mt-0.5 space-y-0.5 border-l pb-1 pl-2.5"
+              style={{ borderColor: "var(--sidebar-border)" }}
+            >
+              {sub.map((s) => {
+                const subActive = isSubItemActive(pathname, search, s.href);
+                return (
+                  <Link
+                    key={s.href}
+                    href={s.href}
+                    onClick={onNavigate}
+                    className="block rounded-[6px] px-2.5 py-1.5 text-[12.5px] transition-colors duration-150"
+                    style={
+                      subActive
+                        ? {
+                            color: "var(--sidebar-text-active)",
+                            backgroundColor: "var(--sidebar-hover)",
+                            fontWeight: 500,
+                          }
+                        : {
+                            color: s.highlight
+                              ? "var(--accent)"
+                              : "var(--sidebar-text)",
+                            fontWeight: s.highlight ? 500 : 400,
+                          }
+                    }
+                  >
+                    {s.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function FlyoutPanel({
   items,
   pathname,
   search,
+  top,
+  left,
   onNavigate,
   onMouseEnter,
   onMouseLeave,
-  top,
 }: {
   items: NavSubItem[];
   pathname: string;
   search: string;
+  top: number;
+  left: number;
   onNavigate?: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  top: number;
 }) {
   return (
     <motion.div
-      key="submenu"
+      key="dashboard-flyout"
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -8 }}
@@ -402,9 +535,9 @@ function SubmenuPanel({
       onMouseLeave={onMouseLeave}
       className="fixed z-40 p-1.5"
       style={{
-        left: SIDEBAR_WIDTH,
+        left,
         top,
-        width: SUBMENU_WIDTH,
+        width: FLYOUT_WIDTH,
         backgroundColor: "#FFFFFF",
         border: "1px solid var(--border)",
         borderRadius: 8,
@@ -431,16 +564,13 @@ function SubmenuPanel({
                     color: "var(--accent-foreground)",
                   }
                 : {
-                    color: item.highlight
-                      ? "var(--accent)"
-                      : "var(--foreground)",
+                    color: item.highlight ? "var(--accent)" : "var(--foreground)",
                     fontWeight: item.highlight ? 500 : 400,
                   }
             }
             onMouseEnter={(event) => {
               if (active) return;
-              event.currentTarget.style.backgroundColor =
-                "var(--background-subtle)";
+              event.currentTarget.style.backgroundColor = "var(--background-subtle)";
             }}
             onMouseLeave={(event) => {
               if (active) return;
@@ -455,143 +585,251 @@ function SubmenuPanel({
   );
 }
 
-function SettingsRow({
-  item,
-  pathname,
-  onSubmenuOpen,
-  onNavigate,
+// ---------------------------------------------------------------------------
+// Account block (in the sidebar; replaces the top-right avatar)
+// ---------------------------------------------------------------------------
+function AccountBlock({
+  user,
+  collapsed,
+  profilePhotoUrl,
+  roleLabel,
+  profileLabel,
+  helpLabel,
+  signOutLabel,
+  onSignOut,
 }: {
-  item: NavItem;
-  pathname: string;
-  onSubmenuOpen?: (href: string, top: number, items: NavSubItem[]) => void;
-  onNavigate?: () => void;
+  user: DashboardShellUser;
+  collapsed: boolean;
+  profilePhotoUrl: string | null;
+  roleLabel: string;
+  profileLabel: string;
+  helpLabel: string;
+  signOutLabel: string;
+  onSignOut: () => void;
 }) {
-  const active = isNavItemActive(pathname, item.href);
-  const handleEnter: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
-    if (!onSubmenuOpen || !item.submenu || item.submenu.length === 0) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    onSubmenuOpen(item.href, rect.top, item.submenu);
-  };
+  const avatar = (
+    <Avatar className="size-9 shrink-0 rounded-full ring-1 ring-white/10">
+      {profilePhotoUrl ? (
+        <AvatarImage src={profilePhotoUrl} alt="" className="rounded-full" />
+      ) : null}
+      <AvatarFallback
+        className="rounded-full text-[12px] font-semibold tracking-[0.02em]"
+        style={{
+          background: "linear-gradient(155deg, #283450, #181f31)",
+          color: "var(--accent)",
+        }}
+      >
+        {getInitials(user.name)}
+      </AvatarFallback>
+    </Avatar>
+  );
 
   return (
-    <NavRow
-      href={item.href}
-      label={item.label}
-      Icon={item.icon}
-      active={active}
-      hasSubmenu={Boolean(item.submenu && item.submenu.length > 0)}
-      onNavigate={onNavigate}
-      onMouseEnter={onSubmenuOpen ? handleEnter : undefined}
-    />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          title={collapsed ? user.name : undefined}
+          className={cn(
+            "flex w-full items-center rounded-[10px] transition-colors hover:bg-[var(--sidebar-hover)]",
+            collapsed ? "justify-center p-1" : "gap-2.5 p-1.5",
+          )}
+          aria-label={user.name}
+        >
+          {avatar}
+          {!collapsed ? (
+            <>
+              <span className="min-w-0 flex-1 text-left leading-tight">
+                <span
+                  className="block truncate text-[13px] font-medium"
+                  style={{ color: "var(--sidebar-text-active)" }}
+                >
+                  {user.name}
+                </span>
+                <span
+                  className="block truncate text-[11px]"
+                  style={{ color: "var(--sidebar-text)" }}
+                >
+                  {roleLabel}
+                </span>
+              </span>
+              <ChevronsUpDown
+                className="size-4 shrink-0"
+                strokeWidth={1.75}
+                style={{ color: "var(--sidebar-text)" }}
+                aria-hidden="true"
+              />
+            </>
+          ) : null}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-56">
+        <DropdownMenuLabel>
+          <span className="block text-sm">{user.name}</span>
+          <span className="text-muted-foreground block text-xs font-normal">
+            {user.email}
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard/settings">{profileLabel}</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard/support">{helpLabel}</Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onSignOut} className="flex items-center gap-2">
+          <LogOut className="size-4" strokeWidth={1.75} />
+          {signOutLabel}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-function NavList({
-  navItems,
+// ---------------------------------------------------------------------------
+// Sidebar content
+// ---------------------------------------------------------------------------
+function SidebarContent({
+  sections,
   pathname,
   search,
-  showInternalAdmin,
-  showProspection,
+  collapsed,
+  user,
+  profilePhotoUrl,
+  roleLabel,
+  profileLabel,
+  helpLabel,
+  signOutLabel,
+  openGroups,
+  onToggleGroup,
+  onToggleCollapse,
+  organizationName,
+  onSignOut,
   onNavigate,
-  onSubmenuOpen,
-  onSubmenuClose,
-  onSubmenuCancelClose,
+  onFlyoutOpen,
+  onFlyoutClose,
 }: {
-  navItems: NavItem[];
+  sections: NavSection[];
   pathname: string;
   search: string;
-  showInternalAdmin: boolean;
-  showProspection: boolean;
+  collapsed: boolean;
+  user: DashboardShellUser;
+  profilePhotoUrl: string | null;
+  roleLabel: string;
+  profileLabel: string;
+  helpLabel: string;
+  signOutLabel: string;
+  openGroups: Set<string>;
+  onToggleGroup: (href: string) => void;
+  onToggleCollapse?: () => void;
+  organizationName?: string | null;
+  onSignOut: () => void;
   onNavigate?: () => void;
-  onSubmenuOpen?: (href: string, top: number, items: NavSubItem[]) => void;
-  onSubmenuClose?: () => void;
-  onSubmenuCancelClose?: () => void;
+  onFlyoutOpen?: (top: number, items: NavSubItem[]) => void;
+  onFlyoutClose?: () => void;
 }) {
-  const { t } = useI18n();
-
-  const handleEnter =
-    (item: NavItem): React.MouseEventHandler<HTMLAnchorElement> =>
-    (event) => {
-      if (!onSubmenuOpen) return;
-      if (item.submenu && item.submenu.length > 0) {
-        const rect = event.currentTarget.getBoundingClientRect();
-        onSubmenuOpen(item.href, rect.top, item.submenu);
-      } else {
-        onSubmenuClose?.();
-      }
-    };
-
   return (
-    <nav className="space-y-6" aria-label={t("nav.primaryLabel")}>
-      <div className="space-y-0.5">
-        {navItems.map((item) => {
-          const active = isNavItemActive(pathname, item.href);
-          return (
-            <NavRow
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              Icon={item.icon}
-              active={active}
-              hasSubmenu={Boolean(item.submenu && item.submenu.length > 0)}
-              badge={item.comingSoon ? t("nav.comingSoon") : undefined}
-              onNavigate={onNavigate}
-              onMouseEnter={onSubmenuOpen ? handleEnter(item) : undefined}
-            />
-          );
-        })}
+    <>
+      <BrandHeader
+        collapsed={collapsed}
+        onToggle={onToggleCollapse}
+        organizationName={organizationName}
+      />
+
+      <div className="flex-1 overflow-y-auto px-2.5 pt-3 pb-3">
+        <nav className="space-y-1" aria-label="Navigation">
+          {sections.map((section, si) => (
+            <div key={section.label ?? `s${si}`} className={cn(si > 0 && "pt-1.5")}>
+              {section.label ? (
+                collapsed ? (
+                  <div
+                    className="mx-auto mb-1.5 h-px w-7"
+                    style={{ background: "var(--sidebar-border)" }}
+                  />
+                ) : (
+                  <p
+                    className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase"
+                    style={{
+                      color: "var(--sidebar-text)",
+                      letterSpacing: "0.11em",
+                      opacity: 0.6,
+                    }}
+                  >
+                    {section.label}
+                  </p>
+                )
+              ) : si > 0 && collapsed ? (
+                <div
+                  className="mx-auto mb-1.5 h-px w-7"
+                  style={{ background: "var(--sidebar-border)" }}
+                />
+              ) : null}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const hasSub = Boolean(item.submenu && item.submenu.length > 0);
+                  if (!hasSub) {
+                    return (
+                      <NavLink
+                        key={item.href}
+                        item={item}
+                        active={isNavItemActive(pathname, item.href)}
+                        collapsed={collapsed}
+                        onNavigate={onNavigate}
+                      />
+                    );
+                  }
+                  return (
+                    <NavGroup
+                      key={item.href}
+                      item={item}
+                      pathname={pathname}
+                      search={search}
+                      collapsed={collapsed}
+                      open={openGroups.has(item.href)}
+                      onToggle={() => onToggleGroup(item.href)}
+                      onNavigate={onNavigate}
+                      onMouseEnter={
+                        collapsed && onFlyoutOpen
+                          ? (event) => {
+                              const rect =
+                                event.currentTarget.getBoundingClientRect();
+                              onFlyoutOpen(rect.top, item.submenu ?? []);
+                            }
+                          : undefined
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
       </div>
 
-      {showInternalAdmin || showProspection ? (
-        <div
-          className="mt-2 border-t pt-4"
-          style={{ borderColor: "var(--sidebar-border)" }}
-        >
-          <p
-            className="mb-2 px-3 text-[10px] font-semibold uppercase"
-            style={{
-              color: "var(--sidebar-text)",
-              letterSpacing: "0.08em",
-            }}
-          >
-            {t("nav.internal")}
-          </p>
-          <div
-            className="space-y-0.5"
-            onMouseEnter={() => onSubmenuClose?.()}
-          >
-            {showInternalAdmin &&
-              internalNavItems.map((item) => {
-                const active = isNavItemActive(pathname, item.href);
-                return (
-                  <NavRow
-                    key={item.href}
-                    href={item.href}
-                    label={t(item.label)}
-                    Icon={item.icon}
-                    active={active}
-                    badge={t("nav.internalBadge")}
-                    onNavigate={onNavigate}
-                  />
-                );
-              })}
-            {showProspection ? (
-              <NavRow
-                href="/prospection"
-                label={t("nav.prospection")}
-                Icon={Target}
-                active={isNavItemActive(pathname, "/prospection")}
-                badge={t("nav.internalBadge")}
-                onNavigate={onNavigate}
-              />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </nav>
+      <div
+        className="border-t px-2.5 pb-2.5 pt-2.5"
+        style={{ borderColor: "var(--sidebar-border)" }}
+        onMouseEnter={() => onFlyoutClose?.()}
+      >
+        <AccountBlock
+          user={user}
+          collapsed={collapsed}
+          profilePhotoUrl={profilePhotoUrl}
+          roleLabel={roleLabel}
+          profileLabel={profileLabel}
+          helpLabel={helpLabel}
+          signOutLabel={signOutLabel}
+          onSignOut={onSignOut}
+        />
+      </div>
+    </>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Breadcrumb (topbar)
+// ---------------------------------------------------------------------------
 type BreadcrumbSegment = { label: string; href?: string };
 
 function buildBreadcrumb(
@@ -607,11 +845,8 @@ function buildBreadcrumb(
       { label: workspaceLabel },
       { label: t("nav.deals"), href: "/dashboard/deals" },
     ];
-    if (pathname === "/dashboard/deals/new") {
-      segments.push({ label: t("common.actions.newDeal") });
-    } else if (pathname !== "/dashboard/deals") {
-      segments.push({ label: "Détail" });
-    }
+    if (pathname === "/dashboard/deals/new") segments.push({ label: t("common.actions.newDeal") });
+    else if (pathname !== "/dashboard/deals") segments.push({ label: "Détail" });
     return segments;
   }
   if (pathname.startsWith("/dashboard/transcripts")) {
@@ -619,13 +854,9 @@ function buildBreadcrumb(
       { label: workspaceLabel },
       { label: t("nav.transcripts"), href: "/dashboard/transcripts" },
     ];
-    if (pathname === "/dashboard/transcripts/new") {
-      segments.push({ label: "Nouveau" });
-    } else if (pathname === "/dashboard/transcripts/recall") {
-      segments.push({ label: "Récupérer" });
-    } else if (pathname !== "/dashboard/transcripts") {
-      segments.push({ label: "Détail" });
-    }
+    if (pathname === "/dashboard/transcripts/new") segments.push({ label: "Nouveau" });
+    else if (pathname === "/dashboard/transcripts/recall") segments.push({ label: "Récupérer" });
+    else if (pathname !== "/dashboard/transcripts") segments.push({ label: "Détail" });
     return segments;
   }
   if (pathname.startsWith("/dashboard/documents")) {
@@ -670,10 +901,7 @@ function Breadcrumb({
   );
 
   return (
-    <nav
-      className="flex min-w-0 items-center gap-1.5"
-      aria-label="Breadcrumb"
-    >
+    <nav className="flex min-w-0 items-center gap-1.5" aria-label="Breadcrumb">
       {segments.map((segment, index) => {
         const isLast = index === segments.length - 1;
         return (
@@ -774,11 +1002,7 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
             event.currentTarget.style.borderColor = "var(--brand-navy-800)";
           }}
         >
-          <Plus
-            className="size-3.5"
-            strokeWidth={2.25}
-            style={{ color: "var(--accent)" }}
-          />
+          <Plus className="size-3.5" strokeWidth={2.25} style={{ color: "var(--accent)" }} />
           <span className="hidden sm:inline">{createLabel}</span>
         </button>
       </DropdownMenuTrigger>
@@ -792,10 +1016,7 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
           className="flex flex-col items-start gap-0.5 py-2.5"
         >
           <span className="flex items-center gap-2 text-[13px] font-semibold">
-            <FolderOpen
-              className="size-3.5 text-[var(--brand-navy-700)]"
-              strokeWidth={1.75}
-            />
+            <FolderOpen className="size-3.5 text-[var(--brand-navy-700)]" strokeWidth={1.75} />
             {t("common.actions.newDeal")}
           </span>
           <span className="pl-[22px] text-[11.5px] text-[var(--fg-3)]">
@@ -807,10 +1028,7 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
           className="flex flex-col items-start gap-0.5 py-2.5"
         >
           <span className="flex items-center gap-2 text-[13px] font-semibold">
-            <Mic
-              className="size-3.5 text-[var(--brand-navy-700)]"
-              strokeWidth={1.75}
-            />
+            <Mic className="size-3.5 text-[var(--brand-navy-700)]" strokeWidth={1.75} />
             Transcript
           </span>
           <span className="pl-[22px] text-[11.5px] text-[var(--fg-3)]">
@@ -822,10 +1040,7 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
           className="flex flex-col items-start gap-0.5 py-2.5 opacity-70"
         >
           <span className="flex items-center gap-2 text-[13px] font-semibold">
-            <Euro
-              className="size-3.5 text-[var(--fg-4)]"
-              strokeWidth={1.75}
-            />
+            <Euro className="size-3.5 text-[var(--fg-4)]" strokeWidth={1.75} />
             Devis
             <span
               className="ml-1 rounded-[3px] px-1.5 py-[1px] text-[9.5px] font-semibold uppercase tracking-[0.08em]"
@@ -847,7 +1062,9 @@ function CreateMenu({ createLabel }: { createLabel: string }) {
   );
 }
 
-
+// ---------------------------------------------------------------------------
+// Shell
+// ---------------------------------------------------------------------------
 export function DashboardShell({
   children,
   organization,
@@ -868,19 +1085,61 @@ export function DashboardShell({
   const { t } = useI18n();
   useNotificationsBackgroundSync();
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(
-    null,
-  );
-
-  const [activeSubmenu, setActiveSubmenu] = React.useState<{
-    href: string;
+  const [collapsed, setCollapsed] = React.useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(null);
+  const [searchString, setSearchString] = React.useState("");
+  const [flyout, setFlyout] = React.useState<{
     items: NavSubItem[];
     top: number;
   } | null>(null);
-  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstNavRef = React.useRef(true);
+
+  const sections = React.useMemo(
+    () => buildNavSections(t, showInternalAdmin, showProspection, canManageBilling),
+    [t, showInternalAdmin, showProspection, canManageBilling],
   );
-  const [searchString, setSearchString] = React.useState("");
+
+  const [openGroups, setOpenGroups] = React.useState<Set<string>>(() => {
+    const init = new Set<string>();
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (item.submenu && groupIsActive(pathname, "", item)) init.add(item.href);
+      }
+    }
+    return init;
+  });
+
+  React.useEffect(() => {
+    if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+  }, []);
+  const toggleCollapsed = React.useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+    setFlyout(null);
+  }, []);
+
+  // Auto-collapse the rail on navigation.
+  React.useEffect(() => {
+    if (firstNavRef.current) {
+      firstNavRef.current = false;
+      return;
+    }
+    setCollapsed(true);
+    setFlyout(null);
+  }, [pathname]);
+
+  const toggleGroup = React.useCallback((href: string) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -896,23 +1155,16 @@ export function DashboardShell({
       closeTimerRef.current = null;
     }
   }, []);
-
   const scheduleClose = React.useCallback(() => {
     cancelClose();
-    closeTimerRef.current = setTimeout(() => {
-      setActiveSubmenu(null);
-    }, SUBMENU_CLOSE_DELAY);
+    closeTimerRef.current = setTimeout(() => setFlyout(null), FLYOUT_CLOSE_DELAY);
   }, [cancelClose]);
-
-  const openSubmenu = React.useCallback(
-    (href: string, anchorTop: number, items: NavSubItem[]) => {
+  const openFlyout = React.useCallback(
+    (anchorTop: number, items: NavSubItem[]) => {
       cancelClose();
-      const estimatedHeight = items.length * 36 + 12;
-      const viewportH =
-        typeof window !== "undefined" ? window.innerHeight : 1000;
-      const maxTop = viewportH - estimatedHeight - 12;
-      const top = Math.max(12, Math.min(anchorTop, maxTop));
-      setActiveSubmenu({ href, top, items });
+      const viewportH = typeof window !== "undefined" ? window.innerHeight : 1000;
+      const top = Math.max(12, Math.min(anchorTop, viewportH - (items.length * 38 + 16)));
+      setFlyout({ items, top });
     },
     [cancelClose],
   );
@@ -924,105 +1176,81 @@ export function DashboardShell({
   }, []);
 
   React.useEffect(() => {
-    setActiveSubmenu(null);
-  }, [pathname]);
-
-  React.useEffect(() => {
     function readProfilePhoto() {
       window.localStorage.removeItem(LEGACY_PROFILE_PHOTO_STORAGE_KEY);
-      void fetchProfilePhotoUrl().then((url) => {
-        setProfilePhotoUrl(url);
-      });
+      void fetchProfilePhotoUrl().then((url) => setProfilePhotoUrl(url));
     }
-
     readProfilePhoto();
     window.addEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
-
-    return () => {
+    return () =>
       window.removeEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
-    };
   }, []);
 
-  async function signOut() {
+  const signOut = React.useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
-
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
-
+    if (supabase) await supabase.auth.signOut();
     toast.success(t("shell.signOutSuccess"));
     router.replace("/login");
     router.refresh();
-  }
+  }, [router, t]);
 
-  const primaryNavItems = React.useMemo(
-    () => buildPrimaryNavItems(t),
-    [t],
-  );
-  const settingsNavItem = React.useMemo(
-    () => buildSettingsNavItem(t, canManageBilling),
-    [t, canManageBilling],
-  );
+  const railWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+  const roleLabel = t(`roles.${user.roleKey}` as TranslationKey);
+  const sidebarProps = {
+    sections,
+    pathname,
+    search: searchString,
+    user,
+    profilePhotoUrl,
+    roleLabel,
+    profileLabel: t("shell.profile"),
+    helpLabel: t("shell.help"),
+    signOutLabel: t("shell.signOut"),
+    openGroups,
+    onToggleGroup: toggleGroup,
+    organizationName: organization?.name,
+    onSignOut: signOut,
+  };
 
   return (
-    <div className="bg-background text-foreground min-h-dvh">
+    <div
+      className="bg-background text-foreground min-h-dvh"
+      style={{ "--sb-w": `${railWidth}px` } as React.CSSProperties}
+    >
       <aside
         onMouseLeave={scheduleClose}
-        className="fixed inset-y-0 left-0 z-30 hidden border-r lg:flex lg:flex-col"
+        className="fixed inset-y-0 left-0 z-30 hidden border-r transition-[width] duration-200 ease-out lg:flex lg:w-[var(--sb-w)] lg:flex-col"
         style={{
-          width: SIDEBAR_WIDTH,
           backgroundColor: "var(--sidebar-bg)",
           borderColor: "var(--sidebar-border)",
           color: "var(--sidebar-text)",
         }}
       >
-        <SidebarBrandHeader organizationName={organization?.name} />
-        <WorkspaceContext organization={organization} />
-        <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-3">
-          <NavList
-            navItems={primaryNavItems}
-            pathname={pathname}
-            search={searchString}
-            showInternalAdmin={showInternalAdmin}
-            showProspection={showProspection}
-            onSubmenuOpen={openSubmenu}
-            onSubmenuClose={scheduleClose}
-            onSubmenuCancelClose={cancelClose}
-          />
-        </div>
-        <div
-          className="border-t px-2.5 pt-2.5 pb-3"
-          style={{ borderColor: "var(--sidebar-border)" }}
-        >
-          <SettingsRow
-            item={settingsNavItem}
-            pathname={pathname}
-            onSubmenuOpen={openSubmenu}
-          />
-          <p
-            className="mt-3 px-1 text-[10px] font-medium tracking-[0.06em]"
-            style={{ color: "var(--sidebar-text)", opacity: 0.45 }}
-          >
-            {t("shell.footer")}
-          </p>
-        </div>
+        <SidebarContent
+          {...sidebarProps}
+          collapsed={collapsed}
+          onToggleCollapse={toggleCollapsed}
+          onFlyoutOpen={collapsed ? openFlyout : undefined}
+          onFlyoutClose={scheduleClose}
+        />
 
         <AnimatePresence>
-          {activeSubmenu ? (
-            <SubmenuPanel
-              items={activeSubmenu.items}
+          {flyout ? (
+            <FlyoutPanel
+              items={flyout.items}
               pathname={pathname}
               search={searchString}
-              top={activeSubmenu.top}
+              top={flyout.top}
+              left={railWidth}
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
-              onNavigate={() => setActiveSubmenu(null)}
+              onNavigate={() => setFlyout(null)}
             />
           ) : null}
         </AnimatePresence>
       </aside>
 
-      <div className="min-h-dvh lg:pl-[256px]">
+      <div className="min-h-dvh transition-[padding] duration-200 ease-out lg:pl-[var(--sb-w)]">
         <header
           className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b px-4 sm:px-6"
           style={{
@@ -1030,7 +1258,6 @@ export function DashboardShell({
             borderBottomColor: "var(--border-1)",
             color: "var(--fg-1)",
             boxShadow: "0 1px 0 rgba(11,18,32,.02)",
-            position: "sticky",
           }}
         >
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -1058,33 +1285,14 @@ export function DashboardShell({
             >
               <SheetHeader className="sr-only">
                 <SheetTitle>{t("nav.sheetTitle")}</SheetTitle>
-                <SheetDescription>
-                  {t("nav.sheetDescription")}
-                </SheetDescription>
+                <SheetDescription>{t("nav.sheetDescription")}</SheetDescription>
               </SheetHeader>
               <div className="flex h-full flex-col">
-                <SidebarBrandHeader organizationName={organization?.name} />
-                <WorkspaceContext organization={organization} />
-                <div className="flex-1 overflow-y-auto px-3 pt-6 pb-4">
-                  <NavList
-                    navItems={primaryNavItems}
-                    pathname={pathname}
-                    search={searchString}
-                    onNavigate={() => setMobileOpen(false)}
-                    showInternalAdmin={showInternalAdmin}
-                    showProspection={showProspection}
-                  />
-                </div>
-                <div
-                  className="border-t px-3 py-3"
-                  style={{ borderColor: "var(--sidebar-border)" }}
-                >
-                  <SettingsRow
-                    item={settingsNavItem}
-                    pathname={pathname}
-                    onNavigate={() => setMobileOpen(false)}
-                  />
-                </div>
+                <SidebarContent
+                  {...sidebarProps}
+                  collapsed={false}
+                  onNavigate={() => setMobileOpen(false)}
+                />
               </div>
             </SheetContent>
           </Sheet>
@@ -1102,67 +1310,13 @@ export function DashboardShell({
             style={{ top: "50%", transform: "translate(-50%, -50%)" }}
           >
             <div className="pointer-events-auto">
-              <TopbarSearch
-                placeholder={t("shell.topbar.searchPlaceholder")}
-              />
+              <TopbarSearch placeholder={t("shell.topbar.searchPlaceholder")} />
             </div>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <NotificationsMenu label={t("shell.topbar.notifications")} />
             <CreateMenu createLabel={t("shell.topbar.create")} />
-
-            <span
-              aria-hidden
-              className="hidden h-6 w-px sm:block"
-              style={{ background: "rgba(255,255,255,.14)" }}
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex items-center gap-2 rounded-full transition-colors"
-                  aria-label={t("shell.userMenu")}
-                >
-                  <Avatar className="size-8 rounded-full ring-2 ring-[rgba(255,255,255,.18)] shadow-sm">
-                    {profilePhotoUrl ? (
-                      <AvatarImage
-                        src={profilePhotoUrl}
-                        alt=""
-                        className="rounded-full"
-                      />
-                    ) : null}
-                    <AvatarFallback
-                      className="rounded-full text-xs font-semibold"
-                      style={{
-                        background: "var(--brand-amber-500)",
-                        color: "var(--brand-navy-900)",
-                      }}
-                    >
-                      {getInitials(user.name) || "FD"}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <span className="block text-sm">{user.name}</span>
-                  <span className="text-muted-foreground block text-xs font-normal">
-                    {t(`roles.${user.roleKey}`)}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings">{t("shell.profile")}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/support">{t("shell.help")}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={signOut}>
-                  {t("shell.signOut")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
 

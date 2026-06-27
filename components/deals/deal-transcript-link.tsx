@@ -6,6 +6,7 @@ import { ExternalLink, Link2, Unlink, MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -32,6 +33,7 @@ export function DealTranscriptLink({
 }) {
   const router = useRouter();
   const { language } = useI18n();
+  const basePath = useBasePath();
   const [linking, setLinking] = React.useState(false);
   const [unlinking, setUnlinking] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string>("");
@@ -118,7 +120,7 @@ export function DealTranscriptLink({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/transcripts/${linkedTranscript.id}`}>
+            <Link href={`${basePath}/transcripts/${linkedTranscript.id}`}>
               <ExternalLink className="mr-1.5 size-3" />
               {getLocalizedCopy(language, {
                 fr: "Ouvrir",

@@ -14,6 +14,7 @@ import type {
   BrokerEmailDigestRow,
   BrokerEmailItemRow,
   BrokerEmailSuggestionRow,
+  BrokerIntroducerRow,
   BrokerQuoteRow,
 } from "@/types/database";
 
@@ -69,6 +70,31 @@ export async function getBrokerClients(
   }
 
   return (data ?? []) as BrokerClientRow[];
+}
+
+export async function getBrokerIntroducers(
+  organizationId: string,
+  options?: { includeArchived?: boolean },
+): Promise<BrokerIntroducerRow[]> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return [];
+
+  let query = supabase
+    .from("broker_introducers")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("name", { ascending: true });
+
+  if (!options?.includeArchived) {
+    query = query.is("archived_at", null);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[broker] Failed to fetch introducers:", error.message);
+    return [];
+  }
+  return (data ?? []) as BrokerIntroducerRow[];
 }
 
 export async function getBrokerClient(

@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 
 type ClientType = "individual" | "company";
 
+const NO_INTRODUCER = "__none__";
+
 type CreateResponse =
   | { success: true; clientId: string }
   | { success: false; message?: string };
@@ -56,8 +58,10 @@ function SectionCard({
 
 export function NewClientForm({
   branches = [...brokerInsuranceTypes],
+  introducers = [],
 }: {
   branches?: BrokerInsuranceType[];
+  introducers?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
@@ -72,6 +76,7 @@ export function NewClientForm({
     postalCode: "",
     city: "",
     insuranceType: "",
+    introducerId: "",
     needs: "",
     notes: "",
   });
@@ -113,6 +118,7 @@ export function NewClientForm({
         postalCode: form.postalCode || null,
         city: form.city || null,
         insuranceType: form.insuranceType || null,
+        introducerId: form.introducerId || null,
         needs: form.needs || null,
         notes: form.notes || null,
       }),
@@ -267,6 +273,34 @@ export function NewClientForm({
             />
           </div>
         </div>
+
+        {introducers.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label>Apporteur d’affaires</Label>
+            <Select
+              value={form.introducerId || NO_INTRODUCER}
+              onValueChange={(value) =>
+                update("introducerId", value === NO_INTRODUCER ? "" : value)
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Aucun" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_INTRODUCER}>Aucun</SelectItem>
+                {introducers.map((introducer) => (
+                  <SelectItem key={introducer.id} value={introducer.id}>
+                    {introducer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11.5px] text-[var(--fg-3)]">
+              Sa rétrocession sera appliquée automatiquement aux commissions de ce
+              client.
+            </p>
+          </div>
+        ) : null}
       </SectionCard>
 
       <SectionCard

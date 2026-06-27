@@ -29,6 +29,12 @@ import {
 } from "@/lib/broker/quotes";
 import { logBrokerActivity } from "@/lib/broker/server";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
+import { createOutlookDraft } from "@/lib/email/outlook-drafts";
+import {
+  getOutlookAccessForUser,
+  getOutlookMessageBody,
+  listRecentInboxMessages,
+} from "@/lib/email/outlook-read";
 import type {
   BrokerClaimRow,
   BrokerClientRow,
@@ -106,6 +112,39 @@ export const agentToolDefinitions = [
     input_schema: {
       type: "object",
       properties: { limit: { type: "number" } },
+    },
+  },
+  {
+    name: "list_recent_emails",
+    description:
+      "Liste les emails récents de la boîte Outlook connectée du courtier (expéditeur, objet, aperçu, identifiant). Paramètre within_days (défaut 3, max 30). Sert à répondre à « qu'est-ce que j'ai reçu », trouver un email, préparer une réponse.",
+    input_schema: {
+      type: "object",
+      properties: { within_days: { type: "number" } },
+    },
+  },
+  {
+    name: "read_email",
+    description:
+      "Lit le contenu complet d'un email Outlook à partir de son message_id (obtenu via list_recent_emails). Renvoie l'expéditeur, l'objet et le corps. À utiliser avant de résumer un email ou d'en rédiger la réponse.",
+    input_schema: {
+      type: "object",
+      properties: { message_id: { type: "string" } },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "draft_email",
+    description:
+      "Crée un BROUILLON d'email dans la boîte Outlook du courtier — JAMAIS d'envoi automatique. Fournir to (destinataire), subject, body. Le courtier relit et envoie lui-même. À n'utiliser que si l'utilisateur demande de préparer/rédiger un email.",
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string" },
+        subject: { type: "string" },
+        body: { type: "string" },
+      },
+      required: ["to", "subject", "body"],
     },
   },
   {
@@ -429,6 +468,79 @@ export async function executeAgentTool(
         link: `/courtier/clients/${c.client_id}/claims/${c.id}`,
       })),
     };
+  }
+
+  // ---- EMAIL TOOLS (the user's own connected Outlook mailbox) ----
+  if (name === "list_recent_emails") {
+    const access = await getOutlookAccessForUser(organizationId, ctx.userId);
+    if (!access) {
+      return {
+        error:
+          "Boîte Outlook non connectée. Connectez-la dans Réglages → Intégrations.",
+      };
+    }
+    const within = Math.min(Math.max(num(input, "within_days") ?? 3, 1), 30);
+    const sinceIso = new Date(Date.now() - within * 86400_000).toISOString();
+    const messages = await listRecentInboxMessages(access.accessToken, sinceIso, 25);
+    return {
+      mailbox: access.email,
+      count: messages.length,
+      emails: messages.map((m) => ({
+        message_id: m.id,
+        from: m.fromName || m.fromEmail,
+        from_email: m.fromEmail,
+        subject: m.subject,
+        received_at: m.receivedDateTime,
+        preview: m.bodyPreview,
+        has_attachments: m.hasAttachments,
+      })),
+    };
+  }
+
+  if (name === "read_email") {
+    const messageId = str(input, "message_id");
+    if (!messageId) return { error: "message_id requis." };
+    const access = await getOutlookAccessForUser(organizationId, ctx.userId);
+    if (!access) return { error: "Boîte Outlook non connectée." };
+    const message = await getOutlookMessageBody(access.accessToken, messageId);
+    if (!message) return { error: "Email introuvable ou illisible." };
+    return {
+      from: message.fromName || message.fromEmail,
+      from_email: message.fromEmail,
+      subject: message.subject,
+      received_at: message.receivedDateTime,
+      body: message.body,
+    };
+  }
+
+  if (name === "draft_email") {
+    const to = str(input, "to");
+    const subject = str(input, "subject");
+    const body = str(input, "body");
+    if (!to || !subject || !body) {
+      return { error: "to, subject et body sont requis." };
+    }
+    try {
+      const result = await createOutlookDraft({
+        organizationId,
+        userId: ctx.userId,
+        to,
+        subject,
+        body,
+      });
+      return {
+        drafted: true,
+        mailbox: result.email,
+        note: "Brouillon créé dans Outlook, à relire et envoyer. Aucun envoi automatique.",
+      };
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Création du brouillon impossible.",
+      };
+    }
   }
 
   // ---- ACTION TOOLS (require write permission) ----

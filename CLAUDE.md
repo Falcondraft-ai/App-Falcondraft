@@ -234,14 +234,16 @@ L'interface doit être : premium, sobre, claire, élégante, rassurante, profess
 
 ---
 
-## 12. Architecture navigation — Sidebar
+## 12. Architecture navigation — Sidebar (rétractable)
+
+> Refondue façon Copify (premium, branding FalconDraft conservé) — **remplace l'ancienne sidebar fixe 220px**. Appliquée aux **deux SaaS** : [dashboard-shell.tsx](components/layout/dashboard-shell.tsx) (dossiers, hérité par /prospection + /admin) et [courtier-shell.tsx](components/broker/courtier-shell.tsx) (courtier).
 
 ### Comportement
-- Sidebar fixe 220px — jamais rétractable
-- Fond : `var(--sidebar-bg)` (#0F1623)
-- Zone logo : fond BLANC (#FFFFFF) + border-bottom `var(--border)` + padding 16px
-- Logo : `<img src="/falcondraft-logo_off.png">` height 36px object-contain — pas de filtre, pas de border-radius, pas de cercle
-- WorkspaceContext : fond `var(--sidebar-hover)` + padding 12px 16px + border-bottom `var(--sidebar-border)`
+- **Rétractable** : déplié **256px** ↔ replié **72px** (icônes seules + tooltips). État mémorisé `localStorage` (`dashboard-sidebar-collapsed` / `courtier-sidebar-collapsed`).
+- **Toggle intégré dans le header** de la sidebar (`PanelLeftClose`/`PanelLeftOpen`, thème sombre) — pas de bouton flottant.
+- **Auto-repli à la navigation** : cliquer une page replie le rail (effet sur changement de `pathname`, 1er render ignoré).
+- Largeur rail + padding contenu animés ensemble via CSS var `--sb-w` (`transition 200ms ease`).
+- Fond `var(--sidebar-bg)` ; logo `/bimi/logo.svg` dans le header sombre (plus de zone blanche).
 
 ### Items navigation
 - Padding 8px 12px + border-radius 6px + gap 10px
@@ -276,17 +278,21 @@ const navItems = [
 ]
 ```
 
-### Sous-menu hover
-- Déclenchement : `onMouseEnter` sur l'item parent
-- Position : panneau fixe, left 220px, top aligné sur l'item, width 200px
-- Fond : #FFFFFF + border `var(--border)` + `var(--shadow-lg)` + border-radius 8px
-- Animation Framer Motion : `initial={{ opacity: 0, x: -8 }}` `animate={{ opacity: 1, x: 0 }}` `exit={{ opacity: 0, x: -8 }}` `transition={{ duration: 0.15, ease: "easeOut" }}`
-- Fermeture : `onMouseLeave` sur le groupe sidebar + sous-menu
-- Items : 13px `var(--foreground)` + padding 8px 12px + hover `var(--background-subtle)` + radius 6px
-- Item highlight (+ Nouveau) : texte `var(--accent)` + weight 500
-- Item actif : `var(--accent-soft)` + `var(--accent-foreground)` + 500
-- `adminOnly: true` → masqué si `!canManageWorkspace`
-- `<AnimatePresence>` pour gérer entrée/sortie
+### Sous-menus — accordéon (déplié) / flyout (replié)
+- **Déplié → accordéon inline** : le parent (avec submenu) est un bouton qui déroule ses sous-items en dessous (indentés, trait gauche, chevron qui pivote). Animation Framer **hauteur** (`height 0 → auto`, 0.24s, ease `[0.16,1,0.3,1]`). État `openGroups: Set<href>` (section active ouverte au montage).
+- **Replié → flyout au survol** : panneau blanc à `left = largeur du rail`, anim `x: -8 → 0`, fermeture différée 120ms.
+- Sous-items deals : `?scope=mine|organization`, actif tenant compte du query param. Highlight (+ Nouveau) : `var(--accent)`. `adminOnly` (Facturation) masqué si `!canManageBilling`.
+
+### Sections
+- Label micro 10px uppercase `letter-spacing 0.11em` (déplié) → fin séparateur centré (replié). Section "Interne" conditionnelle (admin / prospection) + badge.
+
+### Compte — déplacé dans la sidebar
+- **Plus d'avatar profil en haut à droite.** Bloc compte en **bas de la sidebar** : avatar + nom + rôle + chevron → dropdown (Paramètres / Aide / Déconnexion, `side="top"`). Replié → avatar seul.
+- Avatar : squircle `rounded-[11px]`, fallback **dégradé navy + initiales `var(--accent)`**, `ring-1 ring-white/10` (fini l'avatar amber plat générique).
+
+### Topbar & mobile
+- Topbar garde : recherche centrée, notifications, menu Créer / bouton Nouveau dossier, fil d'Ariane (dossiers). **Sans avatar profil.**
+- Mobile : `Sheet` latéral **toujours déplié** (pas de repli, pas de toggle), avec le bloc compte.
 
 ### Mini-refactor deals page requis
 Dans `app/dashboard/deals/page.tsx`, lire le query param `?scope=` :
@@ -342,7 +348,7 @@ const scope = searchParams.get('scope') ?? 'mine'
 
 ### ✅ Fait
 - Tokens design system (globals.css)
-- Sidebar sombre premium
+- Sidebar **rétractable** premium (les 2 SaaS) — toggle intégré, accordéon inline, auto-repli, compte intégré (cf. §12)
 - Logo : zone fond blanc, `falcondraft-logo_off.png` height 36px, pas de filtre
 - Dashboard : cards, table, panel progression
 - Copywriting complet (i18n FR/EN/ES dans `lib/i18n/translations.ts`)
@@ -351,16 +357,14 @@ const scope = searchParams.get('scope') ?? 'mine'
 - loading.tsx + performances (Promise.all)
 
 ### 🔄 En cours
-- Sidebar fixe 220px + sous-menu hover (Dossiers, Transcripts, Paramètres)
-- Mini-refactor deals page (`?scope=` query param)
+- (Sidebar rétractable + mini-refactor deals `?scope=` : livrés)
 
 ### 📋 À faire dans l'ordre
-1. Sidebar fixe + sous-menus hover (en cours)
-2. Typographie — explorer options premium (polices trop standards)
-3. Page dossier — organisation à revoir, trop "IA généré"
-4. Page Paramètres — refonte style
-5. Animations Framer Motion — transitions entre pages, micro-interactions
-6. Claude Design — tester une direction visuelle alternative
+1. Typographie — explorer options premium (polices trop standards)
+2. Page dossier — organisation à revoir, trop "IA généré"
+3. Page Paramètres — refonte style
+4. Animations Framer Motion — transitions entre pages, micro-interactions
+5. Claude Design — tester une direction visuelle alternative
 
 ---
 
@@ -480,3 +484,53 @@ FalconDraft App doit donner une impression de produit sérieux, premium et maît
 Le client doit sentir : système clair, gain de temps, documents propres, expérience premium, sécurité, accompagnement, fiabilité, produit maîtrisé.
 
 Il ne doit jamais sentir : outil bricolé, automatisation fragile, n8n visible, stack technique exposée, process compliqué, design générique IA, template SaaS sans âme.
+
+---
+
+## 26. Module Courtier (SaaS assurance) — `/courtier`
+
+FalconDraft héberge un **second produit SaaS** dédié aux **cabinets de courtage en assurance**, en parallèle du SaaS « dossiers commerciaux » historique. Il vit sous `app/courtier`, ses composants sous `components/broker/`, ses API sous `app/api/broker` + `app/api/courtier`, sa logique sous `lib/broker/`. Même socle : Supabase Auth + RLS multi-tenant par `organization_id`, même direction design premium.
+
+### Deux offres courtier (`organizations.broker_offering`)
+`workspace_type` reste `insurance_broker` pour **les deux** variantes (toutes les gardes broker existantes restent inchangées). Une colonne `broker_offering` (`saas` | `custom`, défaut `saas`, migration `0048`) distingue :
+- **Courtier sur mesure** (`custom`) — gestion seule.
+- **Courtier SaaS** (`saas`) — gestion **+ module d'automatisation des propositions commerciales**.
+
+Garde : `hasProposalAutomation(org)` dans [`lib/broker/access.ts`](lib/broker/access.ts) (= broker **et** offering `saas`). Sélecteur d'offre à la création d'organisation dans la console admin interne ([`components/admin/internal-admin-console.tsx`](components/admin/internal-admin-console.tsx)). Ne jamais étendre la garde broker à un 3ᵉ `workspace_type` — passer par `broker_offering`.
+
+### Module Propositions (Courtier SaaS) — `/courtier/propositions`
+Réutilise **tel quel** le moteur de propositions du SaaS dossiers (dossiers/deals, transcripts, archives, documents générés, génération n8n) **dans le shell courtier**, gated `hasProposalAutomation` via la route-layout [`app/courtier/propositions/layout.tsx`](app/courtier/propositions/layout.tsx). Routes **namespacées** sous `/courtier/propositions/*` (zéro collision avec la GED broker `/courtier/documents`). Les composants partagés (`components/deals/*`, `components/transcripts/*`) résolvent leurs liens via le **contexte basePath** [`lib/navigation/base-path.tsx`](lib/navigation/base-path.tsx) (défaut `/dashboard` → SaaS dossiers inchangé ; `/courtier/propositions` côté courtier). Le détail d'un dossier est une vue partagée [`components/deals/deal-detail-view.tsx`](components/deals/deal-detail-view.tsx) (back-link paramétré). Section sidebar « Propositions » conditionnelle (`showProposals`).
+
+### Modèle de données (`db/schema.ts`, préfixe `broker_`)
+13 tables, **toutes avec RLS activée** (migrations `0031`→`0045`) :
+- `broker_clients` (dossiers clients/prospects, particulier ou entreprise, `structured_needs` jsonb)
+- `broker_activity` (journal d'activité par dossier)
+- `broker_documents` (GED, stockée dans Supabase Storage, quota par organisation)
+- `broker_quotes` (devis compagnies — `extraction_status` : extraction auto **non encore branchée**, saisie manuelle)
+- `broker_advice` (devoir de conseil — `docuseal_submission_id`/`signature_url`/`signature_status` : signature DocuSeal **enregistrée manuellement**)
+- `broker_contracts` (contrats + `renewal_date`/`tacit_renewal` → renouvellements)
+- `broker_compliance` (LCB-FT, PEP, origine des fonds, consentements RGPD, vérification d'identité, fiche d'information — 1 ligne par client)
+- `broker_commission_statements` + `broker_commissions` (bordereaux, pointage/rapprochement, rétrocessions apporteurs)
+- `broker_claims` (sinistres)
+- `broker_email_digests` + `broker_email_items` + `broker_email_suggestions` (briefing Outlook IA)
+
+### Fonctionnalités livrées
+Dossiers clients, contrats + suivi des renouvellements, sinistres, commissions + rapprochement bordereaux + rétrocessions, devoir de conseil (génération depuis template + besoins + dernier devis validé), GED, conformité (LCB-FT / RGPD), **briefing Outlook IA** (tri du courrier + suggestions create_client / draft_reply / declare_claim / flag_renewal / attach_document), **copilote IA** agentique (function calling sur tout le portefeuille).
+
+### Stack IA du module courtier
+**OpenAI** (choix délibéré, orienté coût ; meilleur compromis par tâche) :
+- Copilote agentique : [`app/api/courtier/agent/route.ts`](app/api/courtier/agent/route.ts) — Chat Completions + function calling + streaming. Modèle via `COURTIER_AGENT_MODEL` (défaut `gpt-5.5`).
+- Briefing Outlook : [`lib/broker/email-digest.ts`](lib/broker/email-digest.ts) — classification JSON, **haut volume** (quotidien × courtier). Modèle via `COURTIER_DIGEST_MODEL` (défaut `gpt-5.5`).
+- Nettoyage transcripts (côté SaaS dossiers, pas courtier) : `OPENAI_TRANSCRIPT_CLEANUP_MODEL` (défaut `gpt-4.1`).
+
+Règle : choisir le modèle **le plus adapté par tâche**. À qualité comparable, préférer OpenAI pour le coût. Claude (Sonnet/Opus) reste un candidat A/B drop-in pour le copilote si on veut pousser la qualité du tool-use — ne pas réécrire la boucle streaming/outils sans demande explicite.
+
+Ne jamais hardcoder un modèle : passer par variable d'env (pattern ci-dessus).
+
+### Manques connus (priorisés)
+1. **Extraction auto des devis** — `extraction_status` existe mais l'analyse PDF n'est pas branchée (saisie 100% manuelle dans `quote-validation-form`).
+2. **Signature DocuSeal automatisée** — aujourd'hui l'URL de signature est enregistrée à la main ; pas de création de submission ni de suivi de statut auto.
+3. **Pas de multi-tarificateur / comparateur** — gap structurel vs concurrents (Oggo, Bubble In, Digital Insure).
+
+### Navigation
+Shell dédié [`components/broker/courtier-shell.tsx`](components/broker/courtier-shell.tsx) (même pattern sidebar + sous-menus hover que le SaaS dossiers). Intégrations : seul **Outlook** est exposé ([`app/courtier/settings/integrations`](app/courtier/settings/integrations/page.tsx)).

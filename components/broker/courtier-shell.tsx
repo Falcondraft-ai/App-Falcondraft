@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChevronRight,
+  Archive,
+  ChevronDown,
+  ChevronsUpDown,
+  FileSignature,
+  FileText,
   FolderOpen,
   HardDrive,
   LayoutDashboard,
+  LogOut,
   Mail,
   Menu,
+  Mic,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   ScrollText,
   Settings,
@@ -46,11 +54,14 @@ import { cn } from "@/lib/utils";
 import { AgentChat } from "@/components/broker/agent-chat";
 import { CourtierNotifications } from "@/components/broker/courtier-notifications";
 import { CourtierTopbarSearch } from "@/components/broker/courtier-topbar-search";
-import { formatBytes, type StorageUsage } from "@/lib/broker/storage";
+import { type StorageUsage } from "@/lib/broker/storage";
 
-const SIDEBAR_WIDTH = 256;
-const SUBMENU_WIDTH = 210;
-const SUBMENU_CLOSE_DELAY = 120;
+const EXPANDED_WIDTH = 256;
+const COLLAPSED_WIDTH = 72;
+const FLYOUT_WIDTH = 210;
+const FLYOUT_CLOSE_DELAY = 120;
+const COLLAPSE_KEY = "courtier-sidebar-collapsed";
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 const roleLabels: Record<string, string> = {
   manager: "Gestionnaire",
@@ -64,42 +75,122 @@ type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  comingSoon?: boolean;
   submenu?: NavSubItem[];
 };
 
-const navItems: NavItem[] = [
-  { href: "/courtier", label: "Tableau de bord", icon: LayoutDashboard },
+type NavSection = { label: string | null; items: NavItem[] };
+
+const baseNavSections: NavSection[] = [
   {
-    href: "/courtier/clients",
-    label: "Dossiers clients",
-    icon: Users,
-    submenu: [
-      { href: "/courtier/clients", label: "Tous les dossiers" },
-      { href: "/courtier/clients/new", label: "+ Nouveau dossier", highlight: true },
+    label: null,
+    items: [
+      { href: "/courtier", label: "Tableau de bord", icon: LayoutDashboard },
     ],
   },
   {
-    href: "/courtier/contracts",
-    label: "Contrats",
-    icon: ScrollText,
-    submenu: [
-      { href: "/courtier/contracts", label: "Tous les contrats" },
+    label: "Gestion",
+    items: [
       {
-        href: "/courtier/contracts/renouvellements",
-        label: "Renouvellements",
+        href: "/courtier/clients",
+        label: "Dossiers clients",
+        icon: Users,
+        submenu: [
+          { href: "/courtier/clients", label: "Tous les dossiers" },
+          {
+            href: "/courtier/clients/new",
+            label: "+ Nouveau dossier",
+            highlight: true,
+          },
+        ],
       },
+      {
+        href: "/courtier/contracts",
+        label: "Contrats",
+        icon: ScrollText,
+        submenu: [
+          { href: "/courtier/contracts", label: "Tous les contrats" },
+          {
+            href: "/courtier/contracts/renouvellements",
+            label: "Renouvellements",
+          },
+        ],
+      },
+      { href: "/courtier/commissions", label: "Commissions", icon: Wallet },
+      { href: "/courtier/sinistres", label: "Sinistres", icon: ShieldAlert },
+      { href: "/courtier/documents", label: "Documents", icon: FolderOpen },
     ],
   },
-  { href: "/courtier/commissions", label: "Commissions", icon: Wallet },
-  { href: "/courtier/sinistres", label: "Sinistres", icon: ShieldAlert },
-  { href: "/courtier/documents", label: "Documents", icon: FolderOpen },
   {
-    href: "/courtier/inbox",
-    label: "Assistant Outlook",
-    icon: Mail,
+    label: "Communication",
+    items: [{ href: "/courtier/inbox", label: "Assistant Outlook", icon: Mail }],
   },
 ];
+
+// Commercial proposal-automation module — only mounted for the "courtier SaaS"
+// offering (hasProposalAutomation). Lives under /courtier/propositions so it
+// never collides with the broker's own GED at /courtier/documents.
+const proposalsSection: NavSection = {
+  label: "Propositions",
+  items: [
+    {
+      href: "/courtier/propositions/deals",
+      label: "Propositions",
+      icon: FileSignature,
+      submenu: [
+        {
+          href: "/courtier/propositions/deals",
+          label: "Toutes les propositions",
+        },
+        {
+          href: "/courtier/propositions/deals/new",
+          label: "+ Nouvelle proposition",
+          highlight: true,
+        },
+      ],
+    },
+    {
+      href: "/courtier/propositions/transcripts",
+      label: "Transcripts",
+      icon: Mic,
+      submenu: [
+        {
+          href: "/courtier/propositions/transcripts",
+          label: "Mes transcripts",
+        },
+        {
+          href: "/courtier/propositions/transcripts/recall",
+          label: "Récupérer un appel",
+        },
+        {
+          href: "/courtier/propositions/transcripts/new",
+          label: "+ Nouveau transcript",
+          highlight: true,
+        },
+      ],
+    },
+    {
+      href: "/courtier/propositions/documents",
+      label: "Documents",
+      icon: FileText,
+    },
+    {
+      href: "/courtier/propositions/archive",
+      label: "Archives",
+      icon: Archive,
+    },
+  ],
+};
+
+/**
+ * SaaS brokers also get the proposal-automation module, inserted just before the
+ * Communication section. Bespoke ("sur mesure") brokers keep the base nav only.
+ */
+function buildNavSections(showProposals: boolean): NavSection[] {
+  if (!showProposals) return baseNavSections;
+  const sections = [...baseNavSections];
+  sections.splice(sections.length - 1, 0, proposalsSection);
+  return sections;
+}
 
 const settingsItem: NavItem = {
   href: "/courtier/settings",
@@ -129,140 +220,266 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function BrandHeader() {
-  return (
-    <div
-      className="flex items-center border-b px-4 py-4"
-      style={{
-        backgroundColor: "var(--sidebar-bg)",
-        borderColor: "var(--sidebar-border)",
-      }}
+function groupIsActive(pathname: string, item: NavItem) {
+  if (isActive(pathname, item.href)) return true;
+  return (item.submenu ?? []).some((s) => pathname === s.href.split("?")[0]);
+}
+
+// ---------------------------------------------------------------------------
+// Brand header — with an integrated collapse toggle
+// ---------------------------------------------------------------------------
+function BrandHeader({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle?: () => void;
+}) {
+  const toggleBtn = onToggle ? (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+      title={collapsed ? "Déplier" : "Replier"}
+      className="flex size-7 items-center justify-center rounded-[7px] transition-colors hover:bg-[var(--sidebar-hover)]"
+      style={{ color: "var(--sidebar-text)" }}
     >
-      <Link
-        href="/courtier"
-        className="flex min-w-0 items-center gap-3"
-        aria-label="FalconDraft"
+      {collapsed ? (
+        <PanelLeftOpen className="size-[18px]" strokeWidth={1.75} />
+      ) : (
+        <PanelLeftClose className="size-[18px]" strokeWidth={1.75} />
+      )}
+    </button>
+  ) : null;
+
+  if (collapsed) {
+    return (
+      <div
+        className="flex flex-col items-center gap-2 border-b px-2 py-3"
+        style={{ borderColor: "var(--sidebar-border)" }}
       >
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center">
+        <Link href="/courtier" aria-label="FalconDraft" className="flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/bimi/logo.svg"
             alt=""
             aria-hidden="true"
-            className="h-11 w-11 scale-[1.15] object-contain"
+            className="size-9 scale-[1.12] object-contain"
           />
-        </div>
+        </Link>
+        {toggleBtn}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex h-16 items-center justify-between border-b pl-3.5 pr-2.5"
+      style={{ borderColor: "var(--sidebar-border)" }}
+    >
+      <Link
+        href="/courtier"
+        className="flex min-w-0 items-center gap-2.5"
+        aria-label="FalconDraft"
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/bimi/logo.svg"
+            alt=""
+            aria-hidden="true"
+            className="size-9 scale-[1.12] object-contain"
+          />
+        </span>
         <span className="min-w-0 leading-tight">
           <span
-            className="block text-[17px] font-semibold tracking-[-0.025em]"
+            className="block text-[15.5px] font-semibold tracking-[-0.025em]"
             style={{ color: "var(--sidebar-text-active)" }}
           >
             FalconDraft
           </span>
           <span
-            className="mt-[2px] block text-[11px] font-medium"
-            style={{ color: "var(--sidebar-text)", letterSpacing: "0.01em" }}
+            className="mt-[1px] block text-[10.5px] font-medium uppercase"
+            style={{ color: "var(--sidebar-text)", letterSpacing: "0.09em" }}
           >
             Espace courtier
           </span>
         </span>
       </Link>
+      {toggleBtn}
     </div>
   );
 }
 
-function WorkspaceContext({ organizationName }: { organizationName: string }) {
-  return (
-    <section
-      className="border-b px-4 py-3.5"
-      style={{
-        backgroundColor: "var(--sidebar-hover)",
-        borderColor: "var(--sidebar-border)",
-      }}
-    >
-      <div
-        className="border-l-2 pl-3"
-        style={{ borderColor: "rgba(148,163,184,0.35)" }}
-      >
-        <p
-          className="text-[9.5px] font-semibold uppercase"
-          style={{ color: "var(--sidebar-text)", letterSpacing: "0.14em" }}
-        >
-          Cabinet de courtage
-        </p>
-        <p
-          className="mt-1 truncate text-[13px] font-medium"
-          style={{ color: "var(--sidebar-text-active)" }}
-        >
-          {organizationName}
-        </p>
-      </div>
-    </section>
+// ---------------------------------------------------------------------------
+// Nav rows
+// ---------------------------------------------------------------------------
+function rowBaseClass(active: boolean) {
+  return cn(
+    "group flex items-center rounded-[8px] border-l-2 text-[13px]",
+    "transition-[background-color,color,border-color] duration-150 ease-out",
+    !active &&
+      "hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text-active)]",
   );
 }
 
-function NavRow({
+function rowStyle(active: boolean): React.CSSProperties {
+  return active
+    ? {
+        color: "var(--sidebar-text-active)",
+        backgroundColor: "var(--sidebar-active)",
+        borderLeftColor: "var(--accent)",
+        fontWeight: 500,
+      }
+    : { color: "var(--sidebar-text)", borderLeftColor: "transparent" };
+}
+
+function NavLink({
   item,
   active,
+  collapsed,
   onNavigate,
-  onMouseEnter,
 }: {
   item: NavItem;
   active: boolean;
+  collapsed: boolean;
   onNavigate?: () => void;
-  onMouseEnter?: React.MouseEventHandler<HTMLAnchorElement>;
 }) {
   const { icon: Icon } = item;
-  const hasSubmenu = Boolean(item.submenu && item.submenu.length > 0);
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
-      onMouseEnter={onMouseEnter}
+      title={collapsed ? item.label : undefined}
       className={cn(
-        "group flex w-full items-center gap-2.5 rounded-[7px] border-l-2 h-9 pl-[13px] pr-2.5 text-[13px]",
-        "transition-[background-color,color,border-color] duration-150 ease-out",
-        !active &&
-          "hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text-active)]",
+        rowBaseClass(active),
+        "h-9",
+        collapsed ? "justify-center px-0" : "gap-2.5 pl-[13px] pr-2.5",
       )}
-      style={
-        active
-          ? {
-              color: "var(--sidebar-text-active)",
-              backgroundColor: "var(--sidebar-active)",
-              borderLeftColor: "var(--accent)",
-              fontWeight: 500,
-            }
-          : { color: "var(--sidebar-text)", borderLeftColor: "transparent" }
-      }
+      style={rowStyle(active)}
     >
-      <Icon className="size-[17px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      {item.comingSoon ? (
-        <span
-          className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium"
-          style={{
-            backgroundColor: "rgba(184,146,42,0.12)",
-            color: "var(--accent)",
-            borderRadius: "4px",
-          }}
-        >
-          Bientôt
-        </span>
-      ) : hasSubmenu ? (
-        <ChevronRight
-          className="size-[14px] shrink-0 opacity-50"
-          strokeWidth={2}
-          aria-hidden="true"
-        />
+      <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+      {!collapsed ? (
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
       ) : null}
     </Link>
   );
 }
 
-function SubmenuPanel({
+function NavGroup({
+  item,
+  pathname,
+  collapsed,
+  open,
+  onToggle,
+  onNavigate,
+  onMouseEnter,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
+  onMouseEnter?: React.MouseEventHandler<HTMLElement>;
+}) {
+  const { icon: Icon } = item;
+  const active = groupIsActive(pathname, item);
+  const sub = item.submenu ?? [];
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onMouseEnter={onMouseEnter}
+        title={item.label}
+        className={cn(rowBaseClass(active), "h-9 w-full justify-center px-0")}
+        style={rowStyle(active)}
+        aria-label={item.label}
+      >
+        <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(rowBaseClass(active), "h-9 w-full gap-2.5 pl-[13px] pr-2.5")}
+        style={rowStyle(active)}
+        aria-expanded={open}
+      >
+        <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+        <ChevronDown
+          className={cn(
+            "size-[15px] shrink-0 opacity-60 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.24, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div
+              className="ml-[26px] mt-0.5 space-y-0.5 border-l pb-1 pl-2.5"
+              style={{ borderColor: "var(--sidebar-border)" }}
+            >
+              {sub.map((s) => {
+                const subActive =
+                  pathname === s.href.split("?")[0] && !s.highlight;
+                return (
+                  <Link
+                    key={s.href}
+                    href={s.href}
+                    onClick={onNavigate}
+                    className="block rounded-[6px] px-2.5 py-1.5 text-[12.5px] transition-colors duration-150"
+                    style={
+                      subActive
+                        ? {
+                            color: "var(--sidebar-text-active)",
+                            backgroundColor: "var(--sidebar-hover)",
+                            fontWeight: 500,
+                          }
+                        : {
+                            color: s.highlight
+                              ? "var(--accent)"
+                              : "var(--sidebar-text)",
+                            fontWeight: s.highlight ? 500 : 400,
+                          }
+                    }
+                  >
+                    {s.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Collapsed flyout
+// ---------------------------------------------------------------------------
+function FlyoutPanel({
   items,
   pathname,
   top,
+  left,
   onNavigate,
   onMouseEnter,
   onMouseLeave,
@@ -270,13 +487,14 @@ function SubmenuPanel({
   items: NavSubItem[];
   pathname: string;
   top: number;
+  left: number;
   onNavigate?: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }) {
   return (
     <motion.div
-      key="courtier-submenu"
+      key="courtier-flyout"
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -8 }}
@@ -285,9 +503,9 @@ function SubmenuPanel({
       onMouseLeave={onMouseLeave}
       className="fixed z-40 p-1.5"
       style={{
-        left: SIDEBAR_WIDTH,
+        left,
         top,
-        width: SUBMENU_WIDTH,
+        width: FLYOUT_WIDTH,
         backgroundColor: "#FFFFFF",
         border: "1px solid var(--border-1)",
         borderRadius: 8,
@@ -296,8 +514,7 @@ function SubmenuPanel({
       role="menu"
     >
       {items.map((item) => {
-        const active =
-          pathname === item.href.split("?")[0] && !item.highlight;
+        const active = pathname === item.href.split("?")[0] && !item.highlight;
         return (
           <Link
             key={item.href}
@@ -336,6 +553,9 @@ function SubmenuPanel({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Storage gauge (expanded only)
+// ---------------------------------------------------------------------------
 function StorageGauge({ usage }: { usage: StorageUsage }) {
   const barColor =
     usage.level === "full" || usage.level === "critical"
@@ -343,11 +563,10 @@ function StorageGauge({ usage }: { usage: StorageUsage }) {
       : usage.level === "warning"
         ? "var(--warning)"
         : "var(--accent)";
-
   return (
     <Link
-      href="/courtier/settings"
-      className="block rounded-[7px] px-3 py-2.5 transition-colors hover:bg-[var(--sidebar-hover)]"
+      href="/courtier/settings/stockage"
+      className="block rounded-[8px] px-3 py-2.5 transition-colors hover:bg-[var(--sidebar-hover)]"
     >
       <div className="flex items-center justify-between gap-2">
         <span
@@ -373,68 +592,225 @@ function StorageGauge({ usage }: { usage: StorageUsage }) {
           style={{ width: `${Math.max(2, usage.percent)}%`, background: barColor }}
         />
       </div>
-      <p className="mt-1.5 text-[10.5px]" style={{ color: "var(--sidebar-text)" }}>
-        {formatBytes(usage.usedBytes)} / {formatBytes(usage.limitBytes)}
-      </p>
     </Link>
   );
 }
 
-function SidebarBody({
-  pathname,
-  organizationName,
-  usage,
-  onNavigate,
-  onSubmenuOpen,
-  onSubmenuClose,
+// ---------------------------------------------------------------------------
+// Account block (in the sidebar, replaces the top-right avatar)
+// ---------------------------------------------------------------------------
+function AccountBlock({
+  user,
+  collapsed,
+  profilePhotoUrl,
+  onSignOut,
 }: {
+  user: CourtierShellUser;
+  collapsed: boolean;
+  profilePhotoUrl: string | null;
+  onSignOut: () => void;
+}) {
+  const avatar = (
+    <Avatar className="size-9 shrink-0 rounded-full ring-1 ring-white/10">
+      {profilePhotoUrl ? (
+        <AvatarImage src={profilePhotoUrl} alt="" className="rounded-full" />
+      ) : null}
+      <AvatarFallback
+        className="rounded-full text-[12px] font-semibold tracking-[0.02em]"
+        style={{
+          background: "linear-gradient(155deg, #283450, #181f31)",
+          color: "var(--accent)",
+        }}
+      >
+        {getInitials(user.name)}
+      </AvatarFallback>
+    </Avatar>
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          title={collapsed ? user.name : undefined}
+          className={cn(
+            "flex w-full items-center rounded-[10px] transition-colors hover:bg-[var(--sidebar-hover)]",
+            collapsed ? "justify-center p-1" : "gap-2.5 p-1.5",
+          )}
+          aria-label="Menu du compte"
+        >
+          {avatar}
+          {!collapsed ? (
+            <>
+              <span className="min-w-0 flex-1 text-left leading-tight">
+                <span
+                  className="block truncate text-[13px] font-medium"
+                  style={{ color: "var(--sidebar-text-active)" }}
+                >
+                  {user.name}
+                </span>
+                <span
+                  className="block truncate text-[11px]"
+                  style={{ color: "var(--sidebar-text)" }}
+                >
+                  {roleLabels[user.roleKey] ?? "Collaborateur"}
+                </span>
+              </span>
+              <ChevronsUpDown
+                className="size-4 shrink-0"
+                strokeWidth={1.75}
+                style={{ color: "var(--sidebar-text)" }}
+                aria-hidden="true"
+              />
+            </>
+          ) : null}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-56">
+        <DropdownMenuLabel>
+          <span className="block text-sm">{user.name}</span>
+          <span className="text-muted-foreground block text-xs font-normal">
+            {user.email}
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/courtier/settings" className="flex items-center gap-2">
+            <Settings className="size-4" strokeWidth={1.75} />
+            Paramètres
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onSignOut} className="flex items-center gap-2">
+          <LogOut className="size-4" strokeWidth={1.75} />
+          Se déconnecter
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar content (desktop rail + mobile sheet)
+// ---------------------------------------------------------------------------
+function SidebarContent({
+  sections,
+  pathname,
+  collapsed,
+  usage,
+  user,
+  profilePhotoUrl,
+  openGroups,
+  onToggleGroup,
+  onToggleCollapse,
+  onSignOut,
+  onNavigate,
+  onFlyoutOpen,
+  onFlyoutClose,
+}: {
+  sections: NavSection[];
   pathname: string;
-  organizationName: string;
+  collapsed: boolean;
   usage: StorageUsage;
+  user: CourtierShellUser;
+  profilePhotoUrl: string | null;
+  openGroups: Set<string>;
+  onToggleGroup: (href: string) => void;
+  onToggleCollapse?: () => void;
+  onSignOut: () => void;
   onNavigate?: () => void;
-  onSubmenuOpen?: (top: number, items: NavSubItem[]) => void;
-  onSubmenuClose?: () => void;
+  onFlyoutOpen?: (top: number, items: NavSubItem[]) => void;
+  onFlyoutClose?: () => void;
 }) {
   return (
     <>
-      <BrandHeader />
-      <WorkspaceContext organizationName={organizationName} />
-      <div className="flex-1 overflow-y-auto px-2.5 pt-4 pb-3">
-        <nav className="space-y-0.5" aria-label="Navigation courtier">
-          {navItems.map((item) => (
-            <NavRow
-              key={item.href}
-              item={item}
-              active={isActive(pathname, item.href)}
-              onNavigate={onNavigate}
-              onMouseEnter={
-                onSubmenuOpen
-                  ? (event) => {
-                      if (item.submenu && item.submenu.length > 0) {
-                        const rect =
-                          event.currentTarget.getBoundingClientRect();
-                        onSubmenuOpen(rect.top, item.submenu);
-                      } else {
-                        onSubmenuClose?.();
+      <BrandHeader collapsed={collapsed} onToggle={onToggleCollapse} />
+
+      <div className="flex-1 overflow-y-auto px-2.5 pt-3 pb-3">
+        <nav className="space-y-1" aria-label="Navigation courtier">
+          {sections.map((section, si) => (
+            <div key={section.label ?? `s${si}`} className={cn(si > 0 && "pt-1.5")}>
+              {section.label ? (
+                collapsed ? (
+                  <div
+                    className="mx-auto mb-1.5 h-px w-7"
+                    style={{ background: "var(--sidebar-border)" }}
+                  />
+                ) : (
+                  <p
+                    className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase"
+                    style={{
+                      color: "var(--sidebar-text)",
+                      letterSpacing: "0.11em",
+                      opacity: 0.6,
+                    }}
+                  >
+                    {section.label}
+                  </p>
+                )
+              ) : null}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const hasSub = Boolean(item.submenu && item.submenu.length > 0);
+                  if (!hasSub) {
+                    return (
+                      <NavLink
+                        key={item.href}
+                        item={item}
+                        active={isActive(pathname, item.href)}
+                        collapsed={collapsed}
+                        onNavigate={onNavigate}
+                      />
+                    );
+                  }
+                  return (
+                    <NavGroup
+                      key={item.href}
+                      item={item}
+                      pathname={pathname}
+                      collapsed={collapsed}
+                      open={openGroups.has(item.href)}
+                      onToggle={() => onToggleGroup(item.href)}
+                      onNavigate={onNavigate}
+                      onMouseEnter={
+                        collapsed && onFlyoutOpen
+                          ? (event) => {
+                              const rect =
+                                event.currentTarget.getBoundingClientRect();
+                              onFlyoutOpen(rect.top, item.submenu ?? []);
+                            }
+                          : undefined
                       }
-                    }
-                  : undefined
-              }
-            />
+                    />
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </nav>
       </div>
+
       <div
-        className="border-t px-2.5 pt-2.5 pb-3"
+        className="space-y-1.5 border-t px-2.5 pb-2.5 pt-2.5"
         style={{ borderColor: "var(--sidebar-border)" }}
-        onMouseEnter={() => onSubmenuClose?.()}
+        onMouseEnter={() => onFlyoutClose?.()}
       >
-        <StorageGauge usage={usage} />
-        <div className="mt-1.5">
-          <NavRow
-            item={settingsItem}
-            active={isActive(pathname, settingsItem.href)}
-            onNavigate={onNavigate}
+        {!collapsed ? <StorageGauge usage={usage} /> : null}
+        <NavLink
+          item={settingsItem}
+          active={isActive(pathname, settingsItem.href)}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
+        <div
+          className="border-t pt-1.5"
+          style={{ borderColor: "var(--sidebar-border)" }}
+        >
+          <AccountBlock
+            user={user}
+            collapsed={collapsed}
+            profilePhotoUrl={profilePhotoUrl}
+            onSignOut={onSignOut}
           />
         </div>
       </div>
@@ -442,28 +818,76 @@ function SidebarBody({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Shell
+// ---------------------------------------------------------------------------
 export function CourtierShell({
   children,
   organizationName,
   user,
   usage,
+  showProposals = false,
 }: {
   children: React.ReactNode;
   organizationName: string;
   user: CourtierShellUser;
   usage: StorageUsage;
+  showProposals?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const navSections = buildNavSections(showProposals);
+  const allNavItems = navSections.flatMap((s) => s.items);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(
     null,
   );
-  const [activeSubmenu, setActiveSubmenu] = React.useState<{
+  const [openGroups, setOpenGroups] = React.useState<Set<string>>(() => {
+    const init = new Set<string>();
+    for (const item of allNavItems) {
+      if (item.submenu && groupIsActive(pathname, item)) init.add(item.href);
+    }
+    return init;
+  });
+  const [flyout, setFlyout] = React.useState<{
     items: NavSubItem[];
     top: number;
   } | null>(null);
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstNavRef = React.useRef(true);
+
+  // Persisted collapse preference (SSR-safe).
+  React.useEffect(() => {
+    if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+  }, []);
+  const toggleCollapsed = React.useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+    setFlyout(null);
+  }, []);
+
+  // Auto-collapse the rail when navigating to a page (keeps focus on content).
+  React.useEffect(() => {
+    if (firstNavRef.current) {
+      firstNavRef.current = false;
+      return;
+    }
+    setCollapsed(true);
+    setFlyout(null);
+  }, [pathname]);
+
+  const toggleGroup = React.useCallback((href: string) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
+  }, []);
 
   const cancelClose = React.useCallback(() => {
     if (closeTimerRef.current) {
@@ -473,28 +897,21 @@ export function CourtierShell({
   }, []);
   const scheduleClose = React.useCallback(() => {
     cancelClose();
-    closeTimerRef.current = setTimeout(
-      () => setActiveSubmenu(null),
-      SUBMENU_CLOSE_DELAY,
-    );
+    closeTimerRef.current = setTimeout(() => setFlyout(null), FLYOUT_CLOSE_DELAY);
   }, [cancelClose]);
-  const openSubmenu = React.useCallback(
+  const openFlyout = React.useCallback(
     (anchorTop: number, items: NavSubItem[]) => {
       cancelClose();
-      const viewportH =
-        typeof window !== "undefined" ? window.innerHeight : 1000;
+      const viewportH = typeof window !== "undefined" ? window.innerHeight : 1000;
       const top = Math.max(
         12,
-        Math.min(anchorTop, viewportH - (items.length * 38 + 16)),
+        Math.min(anchorTop, viewportH - (items.length * 40 + 16)),
       );
-      setActiveSubmenu({ items, top });
+      setFlyout({ items, top });
     },
     [cancelClose],
   );
 
-  React.useEffect(() => {
-    setActiveSubmenu(null);
-  }, [pathname]);
   React.useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -512,51 +929,63 @@ export function CourtierShell({
       window.removeEventListener(PROFILE_PHOTO_UPDATED_EVENT, readProfilePhoto);
   }, []);
 
-  async function signOut() {
+  const signOut = React.useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
+    if (supabase) await supabase.auth.signOut();
     toast.success("Vous êtes déconnecté.");
     router.replace("/login");
     router.refresh();
-  }
+  }, [router]);
+
+  const railWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
 
   return (
-    <div className="bg-background text-foreground min-h-dvh">
+    <div
+      className="bg-background text-foreground min-h-dvh"
+      style={{ "--sb-w": `${railWidth}px` } as React.CSSProperties}
+    >
+      {/* Desktop rail */}
       <aside
         onMouseLeave={scheduleClose}
-        className="fixed inset-y-0 left-0 z-30 hidden border-r lg:flex lg:flex-col"
+        className="fixed inset-y-0 left-0 z-30 hidden border-r transition-[width] duration-200 ease-out lg:flex lg:w-[var(--sb-w)] lg:flex-col"
         style={{
-          width: SIDEBAR_WIDTH,
           backgroundColor: "var(--sidebar-bg)",
           borderColor: "var(--sidebar-border)",
           color: "var(--sidebar-text)",
         }}
       >
-        <SidebarBody
+        <SidebarContent
+          sections={navSections}
           pathname={pathname}
-          organizationName={organizationName}
+          collapsed={collapsed}
           usage={usage}
-          onSubmenuOpen={openSubmenu}
-          onSubmenuClose={scheduleClose}
+          user={user}
+          profilePhotoUrl={profilePhotoUrl}
+          openGroups={openGroups}
+          onToggleGroup={toggleGroup}
+          onToggleCollapse={toggleCollapsed}
+          onSignOut={signOut}
+          onFlyoutOpen={collapsed ? openFlyout : undefined}
+          onFlyoutClose={scheduleClose}
         />
 
         <AnimatePresence>
-          {activeSubmenu ? (
-            <SubmenuPanel
-              items={activeSubmenu.items}
+          {flyout ? (
+            <FlyoutPanel
+              items={flyout.items}
               pathname={pathname}
-              top={activeSubmenu.top}
+              top={flyout.top}
+              left={railWidth}
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
-              onNavigate={() => setActiveSubmenu(null)}
+              onNavigate={() => setFlyout(null)}
             />
           ) : null}
         </AnimatePresence>
       </aside>
 
-      <div className="min-h-dvh lg:pl-[256px]">
+      {/* Content */}
+      <div className="min-h-dvh transition-[padding] duration-200 ease-out lg:pl-[var(--sb-w)]">
         <header
           className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b px-4 sm:px-6"
           style={{
@@ -594,10 +1023,16 @@ export function CourtierShell({
                 <SheetDescription>Menu de l’espace courtier</SheetDescription>
               </SheetHeader>
               <div className="flex h-full flex-col">
-                <SidebarBody
+                <SidebarContent
+                  sections={navSections}
                   pathname={pathname}
-                  organizationName={organizationName}
+                  collapsed={false}
                   usage={usage}
+                  user={user}
+                  profilePhotoUrl={profilePhotoUrl}
+                  openGroups={openGroups}
+                  onToggleGroup={toggleGroup}
+                  onSignOut={signOut}
                   onNavigate={() => setMobileOpen(false)}
                 />
               </div>
@@ -643,56 +1078,6 @@ export function CourtierShell({
               />
               <span className="hidden sm:inline">Nouveau dossier</span>
             </Link>
-
-            <span
-              aria-hidden
-              className="hidden h-6 w-px sm:block"
-              style={{ background: "var(--border-1)" }}
-            />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex items-center gap-2 rounded-full transition-colors"
-                  aria-label="Menu utilisateur"
-                >
-                  <Avatar className="size-8 rounded-full shadow-sm ring-2 ring-[var(--border-1)]">
-                    {profilePhotoUrl ? (
-                      <AvatarImage
-                        src={profilePhotoUrl}
-                        alt=""
-                        className="rounded-full"
-                      />
-                    ) : null}
-                    <AvatarFallback
-                      className="rounded-full text-xs font-semibold"
-                      style={{
-                        background: "var(--brand-amber-500)",
-                        color: "var(--brand-navy-900)",
-                      }}
-                    >
-                      {getInitials(user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <span className="block text-sm">{user.name}</span>
-                  <span className="text-muted-foreground block text-xs font-normal">
-                    {roleLabels[user.roleKey] ?? "Collaborateur"}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/courtier/settings">Paramètres</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={signOut}>
-                  Se déconnecter
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
 

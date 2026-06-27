@@ -8,6 +8,7 @@ import { GeneratedDocumentButtons } from "@/components/deals/generated-documents
 import { MarkEmailSentButton } from "@/components/deals/mark-email-sent-button";
 import { ProposalValidationDialog } from "@/components/deals/proposal-validation-dialog";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -194,6 +195,7 @@ export function DealActionPanel({
 }) {
   const router = useRouter();
   const { language, t } = useI18n();
+  const basePath = useBasePath();
   const [isTriggeringCallSummary, setIsTriggeringCallSummary] =
     React.useState(false);
   const [isTriggeringProposal, setIsTriggeringProposal] = React.useState(false);
@@ -764,7 +766,7 @@ export function DealActionPanel({
     toast.success(copy.deleteSuccess, {
       description: copy.deleteSuccessDescription,
     });
-    router.replace("/dashboard/deals");
+    router.replace(`${basePath}/deals`);
     router.refresh();
   }
 
@@ -796,7 +798,7 @@ export function DealActionPanel({
     toast.success(copy.archiveSuccess, {
       description: copy.archiveSuccessDescription,
     });
-    router.replace("/dashboard/deals");
+    router.replace(`${basePath}/deals`);
     router.refresh();
   }
 

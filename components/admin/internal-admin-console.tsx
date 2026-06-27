@@ -45,6 +45,7 @@ import {
 } from "@/lib/internal-admin/workflows";
 import { cn } from "@/lib/utils";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
+import { PLAN_CONFIG } from "@/lib/billing/entitlements";
 import type {
   InternalAdminOrganization,
   InternalAdminWorkspaceAccount,
@@ -368,6 +369,8 @@ export function InternalAdminConsole({
     slug: "",
     billingStatus: "pending",
     workspaceType: "sales_automation",
+    brokerOffering: "saas",
+    plan: "performance",
     storageLimitGb: "250",
     setupAmount: "",
     monthlySubscriptionAmount: "",
@@ -442,6 +445,8 @@ export function InternalAdminConsole({
         slug: workspaceForm.slug,
         billing_status: workspaceForm.billingStatus,
         workspace_type: workspaceForm.workspaceType,
+        broker_offering: workspaceForm.brokerOffering,
+        plan: workspaceForm.plan,
         storage_limit_gb: amountFromInput(workspaceForm.storageLimitGb),
         setup_amount: amountFromInput(workspaceForm.setupAmount),
         monthly_subscription_amount: amountFromInput(
@@ -490,6 +495,8 @@ export function InternalAdminConsole({
       slug: "",
       billingStatus: "pending",
       workspaceType: "sales_automation",
+      brokerOffering: "saas",
+      plan: "performance",
       storageLimitGb: "250",
       setupAmount: "",
       monthlySubscriptionAmount: "",
@@ -1013,6 +1020,74 @@ export function InternalAdminConsole({
                             : "Espace commercial historique : propositions, devis, brouillons d’emails."}
                         </p>
                       </div>
+                      {workspaceForm.workspaceType === "insurance_broker" ? (
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label>Offre courtier</Label>
+                          <Select
+                            value={workspaceForm.brokerOffering}
+                            onValueChange={(brokerOffering) =>
+                              setWorkspaceForm((current) => ({
+                                ...current,
+                                brokerOffering,
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="saas">Courtier SaaS</SelectItem>
+                              <SelectItem value="custom">
+                                Courtier sur mesure
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-muted-foreground text-xs">
+                            {workspaceForm.brokerOffering === "saas"
+                              ? "Inclut le module d’automatisation des propositions commerciales (dossiers, transcripts, génération)."
+                              : "Cabinet sur mesure : gestion uniquement, sans module de propositions commerciales."}
+                          </p>
+                        </div>
+                      ) : null}
+                      {workspaceForm.workspaceType === "insurance_broker" &&
+                      workspaceForm.brokerOffering === "saas" ? (
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label>Offre d’abonnement</Label>
+                          <Select
+                            value={workspaceForm.plan}
+                            onValueChange={(plan) =>
+                              setWorkspaceForm((current) => ({
+                                ...current,
+                                plan,
+                                storageLimitGb: String(
+                                  PLAN_CONFIG[plan as keyof typeof PLAN_CONFIG]
+                                    ?.storageGb ?? current.storageLimitGb,
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="essentiel">
+                                Essentiel — 39 €/mois
+                              </SelectItem>
+                              <SelectItem value="cabinet">
+                                Cabinet — 89 €/mois
+                              </SelectItem>
+                              <SelectItem value="performance">
+                                Performance — 179 €/mois
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-muted-foreground text-xs">
+                            Débloque les fonctionnalités du palier (commissions,
+                            copilote IA, propositions…). Ajustable ensuite via
+                            Stripe.
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="space-y-1.5 md:col-span-2">
                         <Label htmlFor="storage-limit-gb">
                           Limite de stockage (Go)

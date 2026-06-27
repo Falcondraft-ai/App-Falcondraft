@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Plus } from "lucide-react";
 import {
   CommissionLineForm,
@@ -93,25 +94,34 @@ export function CommissionLineManager({
                     />
                   ) : null}
                 </button>
-                {editing && canEdit ? (
-                  <div
-                    className="border-t px-3.5 py-4"
-                    style={{
-                      borderColor: "var(--border-1)",
-                      background: "var(--bg-sunken)",
-                    }}
-                  >
-                    <CommissionLineForm
-                      statementId={statementId}
-                      commission={line}
-                      clients={clients}
-                      contracts={contracts}
-                      mode="edit"
-                      onDone={() => setEditingId(null)}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  </div>
-                ) : null}
+                <AnimatePresence initial={false}>
+                  {editing && canEdit ? (
+                    <motion.div
+                      key="edit"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden border-t"
+                      style={{ borderColor: "var(--border-1)" }}
+                    >
+                      <div
+                        className="px-3.5 py-4"
+                        style={{ background: "var(--bg-sunken)" }}
+                      >
+                        <CommissionLineForm
+                          statementId={statementId}
+                          commission={line}
+                          clients={clients}
+                          contracts={contracts}
+                          mode="edit"
+                          onDone={() => setEditingId(null)}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </li>
             );
           })}
@@ -152,34 +162,48 @@ export function CommissionLineManager({
       ) : null}
 
       {canEdit ? (
-        adding ? (
-          <div
-            className="rounded-md border p-4"
-            style={{
-              borderColor: "var(--border-1)",
-              background: "var(--bg-sunken)",
-            }}
-          >
-            <CommissionLineForm
-              statementId={statementId}
-              clients={clients}
-              contracts={contracts}
-              mode="create"
-              onDone={() => setAdding(false)}
-              onCancel={() => setAdding(false)}
-            />
-          </div>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5"
-          >
-            <Plus className="size-3.5" strokeWidth={2} />
-            Ajouter une ligne
-          </Button>
-        )
+        <>
+          <AnimatePresence initial={false}>
+            {adding ? (
+              <motion.div
+                key="add-line"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <div
+                  className="rounded-md border p-4"
+                  style={{
+                    borderColor: "var(--border-1)",
+                    background: "var(--bg-sunken)",
+                  }}
+                >
+                  <CommissionLineForm
+                    statementId={statementId}
+                    clients={clients}
+                    contracts={contracts}
+                    mode="create"
+                    onDone={() => setAdding(false)}
+                    onCancel={() => setAdding(false)}
+                  />
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+          {!adding ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Plus className="size-3.5" strokeWidth={2} />
+              Ajouter une ligne
+            </Button>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

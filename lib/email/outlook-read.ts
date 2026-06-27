@@ -220,3 +220,53 @@ export async function getFileAttachmentBytes(
     contentBase64: a.contentBytes,
   };
 }
+
+export type OutlookMessageBody = {
+  subject: string;
+  fromName: string;
+  fromEmail: string;
+  receivedDateTime: string;
+  body: string;
+};
+
+/** Reads a single message with its full body (HTML stripped to plain text). */
+export async function getOutlookMessageBody(
+  accessToken: string,
+  messageId: string,
+): Promise<OutlookMessageBody | null> {
+  const params = new URLSearchParams({
+    $select: "id,subject,from,receivedDateTime,body",
+  });
+  const res = await fetch(
+    `${GRAPH}/me/messages/${encodeURIComponent(messageId)}?${params.toString()}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  ).catch(() => null);
+
+  if (!res || !res.ok) return null;
+
+  const m = (await res.json().catch(() => null)) as
+    | (GraphMessage & { body?: { contentType?: string; content?: string } })
+    | null;
+  if (!m) return null;
+
+  const raw = m.body?.content ?? "";
+  const text =
+    m.body?.contentType?.toLowerCase() === "html"
+      ? raw
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/\s+/g, " ")
+          .trim()
+      : raw.trim();
+
+  return {
+    subject: m.subject?.trim() || "(sans objet)",
+    fromName: m.from?.emailAddress?.name?.trim() || "",
+    fromEmail: m.from?.emailAddress?.address?.trim().toLowerCase() || "",
+    receivedDateTime: m.receivedDateTime ?? "",
+    body: text.slice(0, 6000),
+  };
+}

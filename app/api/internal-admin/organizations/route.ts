@@ -8,6 +8,8 @@ import {
 
 const billingStatuses = ["active", "pending", "trial", "suspended"] as const;
 const workspaceTypes = ["sales_automation", "insurance_broker"] as const;
+const brokerOfferings = ["saas", "custom"] as const;
+const brokerPlans = ["essentiel", "cabinet", "performance"] as const;
 const DEFAULT_STORAGE_LIMIT_GB = 250;
 const GIGABYTE = 1024 * 1024 * 1024;
 
@@ -33,6 +35,8 @@ const organizationCreateSchema = z.object({
     ),
   billing_status: z.enum(billingStatuses),
   workspace_type: z.enum(workspaceTypes).default("sales_automation"),
+  broker_offering: z.enum(brokerOfferings).default("saas"),
+  plan: z.enum(brokerPlans).optional(),
   storage_limit_gb: z.coerce.number().min(1).max(10000).optional().nullable(),
   setup_amount: z.coerce.number().min(0).optional().nullable(),
   monthly_subscription_amount: z.coerce.number().min(0).optional().nullable(),
@@ -123,6 +127,12 @@ export async function POST(request: NextRequest) {
       slug: values.slug,
       billing_status: values.billing_status,
       workspace_type: values.workspace_type,
+      broker_offering: values.broker_offering,
+      plan:
+        values.workspace_type === "insurance_broker" &&
+        values.broker_offering === "saas"
+          ? (values.plan ?? "performance")
+          : null,
       storage_limit_bytes: storageLimitBytes,
       setup_amount: values.setup_amount ?? null,
       monthly_subscription_amount: values.monthly_subscription_amount ?? null,

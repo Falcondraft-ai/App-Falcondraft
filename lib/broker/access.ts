@@ -1,8 +1,15 @@
 import type { CurrentUserContext } from "@/lib/auth/session";
-import type { OrganizationRow, WorkspaceType } from "@/types/database";
+import type {
+  BrokerOffering,
+  OrganizationRow,
+  WorkspaceType,
+} from "@/types/database";
 
 export const SALES_AUTOMATION_WORKSPACE: WorkspaceType = "sales_automation";
 export const INSURANCE_BROKER_WORKSPACE: WorkspaceType = "insurance_broker";
+
+export const BROKER_OFFERING_SAAS: BrokerOffering = "saas";
+export const BROKER_OFFERING_CUSTOM: BrokerOffering = "custom";
 
 /**
  * Reads the workspace module of an organization, defaulting to the historical
@@ -29,4 +36,16 @@ export function canAccessBroker(context: CurrentUserContext): boolean {
   }
 
   return isBrokerWorkspace(context.organization);
+}
+
+/**
+ * Broker offering, defaulting to the self-serve SaaS experience when the column
+ * is absent (older rows) so existing broker workspaces keep the proposal module.
+ */
+export function getBrokerOffering(
+  organization: Pick<OrganizationRow, "broker_offering"> | null | undefined,
+): BrokerOffering {
+  return organization?.broker_offering === BROKER_OFFERING_CUSTOM
+    ? BROKER_OFFERING_CUSTOM
+    : BROKER_OFFERING_SAAS;
 }

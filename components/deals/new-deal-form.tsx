@@ -21,6 +21,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useI18n } from "@/components/i18n/language-provider";
+import { useBasePath } from "@/lib/navigation/base-path";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -199,6 +200,7 @@ export function NewDealForm({
 
   const router = useRouter();
   const { language } = useI18n();
+  const basePath = useBasePath();
   const shouldReduceMotion = useReducedMotion();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isImportingCompanyInfo, setIsImportingCompanyInfo] =
@@ -762,7 +764,7 @@ export function NewDealForm({
     toast.success("Dossier commercial créé.", {
       description: `${valuesToSubmit.name} est prêt pour le compte-rendu.`,
     });
-    router.replace(`/dashboard/deals/${dealId}`);
+    router.replace(`${basePath}/deals/${dealId}`);
   }
 
   return (
