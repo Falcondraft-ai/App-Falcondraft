@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 export default async function NewBrokerClientPage() {
   const context = await requireActiveWorkspaceContext();
   const settings = parseBrokerSettings(context.organization);
-  const introducers = await getBrokerIntroducers(context.organization!.id);
+  const introducers = settings.introducersEnabled
+    ? await getBrokerIntroducers(context.organization!.id)
+    : [];
 
   return (
     <PageTransition>

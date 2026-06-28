@@ -1,6 +1,8 @@
 import { Check } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { canManageWorkspace } from "@/lib/auth/workspace-permissions";
+import { BROKER_OFFERING_CUSTOM, getBrokerOffering } from "@/lib/broker/access";
 import { getPlan, PLAN_CONFIG, type Feature } from "@/lib/billing/entitlements";
 import { getPlanPricing } from "@/lib/billing/plans";
 import { BillingManageButton } from "@/components/broker/billing-manage-button";
@@ -65,6 +67,12 @@ function formatDate(value: string | null | undefined): string | null {
 export default async function CourtierBillingSettingsPage() {
   const context = await requireActiveWorkspaceContext();
   const organization = context.organization!;
+
+  // Bespoke cabinets are billed manually off-platform — no Stripe billing here.
+  if (getBrokerOffering(organization) === BROKER_OFFERING_CUSTOM) {
+    redirect("/courtier/settings");
+  }
+
   const canManage = canManageWorkspace(context.membership?.role);
 
   const plan = getPlan(organization);

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronRight,
+  FolderOpen,
   Plus,
   Save,
   Send,
@@ -137,9 +138,6 @@ type DeleteOrganizationResponse =
   | ApiErrorResponse;
 
 type WorkspaceDraft = {
-  billingStatus: string;
-  setupAmount: string;
-  monthlySubscriptionAmount: string;
   allowMemberCompanyVisibility: boolean;
   meetingBotName: string;
   workflowStatus: WorkflowConfigStatus;
@@ -160,6 +158,14 @@ const billingStatusLabels: Record<string, string> = {
   pending: "En attente",
   trial: "Essai",
   suspended: "Suspendu",
+  past_due: "Impayé",
+  cancelled: "Annulé",
+};
+
+const planLabels: Record<string, string> = {
+  essentiel: "Essentiel",
+  cabinet: "Cabinet",
+  performance: "Performance",
 };
 
 const roleLabels: Record<AccessForm["role"], string> = {
@@ -176,6 +182,139 @@ const workflowFieldLabels: Record<ManagedWorkflowType, string> = {
   proposal_validation: "Webhook validation / document final",
   email_draft_generation: "Webhook email draft",
 };
+
+type OfferingGroup = {
+  id: string;
+  label: string;
+  description: string;
+  match: (organization: InternalAdminOrganization) => boolean;
+};
+
+// Subscription-type "folders" for the workspace list. Each org lands in the
+// first matching group; order here is the display order.
+const offeringGroups: OfferingGroup[] = [
+  {
+    id: "sales_automation",
+    label: "Automatisation commerciale",
+    description: "Propositions, devis, brouillons d’emails.",
+    match: (organization) =>
+      !organization.isInternalWorkspace &&
+      organization.workspaceType === "sales_automation",
+  },
+  {
+    id: "broker_performance",
+    label: "Courtier · Performance",
+    description: "Courtier SaaS — module Propositions inclus.",
+    match: (organization) =>
+      !organization.isInternalWorkspace &&
+      organization.workspaceType === "insurance_broker" &&
+      organization.brokerOffering === "saas" &&
+      organization.plan === "performance",
+  },
+  {
+    id: "broker_cabinet",
+    label: "Courtier · Cabinet",
+    description: "Courtier SaaS.",
+    match: (organization) =>
+      !organization.isInternalWorkspace &&
+      organization.workspaceType === "insurance_broker" &&
+      organization.brokerOffering === "saas" &&
+      organization.plan === "cabinet",
+  },
+  {
+    id: "broker_essentiel",
+    label: "Courtier · Essentiel",
+    description: "Courtier SaaS.",
+    match: (organization) =>
+      !organization.isInternalWorkspace &&
+      organization.workspaceType === "insurance_broker" &&
+      organization.brokerOffering === "saas" &&
+      organization.plan === "essentiel",
+  },
+  {
+    id: "broker_custom",
+    label: "Courtier sur mesure",
+    description: "Cabinet sur mesure — gestion uniquement.",
+    match: (organization) =>
+      !organization.isInternalWorkspace &&
+      organization.workspaceType === "insurance_broker" &&
+      organization.brokerOffering === "custom",
+  },
+  {
+    id: "internal",
+    label: "Interne FalconDraft",
+    description: "Espace interne FalconDraft.",
+    match: (organization) => organization.isInternalWorkspace,
+  },
+];
+
+const fallbackGroup: OfferingGroup = {
+  id: "unclassified",
+  label: "Non classé",
+  description: "Offre non déterminée.",
+  match: () => true,
+};
+
+function getOrganizationGroup(
+  organization: InternalAdminOrganization,
+): OfferingGroup {
+  return (
+    offeringGroups.find((group) => group.match(organization)) ?? fallbackGroup
+  );
+}
+
+// Bespoke ("sur mesure") cabinets are billed manually off-platform, so the
+// Stripe billing block is hidden for them in the console.
+function isCustomBroker(organization: InternalAdminOrganization): boolean {
+  return (
+    organization.workspaceType === "insurance_broker" &&
+    organization.brokerOffering === "custom"
+  );
+}
+
+// n8n proposal workflows run for sales-automation and for the courtier SaaS
+// "performance" plan (which unlocks the proposal-automation module).
+function orgUsesN8n(organization: InternalAdminOrganization): boolean {
+  return (
+    organization.workspaceType !== "insurance_broker" ||
+    (organization.brokerOffering === "saas" &&
+      organization.plan === "performance")
+  );
+}
+
+type GroupedRow =
+  | { type: "header"; group: OfferingGroup; count: number }
+  | {
+      type: "org";
+      group: OfferingGroup;
+      organization: InternalAdminOrganization;
+    };
+
+function buildGroupedRows(
+  organizations: InternalAdminOrganization[],
+): GroupedRow[] {
+  const buckets = new Map<string, InternalAdminOrganization[]>();
+
+  for (const organization of organizations) {
+    const group = getOrganizationGroup(organization);
+    const list = buckets.get(group.id) ?? [];
+    list.push(organization);
+    buckets.set(group.id, list);
+  }
+
+  const rows: GroupedRow[] = [];
+
+  for (const group of [...offeringGroups, fallbackGroup]) {
+    const items = buckets.get(group.id);
+    if (!items || items.length === 0) continue;
+    rows.push({ type: "header", group, count: items.length });
+    for (const organization of items) {
+      rows.push({ type: "org", group, organization });
+    }
+  }
+
+  return rows;
+}
 
 function getApiMessage(result: unknown, fallback: string) {
   if (
@@ -224,13 +363,6 @@ function getWorkspaceDraft(
   }
 
   return {
-    billingStatus: organization.billingStatus,
-    setupAmount:
-      organization.setupAmount === null ? "" : String(organization.setupAmount),
-    monthlySubscriptionAmount:
-      organization.monthlySubscriptionAmount === null
-        ? ""
-        : String(organization.monthlySubscriptionAmount),
     allowMemberCompanyVisibility: organization.allowMemberCompanyVisibility,
     meetingBotName: organization.meetingBotName || "FalconDraft",
     workflowStatus: organization.workflowConfigs.some(
@@ -256,18 +388,6 @@ function emptyAccessForm(): AccessForm {
 function amountFromInput(value: string) {
   const normalizedValue = value.trim().replace(",", ".");
   return normalizedValue ? Number(normalizedValue) : null;
-}
-
-function formatAmount(value: number | null) {
-  if (value === null) {
-    return "Non renseigné";
-  }
-
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function getAutomationState(organization: InternalAdminOrganization) {
@@ -349,6 +469,9 @@ export function InternalAdminConsole({
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(
     () => new Set(),
   );
+  const [collapsedGroupIds, setCollapsedGroupIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const [workspaceDrafts, setWorkspaceDrafts] = React.useState<
     Record<string, WorkspaceDraft>
   >(() =>
@@ -367,13 +490,10 @@ export function InternalAdminConsole({
   const [workspaceForm, setWorkspaceForm] = React.useState({
     name: "",
     slug: "",
-    billingStatus: "pending",
     workspaceType: "sales_automation",
     brokerOffering: "saas",
     plan: "performance",
     storageLimitGb: "250",
-    setupAmount: "",
-    monthlySubscriptionAmount: "",
     workflowStatus: "inactive" as WorkflowConfigStatus,
     workflowUrls: emptyWorkflowUrls(),
     allowMemberCompanyVisibility: true,
@@ -403,6 +523,14 @@ export function InternalAdminConsole({
     onConfirm: () => void;
   } | null>(null);
 
+  const createUsesN8n =
+    workspaceForm.workspaceType !== "insurance_broker" ||
+    (workspaceForm.brokerOffering === "saas" &&
+      workspaceForm.plan === "performance");
+
+  const groupedRows = buildGroupedRows(organizations);
+  const isGroupOpen = (groupId: string) => !collapsedGroupIds.has(groupId);
+
   function toggleWorkspace(organizationId: string) {
     setExpandedIds((current) => {
       const next = new Set(current);
@@ -411,6 +539,20 @@ export function InternalAdminConsole({
         next.delete(organizationId);
       } else {
         next.add(organizationId);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleGroup(groupId: string) {
+    setCollapsedGroupIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
       }
 
       return next;
@@ -443,26 +585,20 @@ export function InternalAdminConsole({
       body: JSON.stringify({
         name: workspaceForm.name,
         slug: workspaceForm.slug,
-        billing_status: workspaceForm.billingStatus,
         workspace_type: workspaceForm.workspaceType,
         broker_offering: workspaceForm.brokerOffering,
         plan: workspaceForm.plan,
         storage_limit_gb: amountFromInput(workspaceForm.storageLimitGb),
-        setup_amount: amountFromInput(workspaceForm.setupAmount),
-        monthly_subscription_amount: amountFromInput(
-          workspaceForm.monthlySubscriptionAmount,
-        ),
         allow_member_company_visibility:
           workspaceForm.allowMemberCompanyVisibility,
         meeting_bot_name: workspaceForm.meetingBotName,
         workflow_status: workspaceForm.workflowStatus,
-        workflow_configs:
-          workspaceForm.workspaceType === "insurance_broker"
-            ? []
-            : buildWorkflowPayload(
-                workspaceForm.workflowUrls,
-                workspaceForm.workflowStatus,
-              ),
+        workflow_configs: createUsesN8n
+          ? buildWorkflowPayload(
+              workspaceForm.workflowUrls,
+              workspaceForm.workflowStatus,
+            )
+          : [],
       }),
     }).catch(() => null);
 
@@ -493,13 +629,10 @@ export function InternalAdminConsole({
     setWorkspaceForm({
       name: "",
       slug: "",
-      billingStatus: "pending",
       workspaceType: "sales_automation",
       brokerOffering: "saas",
       plan: "performance",
       storageLimitGb: "250",
-      setupAmount: "",
-      monthlySubscriptionAmount: "",
       workflowStatus: "inactive",
       workflowUrls: emptyWorkflowUrls(),
       allowMemberCompanyVisibility: true,
@@ -528,11 +661,6 @@ export function InternalAdminConsole({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          billing_status: draft.billingStatus,
-          setup_amount: amountFromInput(draft.setupAmount),
-          monthly_subscription_amount: amountFromInput(
-            draft.monthlySubscriptionAmount,
-          ),
           allow_member_company_visibility: draft.allowMemberCompanyVisibility,
           meeting_bot_name: draft.meetingBotName,
           workflow_status: draft.workflowStatus,
@@ -921,7 +1049,7 @@ export function InternalAdminConsole({
               description="Créez d’abord le workspace, puis ouvrez sa fiche pour inviter les gestionnaires et membres."
             >
               <form onSubmit={(event) => void createWorkspace(event)}>
-                <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+                <div className="grid gap-6">
                   <section className="space-y-3">
                     <div>
                       <p className="text-muted-foreground text-xs font-semibold uppercase">
@@ -1112,83 +1240,14 @@ export function InternalAdminConsole({
                     </div>
                   </section>
 
-                  <section className="space-y-3">
-                    <div>
-                      <p className="text-muted-foreground text-xs font-semibold uppercase">
-                        2. Facturation FalconDraft
-                      </p>
-                      <h3 className="mt-1 text-sm font-semibold">
-                        Facturation
-                      </h3>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="setup-amount">Montant setup</Label>
-                        <Input
-                          id="setup-amount"
-                          inputMode="decimal"
-                          value={workspaceForm.setupAmount}
-                          onChange={(event) =>
-                            setWorkspaceForm((current) => ({
-                              ...current,
-                              setupAmount: event.target.value,
-                            }))
-                          }
-                          placeholder="2500"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="monthly-amount">
-                          Abonnement mensuel
-                        </Label>
-                        <Input
-                          id="monthly-amount"
-                          inputMode="decimal"
-                          value={workspaceForm.monthlySubscriptionAmount}
-                          onChange={(event) =>
-                            setWorkspaceForm((current) => ({
-                              ...current,
-                              monthlySubscriptionAmount: event.target.value,
-                            }))
-                          }
-                          placeholder="490"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Statut billing</Label>
-                        <Select
-                          value={workspaceForm.billingStatus}
-                          onValueChange={(billingStatus) =>
-                            setWorkspaceForm((current) => ({
-                              ...current,
-                              billingStatus,
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(billingStatusLabels).map(
-                              ([status, label]) => (
-                                <SelectItem key={status} value={status}>
-                                  {label}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </section>
                 </div>
 
-                {workspaceForm.workspaceType !== "insurance_broker" ? (
+                {createUsesN8n ? (
                 <section className="mt-6 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-muted-foreground text-xs font-semibold uppercase">
-                        4. N8N
+                        2. Automatisation n8n
                       </p>
                       <h3 className="mt-1 text-sm font-semibold">
                         Webhooks du workflow client
@@ -1250,7 +1309,7 @@ export function InternalAdminConsole({
         ) : null}
       </AnimatePresence>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {organizations.length === 0 ? (
           <ActionCard title="Workspaces client">
             <p className="text-muted-foreground text-sm">
@@ -1259,7 +1318,41 @@ export function InternalAdminConsole({
           </ActionCard>
         ) : (
           <AnimatePresence initial={false}>
-            {organizations.map((organization) => {
+            {groupedRows.map((row) => {
+              if (row.type === "header") {
+                const open = isGroupOpen(row.group.id);
+
+                return (
+                  <button
+                    key={`group-${row.group.id}`}
+                    type="button"
+                    onClick={() => toggleGroup(row.group.id)}
+                    className="hover:bg-muted/40 flex w-full items-center gap-2.5 rounded-md px-1 pt-3 pb-1 text-left transition first:pt-1"
+                  >
+                    <motion.span
+                      animate={{ rotate: open ? 90 : 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="inline-flex"
+                    >
+                      <ChevronRight className="text-muted-foreground size-4" />
+                    </motion.span>
+                    <FolderOpen className="text-muted-foreground size-4" />
+                    <span className="text-sm font-semibold tracking-tight">
+                      {row.group.label}
+                    </span>
+                    <Badge variant="secondary">{row.count}</Badge>
+                    <span className="text-muted-foreground hidden truncate text-xs sm:inline">
+                      {row.group.description}
+                    </span>
+                  </button>
+                );
+              }
+
+              if (!isGroupOpen(row.group.id)) {
+                return null;
+              }
+
+              const organization = row.organization;
               const isExpanded = expandedIds.has(organization.id);
               const draft =
                 workspaceDrafts[organization.id] ??
@@ -1313,8 +1406,7 @@ export function InternalAdminConsole({
                             {billingStatusLabels[organization.billingStatus] ??
                               organization.billingStatus}
                           </Badge>
-                          {organization.workspaceType !==
-                          "insurance_broker" ? (
+                          {orgUsesN8n(organization) ? (
                             <Badge variant={automationState.badge}>
                               <span
                                 className={cn(
@@ -1327,9 +1419,10 @@ export function InternalAdminConsole({
                           ) : null}
                         </div>
                         <p className="text-muted-foreground mt-1 truncate text-sm">
-                          /{organization.slug} · setup{" "}
-                          {formatAmount(organization.setupAmount)} · mensuel{" "}
-                          {formatAmount(organization.monthlySubscriptionAmount)}
+                          /{organization.slug}
+                          {organization.plan
+                            ? ` · ${planLabels[organization.plan] ?? organization.plan}`
+                            : ""}
                         </p>
                         {organization.workspaceType === "insurance_broker"
                           ? (() => {
@@ -1360,7 +1453,7 @@ export function InternalAdminConsole({
                         {organization.pendingInvitationCount} invitation
                         {organization.pendingInvitationCount > 1 ? "s" : ""}
                       </Badge>
-                      {organization.workspaceType !== "insurance_broker" ? (
+                      {orgUsesN8n(organization) ? (
                         <Badge variant="secondary">
                           {organization.workflowConfigs.length} webhook
                           {organization.workflowConfigs.length > 1 ? "s" : ""}
@@ -1401,13 +1494,56 @@ export function InternalAdminConsole({
                         className="overflow-hidden border-t"
                       >
                         <div className="space-y-6 p-4">
+                          {!isCustomBroker(organization) ? (
+                          <section className="space-y-2 rounded-md border bg-muted/30 p-3">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                              <h3 className="text-sm font-semibold">
+                                Facturation
+                              </h3>
+                              <Badge
+                                variant={
+                                  organization.billingStatus === "active"
+                                    ? "default"
+                                    : "outline"
+                                }
+                              >
+                                {billingStatusLabels[
+                                  organization.billingStatus
+                                ] ?? organization.billingStatus}
+                              </Badge>
+                              {organization.plan ? (
+                                <Badge variant="secondary">
+                                  {planLabels[organization.plan] ??
+                                    organization.plan}
+                                </Badge>
+                              ) : null}
+                              {organization.currentPeriodEnd ? (
+                                <span className="text-muted-foreground text-xs">
+                                  Prochaine échéance :{" "}
+                                  {new Date(
+                                    organization.currentPeriodEnd,
+                                  ).toLocaleDateString("fr-FR", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-muted-foreground text-xs">
+                              Géré dans Stripe — synchronisé automatiquement, non
+                              modifiable ici.
+                            </p>
+                          </section>
+                          ) : null}
+
                           <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
                             <section className="space-y-3">
                               <h3 className="text-sm font-semibold">
                                 {organization.workspaceType ===
                                 "insurance_broker"
-                                  ? "Facturation et visibilité"
-                                  : "Facturation, visibilité et réunion"}
+                                  ? "Visibilité"
+                                  : "Visibilité et réunion"}
                               </h3>
                               {organization.workspaceType !==
                               "insurance_broker" ? (
@@ -1432,72 +1568,6 @@ export function InternalAdminConsole({
                                   </p>
                                 </div>
                               ) : null}
-                              <div className="grid gap-3 md:grid-cols-3">
-                                <div className="space-y-1.5">
-                                  <Label>Montant setup</Label>
-                                  <Input
-                                    inputMode="decimal"
-                                    value={draft.setupAmount}
-                                    onChange={(event) =>
-                                      setWorkspaceDrafts((current) => ({
-                                        ...current,
-                                        [organization.id]: {
-                                          ...draft,
-                                          setupAmount: event.target.value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label>Abonnement mensuel</Label>
-                                  <Input
-                                    inputMode="decimal"
-                                    value={draft.monthlySubscriptionAmount}
-                                    onChange={(event) =>
-                                      setWorkspaceDrafts((current) => ({
-                                        ...current,
-                                        [organization.id]: {
-                                          ...draft,
-                                          monthlySubscriptionAmount:
-                                            event.target.value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label>Statut billing</Label>
-                                  <Select
-                                    value={draft.billingStatus}
-                                    onValueChange={(billingStatus) =>
-                                      setWorkspaceDrafts((current) => ({
-                                        ...current,
-                                        [organization.id]: {
-                                          ...draft,
-                                          billingStatus,
-                                        },
-                                      }))
-                                    }
-                                  >
-                                    <SelectTrigger className="w-full">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {Object.entries(billingStatusLabels).map(
-                                        ([status, label]) => (
-                                          <SelectItem
-                                            key={status}
-                                            value={status}
-                                          >
-                                            {label}
-                                          </SelectItem>
-                                        ),
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
                               <label className="bg-secondary/30 flex min-h-9 items-center gap-2 rounded-md border px-3 py-2 text-sm">
                                 <input
                                   type="checkbox"
@@ -1518,8 +1588,7 @@ export function InternalAdminConsole({
                               </label>
                             </section>
 
-                            {organization.workspaceType !==
-                            "insurance_broker" ? (
+                            {orgUsesN8n(organization) ? (
                             <section className="space-y-3">
                               <h3 className="text-sm font-semibold">
                                 Webhooks n8n

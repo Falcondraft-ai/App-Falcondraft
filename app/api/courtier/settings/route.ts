@@ -14,6 +14,7 @@ const schema = z.object({
     .max(60)
     .optional(),
   complianceEnabled: z.boolean().optional(),
+  introducersEnabled: z.boolean().optional(),
   compliance: z
     .object({
       legalName: complianceField,
@@ -69,6 +70,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (parsed.data.complianceEnabled !== undefined) {
     next.complianceEnabled = parsed.data.complianceEnabled;
+  }
+  if (parsed.data.introducersEnabled !== undefined) {
+    next.introducersEnabled = parsed.data.introducersEnabled;
   }
   if (parsed.data.compliance !== undefined) {
     const base = emptyCabinetComplianceInfo();

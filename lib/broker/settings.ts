@@ -13,6 +13,8 @@ export type BrokerWorkspaceSettings = {
   partnerInsurers: string[];
   /** When false, the per-client compliance (DDA/LCB-FT/RGPD) module is hidden. */
   complianceEnabled: boolean;
+  /** When false, the business-introducer (apporteurs) module is hidden. */
+  introducersEnabled: boolean;
   compliance: CabinetComplianceInfo;
 };
 
@@ -57,6 +59,8 @@ export function parseBrokerSettings(
     partnerInsurers: asStringArray(raw.partnerInsurers).slice(0, 60),
     // Compliance module is on by default; only an explicit `false` disables it.
     complianceEnabled: raw.complianceEnabled !== false,
+    // Apporteurs module is on by default; only an explicit `false` disables it.
+    introducersEnabled: raw.introducersEnabled !== false,
     compliance: parseCabinetCompliance(raw.compliance),
   };
 }

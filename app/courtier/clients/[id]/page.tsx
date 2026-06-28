@@ -427,20 +427,22 @@ export default async function BrokerClientDetailPage({
           </div>
 
           <div className="space-y-5">
-            <Card
-              title="Apporteur"
-              description="L’apporteur qui a amené ce client. Sa rétrocession s’applique automatiquement à ses commissions."
-            >
-              <ClientIntroducerSelect
-                clientId={client.id}
-                introducers={introducers.map((i) => ({
-                  id: i.id,
-                  name: i.name,
-                }))}
-                currentIntroducerId={client.introducer_id}
-                canEdit={canEdit}
-              />
-            </Card>
+            {brokerSettings.introducersEnabled ? (
+              <Card
+                title="Apporteur"
+                description="L’apporteur qui a amené ce client. Sa rétrocession s’applique automatiquement à ses commissions."
+              >
+                <ClientIntroducerSelect
+                  clientId={client.id}
+                  introducers={introducers.map((i) => ({
+                    id: i.id,
+                    name: i.name,
+                  }))}
+                  currentIntroducerId={client.introducer_id}
+                  canEdit={canEdit}
+                />
+              </Card>
+            ) : null}
 
             <Card
               title="Historique"

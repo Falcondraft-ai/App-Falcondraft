@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const tabs = [
+const baseTabs = [
   { href: "/courtier/settings", label: "Général", icon: SlidersHorizontal },
   { href: "/courtier/settings/contrats", label: "Types de contrat", icon: FileBadge },
   { href: "/courtier/settings/apporteurs", label: "Apporteurs", icon: HandCoins },
@@ -22,11 +22,23 @@ const tabs = [
   { href: "/courtier/settings/equipe", label: "Équipe & accès", icon: Users },
   { href: "/courtier/settings/stockage", label: "Stockage", icon: HardDrive },
   { href: "/courtier/settings/integrations", label: "Intégrations", icon: Mail },
-  { href: "/courtier/settings/facturation", label: "Facturation", icon: CreditCard },
 ];
 
-export function CourtierSettingsNav() {
+// Billing lives in Stripe and only applies to the self-serve SaaS offerings.
+// "Courtier sur mesure" is invoiced manually off-platform, so the tab is hidden.
+const billingTab = {
+  href: "/courtier/settings/facturation",
+  label: "Facturation",
+  icon: CreditCard,
+};
+
+export function CourtierSettingsNav({
+  showBilling = true,
+}: {
+  showBilling?: boolean;
+}) {
   const pathname = usePathname();
+  const tabs = showBilling ? [...baseTabs, billingTab] : baseTabs;
 
   return (
     <nav

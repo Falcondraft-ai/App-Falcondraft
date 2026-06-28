@@ -33,7 +33,9 @@ const organizationCreateSchema = z.object({
       /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
       "Le slug doit contenir uniquement lettres minuscules, chiffres et tirets.",
     ),
-  billing_status: z.enum(billingStatuses),
+  // Source of truth for billing is Stripe (webhook syncs billing_status). New
+  // workspaces start "pending" until Stripe takes over — not set by hand.
+  billing_status: z.enum(billingStatuses).default("pending"),
   workspace_type: z.enum(workspaceTypes).default("sales_automation"),
   broker_offering: z.enum(brokerOfferings).default("saas"),
   plan: z.enum(brokerPlans).optional(),
@@ -85,11 +87,7 @@ export async function POST(request: NextRequest) {
   const parsedBody = organizationCreateSchema.safeParse(body);
 
   if (!parsedBody.success) {
-    return jsonError(
-      "Nom, slug et statut de facturation sont requis.",
-      400,
-      "invalid_payload",
-    );
+    return jsonError("Nom et slug valides requis.", 400, "invalid_payload");
   }
 
   const values = parsedBody.data;
@@ -120,6 +118,18 @@ export async function POST(request: NextRequest) {
     (values.storage_limit_gb ?? DEFAULT_STORAGE_LIMIT_GB) * GIGABYTE,
   );
 
+  const effectivePlan =
+    values.workspace_type === "insurance_broker" &&
+    values.broker_offering === "saas"
+      ? (values.plan ?? "performance")
+      : null;
+
+  // n8n proposal workflows exist for sales-automation, and for the courtier
+  // SaaS "performance" plan only (it unlocks the proposal-automation module).
+  const usesN8nWorkflows =
+    values.workspace_type !== "insurance_broker" ||
+    effectivePlan === "performance";
+
   const { data: organization, error } = await internalAdmin.adminSupabase
     .from("organizations")
     .insert({
@@ -128,11 +138,7 @@ export async function POST(request: NextRequest) {
       billing_status: values.billing_status,
       workspace_type: values.workspace_type,
       broker_offering: values.broker_offering,
-      plan:
-        values.workspace_type === "insurance_broker" &&
-        values.broker_offering === "saas"
-          ? (values.plan ?? "performance")
-          : null,
+      plan: effectivePlan,
       storage_limit_bytes: storageLimitBytes,
       setup_amount: values.setup_amount ?? null,
       monthly_subscription_amount: values.monthly_subscription_amount ?? null,
@@ -140,7 +146,7 @@ export async function POST(request: NextRequest) {
       meeting_bot_name: values.meeting_bot_name,
     })
     .select(
-      "id, name, slug, billing_status, workspace_type, storage_limit_bytes, storage_used_bytes, setup_amount, monthly_subscription_amount, allow_member_company_visibility, meeting_bot_name, created_at",
+      "id, name, slug, billing_status, workspace_type, broker_offering, plan, current_period_end, storage_limit_bytes, storage_used_bytes, setup_amount, monthly_subscription_amount, allow_member_company_visibility, meeting_bot_name, created_at",
     )
     .single();
 
@@ -160,10 +166,11 @@ export async function POST(request: NextRequest) {
     entity_id: organization.id,
   });
 
-  // The insurance-broker module does not use the commercial n8n workflow
-  // configs; only sales-automation workspaces wire those up at creation.
-  const workflowConfigsToCreate =
-    values.workspace_type === "insurance_broker" ? [] : values.workflow_configs;
+  // Only workspaces that actually run the n8n proposal engine wire webhooks up
+  // at creation: sales-automation, plus the courtier SaaS "performance" plan.
+  const workflowConfigsToCreate = usesN8nWorkflows
+    ? values.workflow_configs
+    : [];
 
   const workflowConfigRows = workflowConfigsToCreate.map((config) => ({
     organization_id: organization.id,
@@ -198,6 +205,9 @@ export async function POST(request: NextRequest) {
       slug: organization.slug,
       billingStatus: organization.billing_status,
       workspaceType: organization.workspace_type,
+      brokerOffering: organization.broker_offering,
+      plan: organization.plan,
+      currentPeriodEnd: organization.current_period_end,
       storageLimitBytes: organization.storage_limit_bytes,
       storageUsedBytes: organization.storage_used_bytes,
       setupAmount: organization.setup_amount,

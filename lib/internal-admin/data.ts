@@ -27,6 +27,9 @@ export type InternalAdminOrganization = {
   slug: string;
   billingStatus: string;
   workspaceType: string;
+  brokerOffering: string;
+  plan: string | null;
+  currentPeriodEnd: string | null;
   storageLimitBytes: number;
   storageUsedBytes: number;
   setupAmount: number | null;
@@ -224,6 +227,9 @@ export async function getInternalAdminWorkspaceData(input: {
       slug: organization.slug,
       billingStatus: organization.billing_status,
       workspaceType: organization.workspace_type || "sales_automation",
+      brokerOffering: organization.broker_offering || "saas",
+      plan: organization.plan ?? null,
+      currentPeriodEnd: organization.current_period_end ?? null,
       storageLimitBytes: organization.storage_limit_bytes ?? 268435456000,
       storageUsedBytes: organization.storage_used_bytes ?? 0,
       setupAmount: organization.setup_amount,

@@ -7,7 +7,6 @@ import {
 } from "@/lib/internal-admin/workflows";
 
 const organizationIdSchema = z.string().uuid();
-const billingStatuses = ["active", "pending", "trial", "suspended"] as const;
 
 const meetingBotNameSchema = z
   .string()
@@ -18,10 +17,10 @@ const meetingBotNameSchema = z
     message: "Le nom doit tenir sur une seule ligne.",
   });
 
+// Billing (billing_status / amounts) is owned by Stripe — synced via the
+// billing webhook. The internal admin never writes it, to avoid clobbering
+// Stripe's source of truth.
 const organizationUpdateSchema = z.object({
-  billing_status: z.enum(billingStatuses),
-  setup_amount: z.coerce.number().min(0).optional().nullable(),
-  monthly_subscription_amount: z.coerce.number().min(0).optional().nullable(),
   allow_member_company_visibility: z.boolean(),
   meeting_bot_name: meetingBotNameSchema,
   workflow_status: z.enum(workflowConfigStatuses).default("active"),
@@ -80,7 +79,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (!parsedBody.success) {
     return jsonError(
-      "Facturation et webhooks valides sont requis.",
+      "Paramètres du workspace invalides.",
       400,
       "invalid_payload",
     );
@@ -92,9 +91,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await internalAdmin.adminSupabase
       .from("organizations")
       .update({
-        billing_status: values.billing_status,
-        setup_amount: values.setup_amount ?? null,
-        monthly_subscription_amount: values.monthly_subscription_amount ?? null,
         allow_member_company_visibility: values.allow_member_company_visibility,
         meeting_bot_name: values.meeting_bot_name,
       })
