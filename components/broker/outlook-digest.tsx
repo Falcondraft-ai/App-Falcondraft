@@ -9,14 +9,18 @@ import {
   ExternalLink,
   EyeOff,
   FileSignature,
+  FolderInput,
   HelpCircle,
   Mail,
   MessageSquare,
   Paperclip,
   PenLine,
   Receipt,
+  RotateCcw,
   ScrollText,
+  Search,
   ShieldAlert,
+  UserCog,
   UserPlus,
   X,
 } from "lucide-react";
@@ -25,12 +29,13 @@ import { Button } from "@/components/ui/button";
 import {
   emailCategoryLabel,
   emailCategoryOrder,
-  senderInitials,
+  mailboxAddressColor,
   suggestionAcceptLabels,
   suggestionTypeLabels,
   type EmailCategory,
   type SuggestionType,
 } from "@/lib/broker/outlook";
+import { BrokerAvatar } from "@/components/broker/broker-avatar";
 import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -57,6 +62,7 @@ const suggestionIcons: Record<SuggestionType, React.ReactNode> = {
   attach_document: <Paperclip className="size-3.5" strokeWidth={1.75} />,
   draft_reply: <PenLine className="size-3.5" strokeWidth={1.75} />,
   create_client: <UserPlus className="size-3.5" strokeWidth={1.75} />,
+  update_client: <UserCog className="size-3.5" strokeWidth={1.75} />,
   declare_claim: <ShieldAlert className="size-3.5" strokeWidth={1.75} />,
   flag_renewal: <CalendarClock className="size-3.5" strokeWidth={1.75} />,
 };
@@ -230,27 +236,160 @@ function SuggestionRow({
   );
 }
 
+/** Colored pastille for the mailbox address an email was delivered to. */
+function MailboxBadge({ address }: { address: string }) {
+  const c = mailboxAddressColor(address);
+  return (
+    <span
+      className="inline-flex max-w-[180px] shrink-0 items-center gap-1.5 rounded-full border px-2 py-[1px] text-[10.5px] font-medium"
+      style={{ background: c.soft, color: c.fg, borderColor: c.border }}
+      title={`Reçu sur ${address}`}
+    >
+      <span
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ background: c.dot }}
+        aria-hidden
+      />
+      <span className="truncate">{address}</span>
+    </span>
+  );
+}
+
+type ClientOption = { id: string; name: string };
+
+/** Searchable dropdown to attach an unclassified email to a client dossier. */
+function ClientAttachControl({
+  clients,
+  busy,
+  onPick,
+}: {
+  clients: ClientOption[];
+  busy: boolean;
+  onPick: (clientId: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = q
+      ? clients.filter((c) => c.name.toLowerCase().includes(q))
+      : clients;
+    return list.slice(0, 60);
+  }, [clients, query]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={busy}
+        className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
+        style={{ borderColor: "var(--border-1)", color: "var(--fg-2)" }}
+      >
+        <FolderInput className="size-3.5" strokeWidth={1.75} />
+        {busy ? "Rattachement…" : "Rattacher à un dossier"}
+        <ChevronDown className="size-3" strokeWidth={2} />
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 z-20 mt-1.5 w-72 overflow-hidden rounded-lg border bg-[var(--bg-surface)] shadow-[var(--shadow-md)]"
+            style={{ borderColor: "var(--border-1)" }}
+          >
+            <div
+              className="flex items-center gap-2 border-b px-3 py-2"
+              style={{ borderColor: "var(--border-1)" }}
+            >
+              <Search
+                className="size-3.5 shrink-0 text-[var(--fg-4)]"
+                strokeWidth={1.75}
+              />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher un dossier…"
+                className="w-full bg-transparent text-[12.5px] outline-none placeholder:text-[var(--fg-4)]"
+                style={{ color: "var(--fg-1)" }}
+              />
+            </div>
+            <ul className="max-h-64 overflow-y-auto py-1">
+              {filtered.length > 0 ? (
+                filtered.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        onPick(c.id);
+                      }}
+                      className="flex w-full items-center px-3 py-1.5 text-left text-[12.5px] text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-sunken)]"
+                    >
+                      <span className="truncate">{c.name}</span>
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className="px-3 py-2 text-[12px] text-[var(--fg-4)]">
+                  Aucun dossier trouvé.
+                </li>
+              )}
+            </ul>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function ItemCard({
   item,
   suggestions,
-  clientNames,
+  clientName,
   statuses,
   onAccept,
   onReject,
+  onExclude,
+  excludeBusy,
   topBar,
+  showMailbox,
+  attachClients,
+  onAttachClient,
+  attachBusy,
 }: {
   item: BrokerEmailItemRow;
   suggestions: BrokerEmailSuggestionRow[];
-  clientNames: Record<string, string>;
+  clientName: string | null;
   statuses: Record<string, LocalStatus>;
   onAccept: (s: BrokerEmailSuggestionRow) => void;
   onReject: (s: BrokerEmailSuggestionRow) => void;
+  onExclude?: () => void;
+  excludeBusy?: boolean;
   topBar?: React.ReactNode;
+  showMailbox?: boolean;
+  attachClients?: ClientOption[];
+  onAttachClient?: (clientId: string) => void;
+  attachBusy?: boolean;
 }) {
-  const clientName = item.suggested_client_id
-    ? (clientNames[item.suggested_client_id] ?? null)
-    : null;
-
   return (
     <motion.article
       layout
@@ -258,21 +397,15 @@ function ItemCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="rounded-lg border bg-[var(--bg-surface)] p-4"
+      className="rounded-lg border bg-[var(--bg-surface)] p-4 transition-shadow hover:shadow-[var(--shadow-md)]"
       style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
     >
       {topBar}
       <div className="flex items-start gap-3">
-        <span
-          className="flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold"
-          style={{
-            background: "var(--brand-navy-50)",
-            color: "var(--brand-navy-700)",
-            border: "1px solid var(--border-1)",
-          }}
-        >
-          {senderInitials(item.from_name || item.from_email)}
-        </span>
+        <BrokerAvatar
+          name={item.from_name || item.from_email || "Expéditeur"}
+          size={36}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
@@ -311,9 +444,14 @@ function ItemCard({
               {item.summary}
             </p>
           ) : null}
-          <p className="mt-1 font-mono text-[11px] text-[var(--fg-4)]">
-            {item.received_at ? formatDateTime(item.received_at) : ""}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="font-mono text-[11px] text-[var(--fg-4)]">
+              {item.received_at ? formatDateTime(item.received_at) : ""}
+            </p>
+            {showMailbox && item.mailbox_address ? (
+              <MailboxBadge address={item.mailbox_address} />
+            ) : null}
+          </div>
         </div>
         {item.web_link ? (
           <a
@@ -342,6 +480,51 @@ function ItemCard({
               onReject={() => onReject(s)}
             />
           ))}
+        </div>
+      ) : null}
+
+      {!clientName && onAttachClient && attachClients ? (
+        <div
+          className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed px-3 py-2"
+          style={{ borderColor: "var(--border-1)", background: "var(--bg-sunken)" }}
+        >
+          <p className="text-[12px] text-[var(--fg-3)]">
+            Pas encore rattaché à un dossier.
+          </p>
+          <ClientAttachControl
+            clients={attachClients}
+            busy={Boolean(attachBusy)}
+            onPick={onAttachClient}
+          />
+        </div>
+      ) : null}
+
+      {onExclude ? (
+        <div
+          className="mt-3 flex items-center justify-end gap-1.5 border-t pt-2.5"
+          style={{ borderColor: "var(--border-1)" }}
+        >
+          {item.web_link ? (
+            <a
+              href={item.web_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium text-[var(--fg-3)] transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--fg-1)]"
+            >
+              <ExternalLink className="size-3.5" strokeWidth={1.75} />
+              Ouvrir dans Outlook
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={onExclude}
+            disabled={excludeBusy}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium text-[var(--fg-3)] transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
+            style={{ borderColor: "var(--border-1)" }}
+          >
+            <EyeOff className="size-3.5" strokeWidth={1.75} />
+            Écarter
+          </button>
         </div>
       ) : null}
     </motion.article>
@@ -383,6 +566,61 @@ export function OutlookDigest({
   const [itemBusy, setItemBusy] = React.useState<Record<string, boolean>>({});
   const [showExcluded, setShowExcluded] = React.useState(false);
 
+  // Locally-attached client per item (feature: rattacher un email à un dossier).
+  const [attachedClient, setAttachedClient] = React.useState<
+    Record<string, string>
+  >({});
+  const [attachBusy, setAttachBusy] = React.useState<Record<string, boolean>>(
+    {},
+  );
+
+  // Address filter (multi-adresse).
+  const [addressFilter, setAddressFilter] = React.useState<string | null>(null);
+
+  const clientOptions = React.useMemo(
+    () =>
+      Object.entries(clientNames)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "fr")),
+    [clientNames],
+  );
+
+  const clientNameFor = React.useCallback(
+    (item: BrokerEmailItemRow): string | null => {
+      const id = attachedClient[item.id] ?? item.suggested_client_id;
+      return id ? (clientNames[id] ?? null) : null;
+    },
+    [attachedClient, clientNames],
+  );
+
+  // Distinct mailbox addresses present in this digest.
+  const mailboxAddresses = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const i of items) if (i.mailbox_address) set.add(i.mailbox_address);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [items]);
+  const showMailbox = mailboxAddresses.length > 1;
+
+  async function attachClient(itemId: string, clientId: string) {
+    if (attachBusy[itemId]) return;
+    setAttachBusy((m) => ({ ...m, [itemId]: true }));
+    try {
+      const res = await fetch(`/api/courtier/outlook/items/${itemId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "attach_client", clientId }),
+      }).catch(() => null);
+      if (!res?.ok) {
+        toast.error("Rattachement impossible.");
+        return;
+      }
+      setAttachedClient((m) => ({ ...m, [itemId]: clientId }));
+      toast.success(`Rattaché à ${clientNames[clientId] ?? "ce dossier"}.`);
+    } finally {
+      setAttachBusy((m) => ({ ...m, [itemId]: false }));
+    }
+  }
+
   async function resolveItem(itemId: string, action: "keep" | "exclude") {
     if (itemBusy[itemId]) return;
     setItemBusy((m) => ({ ...m, [itemId]: true }));
@@ -405,14 +643,20 @@ export function OutlookDigest({
     }
   }
 
+  const matchesAddress = (i: BrokerEmailItemRow) =>
+    !addressFilter || i.mailbox_address === addressFilter;
+
   const relevantItems = items.filter(
-    (i) => (itemRelevance[i.id] ?? i.relevance) === "relevant",
+    (i) =>
+      (itemRelevance[i.id] ?? i.relevance) === "relevant" && matchesAddress(i),
   );
   const uncertainItems = items.filter(
-    (i) => (itemRelevance[i.id] ?? i.relevance) === "uncertain",
+    (i) =>
+      (itemRelevance[i.id] ?? i.relevance) === "uncertain" && matchesAddress(i),
   );
   const excludedItems = items.filter(
-    (i) => (itemRelevance[i.id] ?? i.relevance) === "excluded",
+    (i) =>
+      (itemRelevance[i.id] ?? i.relevance) === "excluded" && matchesAddress(i),
   );
 
   const suggestionsByItem = React.useMemo(() => {
@@ -538,6 +782,69 @@ export function OutlookDigest({
         </div>
       </motion.section>
 
+      {/* Légende / filtre des adresses du cabinet (multi-adresse) */}
+      {showMailbox ? (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2.5"
+          style={{
+            borderColor: "var(--border-1)",
+            background: "var(--bg-surface)",
+          }}
+        >
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--fg-4)]">
+            Adresses
+          </span>
+          <button
+            type="button"
+            onClick={() => setAddressFilter(null)}
+            className="inline-flex h-7 items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors"
+            style={
+              addressFilter === null
+                ? {
+                    background: "var(--brand-navy-800)",
+                    borderColor: "var(--brand-navy-800)",
+                    color: "#FFFFFF",
+                  }
+                : {
+                    background: "var(--bg-surface)",
+                    borderColor: "var(--border-1)",
+                    color: "var(--fg-2)",
+                  }
+            }
+          >
+            Toutes
+          </button>
+          {mailboxAddresses.map((addr) => {
+            const c = mailboxAddressColor(addr);
+            const active = addressFilter === addr;
+            return (
+              <button
+                key={addr}
+                type="button"
+                onClick={() => setAddressFilter(active ? null : addr)}
+                className="inline-flex h-7 max-w-[220px] items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors"
+                style={{
+                  background: active ? c.soft : "var(--bg-surface)",
+                  borderColor: active ? c.border : "var(--border-1)",
+                  color: active ? c.fg : "var(--fg-2)",
+                }}
+                title={addr}
+              >
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ background: c.dot }}
+                  aria-hidden
+                />
+                <span className="truncate">{addr}</span>
+              </button>
+            );
+          })}
+        </motion.div>
+      ) : null}
+
       {/* À confirmer (cas incertains) */}
       <AnimatePresence initial={false}>
         {uncertainItems.length > 0 ? (
@@ -575,10 +882,14 @@ export function OutlookDigest({
                   key={item.id}
                   item={item}
                   suggestions={suggestionsByItem.get(item.id) ?? []}
-                  clientNames={clientNames}
+                  clientName={clientNameFor(item)}
                   statuses={statuses}
                   onAccept={(s) => resolve(s, "accept")}
                   onReject={(s) => resolve(s, "reject")}
+                  showMailbox={showMailbox}
+                  attachClients={clientOptions}
+                  onAttachClient={(clientId) => attachClient(item.id, clientId)}
+                  attachBusy={attachBusy[item.id]}
                   topBar={
                     <div
                       className="mb-3 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2"
@@ -673,10 +984,16 @@ export function OutlookDigest({
                     key={item.id}
                     item={item}
                     suggestions={suggestionsByItem.get(item.id) ?? []}
-                    clientNames={clientNames}
+                    clientName={clientNameFor(item)}
                     statuses={statuses}
                     onAccept={(s) => resolve(s, "accept")}
                     onReject={(s) => resolve(s, "reject")}
+                    onExclude={() => resolveItem(item.id, "exclude")}
+                    excludeBusy={itemBusy[item.id]}
+                    showMailbox={showMailbox}
+                    attachClients={clientOptions}
+                    onAttachClient={(clientId) => attachClient(item.id, clientId)}
+                    attachBusy={attachBusy[item.id]}
                   />
                 ))}
               </motion.div>
@@ -750,18 +1067,34 @@ export function OutlookDigest({
                         </p>
                       ) : null}
                     </div>
-                    {item.web_link ? (
-                      <a
-                        href={item.web_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-[var(--fg-4)] transition-colors hover:text-[var(--fg-2)]"
-                        aria-label="Ouvrir dans Outlook"
-                        title="Ouvrir dans Outlook"
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => resolveItem(item.id, "keep")}
+                        disabled={itemBusy[item.id]}
+                        className="inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[12px] font-medium transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
+                        style={{
+                          borderColor: "var(--border-1)",
+                          color: "var(--fg-2)",
+                        }}
+                        title="Remettre dans le briefing"
                       >
-                        <ExternalLink className="size-3.5" strokeWidth={1.75} />
-                      </a>
-                    ) : null}
+                        <RotateCcw className="size-3.5" strokeWidth={1.75} />
+                        Remettre
+                      </button>
+                      {item.web_link ? (
+                        <a
+                          href={item.web_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex size-7 items-center justify-center rounded-md text-[var(--fg-4)] transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--fg-2)]"
+                          aria-label="Ouvrir dans Outlook"
+                          title="Ouvrir dans Outlook"
+                        >
+                          <ExternalLink className="size-3.5" strokeWidth={1.75} />
+                        </a>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </motion.ul>

@@ -1,32 +1,38 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateDigest } from "@/lib/broker/email-digest";
 import { outlookOAuthProvider } from "@/lib/email/microsoft-oauth";
 import type { OrganizationRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 /**
  * Internal cron endpoint: generates the daily Outlook briefing for every broker
- * who has a connected Outlook mailbox. Meant to be called by the scheduled n8n
- * workflow (or any scheduler) with the shared secret header — never from the
- * browser. No user session: it runs with the service-role client.
+ * who has a connected Outlook mailbox. Driven natively by Vercel Cron (GET) or
+ * any scheduler with the shared secret — never from the browser. No user
+ * session: it runs with the service-role client.
  *
- *   header `X-N8N-Secret: <CRON_SECRET>` (or `x-cron-secret` — both accepted).
- *   Header names are case-insensitive.
+ *   Vercel Cron: `Authorization: Bearer <CRON_SECRET>` (automatic).
+ *   Manual:      header `X-N8N-Secret` / `x-cron-secret` = CRON_SECRET.
  */
+export async function GET(request: NextRequest) {
+  return handle(request);
+}
+
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
+  return handle(request);
+}
+
+async function handle(request: NextRequest) {
+  if (!process.env.CRON_SECRET) {
     return NextResponse.json(
       { success: false, reason: "cron_not_configured" },
       { status: 503 },
     );
   }
-  const provided =
-    request.headers.get("x-n8n-secret") ??
-    request.headers.get("x-cron-secret");
-  if (!provided || provided !== secret) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json(
       { success: false, reason: "unauthorized" },
       { status: 401 },

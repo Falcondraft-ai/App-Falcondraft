@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Trash2 } from "lucide-react";
+import { CheckCircle2, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,7 @@ export function AdviceEditor({
   const [saving, setSaving] = React.useState<
     "none" | "save" | "validate" | "delete"
   >("none");
+  const [aiBusy, setAiBusy] = React.useState(false);
   const isValidated = advice.status === "validated";
 
   async function handleDelete() {
@@ -88,6 +89,30 @@ export function AdviceEditor({
     }
   }
 
+  async function suggestMotifs() {
+    if (aiBusy || saving !== "none") return;
+    setAiBusy(true);
+    try {
+      const res = await fetch(
+        `/api/broker/clients/${clientId}/advice/${advice.id}/motifs`,
+        { method: "POST" },
+      );
+      const data = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        motifs?: string;
+        message?: string;
+      } | null;
+      if (!res.ok || !data?.success || !data.motifs) {
+        toast.error("Suggestion impossible", { description: data?.message });
+        return;
+      }
+      setContent(data.motifs);
+      toast.success("Motifs suggérés — relisez et ajustez avant de valider.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   const disabled = !canEdit || saving !== "none";
 
   return (
@@ -109,18 +134,43 @@ export function AdviceEditor({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="advice-content">Contenu</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="advice-content">
+            Justification du conseil (motifs)
+          </Label>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={() => void suggestMotifs()}
+              disabled={aiBusy || saving !== "none"}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-60"
+              style={{
+                border: "1px solid var(--border-1)",
+                color: "var(--accent-foreground)",
+                background: "var(--accent-soft)",
+              }}
+            >
+              {aiBusy ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <Sparkles className="size-3.5" strokeWidth={2} />
+              )}
+              {aiBusy ? "Génération…" : "Suggérer (IA)"}
+            </button>
+          ) : null}
+        </div>
         <Textarea
           id="advice-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          rows={22}
+          rows={10}
           disabled={disabled}
           className="font-mono text-[12.5px] leading-6"
         />
         <p className="text-[11.5px] text-[var(--fg-3)]">
-          Le document reste entièrement modifiable. Relisez et complétez chaque
-          section avant de valider.
+          Une puce « - » par motif : en quoi la solution recommandée répond aux
+          besoins du client. Le reste du PDF (identité, besoins, proposition,
+          mentions légales) est rempli automatiquement.
         </p>
       </div>
 

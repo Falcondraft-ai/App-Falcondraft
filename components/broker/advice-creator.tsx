@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-import { FilePlus2, Loader2, PenLine } from "lucide-react";
+import { Loader2, PenLine } from "lucide-react";
 
 type CreateResponse =
   | { success: true; adviceId: string }
@@ -19,18 +19,18 @@ export function AdviceCreator({
   canEdit: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = React.useState<"none" | "template" | "blank">("none");
+  const [busy, setBusy] = React.useState(false);
 
   if (!canEdit) return null;
 
-  async function create(mode: "template" | "blank") {
-    if (busy !== "none") return;
-    setBusy(mode);
+  async function create() {
+    if (busy) return;
+    setBusy(true);
     try {
       const res = await fetch(`/api/broker/clients/${clientId}/advice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify({ mode: "template" }),
       });
       const data = (await res.json().catch(() => null)) as CreateResponse | null;
       if (!res.ok || !data?.success) {
@@ -39,15 +39,11 @@ export function AdviceCreator({
         });
         return;
       }
-      toast.success(
-        mode === "template"
-          ? "Devoir de conseil généré — à compléter et valider."
-          : "Document créé.",
-      );
+      toast.success("Devoir de conseil généré — à compléter et valider.");
       router.push(`/courtier/clients/${clientId}/advice/${data.adviceId}`);
       router.refresh();
     } finally {
-      setBusy("none");
+      setBusy(false);
     }
   }
 
@@ -55,8 +51,8 @@ export function AdviceCreator({
     <div className="flex flex-wrap items-center gap-2.5">
       <button
         type="button"
-        onClick={() => create("template")}
-        disabled={busy !== "none"}
+        onClick={() => create()}
+        disabled={busy}
         className="inline-flex h-9 items-center gap-2 rounded-md px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-60"
         style={{
           background: "var(--brand-navy-800)",
@@ -64,27 +60,12 @@ export function AdviceCreator({
           border: "1px solid var(--brand-navy-800)",
         }}
       >
-        {busy === "template" ? (
+        {busy ? (
           <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
         ) : (
           <PenLine className="size-3.5" strokeWidth={2} />
         )}
         Générer le devoir de conseil
-      </button>
-
-      <button
-        type="button"
-        onClick={() => create("blank")}
-        disabled={busy !== "none"}
-        className="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-60"
-        style={{
-          borderColor: "var(--border-1)",
-          background: "var(--bg-surface)",
-          color: "var(--fg-2)",
-        }}
-      >
-        <FilePlus2 className="size-3.5" strokeWidth={2} />
-        Document vierge
       </button>
 
       {!hasValidatedQuote ? (

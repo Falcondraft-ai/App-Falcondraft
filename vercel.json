@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/courtier/outlook-digests",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/internal/courtier/agent-uploads-cleanup",
+      "schedule": "30 3 * * *"
+    }
+  ]
+}

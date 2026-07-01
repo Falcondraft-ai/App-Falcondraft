@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateField } from "@/components/broker/date-field";
 import {
   Select,
   SelectContent,
@@ -22,8 +23,6 @@ import {
 import { cn } from "@/lib/utils";
 
 type ClientType = "individual" | "company";
-
-const NO_INTRODUCER = "__none__";
 
 type CreateResponse =
   | { success: true; clientId: string }
@@ -58,10 +57,8 @@ function SectionCard({
 
 export function NewClientForm({
   branches = [...brokerInsuranceTypes],
-  introducers = [],
 }: {
   branches?: BrokerInsuranceType[];
-  introducers?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
@@ -75,9 +72,8 @@ export function NewClientForm({
     address: "",
     postalCode: "",
     city: "",
+    dateOfBirth: "",
     insuranceType: "",
-    introducerId: "",
-    needs: "",
     notes: "",
   });
 
@@ -117,9 +113,8 @@ export function NewClientForm({
         address: form.address || null,
         postalCode: form.postalCode || null,
         city: form.city || null,
+        dateOfBirth: form.dateOfBirth || null,
         insuranceType: form.insuranceType || null,
-        introducerId: form.introducerId || null,
-        needs: form.needs || null,
         notes: form.notes || null,
       }),
     }).catch(() => null);
@@ -218,6 +213,14 @@ export function NewClientForm({
                 placeholder="Durand"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dateOfBirth">Date de naissance</Label>
+              <DateField
+                id="dateOfBirth"
+                value={form.dateOfBirth}
+                onChange={(iso) => update("dateOfBirth", iso)}
+              />
+            </div>
           </div>
         )}
 
@@ -274,38 +277,11 @@ export function NewClientForm({
           </div>
         </div>
 
-        {introducers.length > 0 ? (
-          <div className="space-y-1.5">
-            <Label>Apporteur d’affaires</Label>
-            <Select
-              value={form.introducerId || NO_INTRODUCER}
-              onValueChange={(value) =>
-                update("introducerId", value === NO_INTRODUCER ? "" : value)
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Aucun" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_INTRODUCER}>Aucun</SelectItem>
-                {introducers.map((introducer) => (
-                  <SelectItem key={introducer.id} value={introducer.id}>
-                    {introducer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11.5px] text-[var(--fg-3)]">
-              Sa rétrocession sera appliquée automatiquement aux commissions de ce
-              client.
-            </p>
-          </div>
-        ) : null}
       </SectionCard>
 
       <SectionCard
-        title="Besoin assurantiel"
-        description="La branche et le recueil de besoins serviront de base au devoir de conseil."
+        title="Branche & notes"
+        description="La branche d’assurance sert de base au devoir de conseil."
       >
         <div className="space-y-1.5">
           <Label>Branche d’assurance</Label>
@@ -324,17 +300,6 @@ export function NewClientForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="needs">Recueil de besoins</Label>
-          <Textarea
-            id="needs"
-            value={form.needs}
-            onChange={(event) => update("needs", event.target.value)}
-            placeholder="Situation du client, attentes, garanties recherchées, budget…"
-            rows={4}
-          />
         </div>
 
         <div className="space-y-1.5">

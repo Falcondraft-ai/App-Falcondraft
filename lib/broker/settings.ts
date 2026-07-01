@@ -48,19 +48,13 @@ export function parseBrokerSettings(
 ): BrokerWorkspaceSettings {
   const raw = (organization?.broker_settings ?? {}) as Record<string, unknown>;
 
-  const rawBranches = asStringArray(raw.enabledBranches);
-  const enabledBranches = rawBranches.filter((b): b is BrokerInsuranceType =>
-    (brokerInsuranceTypes as readonly string[]).includes(b),
-  );
-
   return {
-    enabledBranches:
-      enabledBranches.length > 0 ? enabledBranches : [...brokerInsuranceTypes],
+    // Branches are a fixed, non-editable set for the bespoke broker.
+    enabledBranches: [...brokerInsuranceTypes],
     partnerInsurers: asStringArray(raw.partnerInsurers).slice(0, 60),
-    // Compliance module is on by default; only an explicit `false` disables it.
-    complianceEnabled: raw.complianceEnabled !== false,
-    // Apporteurs module is on by default; only an explicit `false` disables it.
-    introducersEnabled: raw.introducersEnabled !== false,
+    // Compliance (DDA/LCB-FT/RGPD) and apporteurs modules are retired.
+    complianceEnabled: false,
+    introducersEnabled: false,
     compliance: parseCabinetCompliance(raw.compliance),
   };
 }

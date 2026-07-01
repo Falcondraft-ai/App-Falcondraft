@@ -18,6 +18,7 @@ import type {
   BrokerClientRow,
   BrokerEmailItemRow,
   BrokerEmailSuggestionRow,
+  Database,
 } from "@/types/database";
 
 type RouteContext = { params: Promise<{ suggestionId: string }> };
@@ -250,6 +251,47 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
         metadata: { category, size_bytes: buffer.byteLength },
       });
       await markDone({ broker_document_id: document.id });
+      return NextResponse.json({ success: true, status: "done" });
+    }
+
+    if (suggestion.type === "update_client") {
+      if (!resolvedClientId) {
+        return jsonError(
+          "Rattachez d’abord cet email à un dossier avant de le mettre à jour.",
+          409,
+          "client_required",
+        );
+      }
+      const update: Database["public"]["Tables"]["broker_clients"]["Update"] = {
+        updated_at: new Date().toISOString(),
+      };
+      const phone = str(payload, "phone");
+      if (phone) update.phone = phone;
+      const address = str(payload, "address");
+      if (address) update.address = address;
+      const postalCode = str(payload, "postal_code");
+      if (postalCode) update.postal_code = postalCode;
+      const city = str(payload, "city");
+      if (city) update.city = city;
+      const email = str(payload, "email");
+      if (email) update.email = email;
+      if (Object.keys(update).length === 1) {
+        return jsonError("Rien à mettre à jour.", 400, "nothing_to_update");
+      }
+      const { error } = await admin
+        .from("broker_clients")
+        .update(update)
+        .eq("organization_id", orgId)
+        .eq("id", resolvedClientId);
+      if (error) throw new Error(error.message);
+      await logBrokerActivity(admin, {
+        organizationId: orgId,
+        clientId: resolvedClientId,
+        userId,
+        type: "client_updated",
+        description: "Coordonnées mises à jour depuis un email.",
+      });
+      await markDone({ client_id: resolvedClientId });
       return NextResponse.json({ success: true, status: "done" });
     }
 

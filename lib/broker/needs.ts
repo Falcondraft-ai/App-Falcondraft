@@ -40,10 +40,9 @@ const genericNeeds: NeedsQuestion[] = [
   },
 ];
 
-export const needsQuestionnaires: Record<
-  BrokerInsuranceType,
-  NeedsQuestion[]
-> = {
+// Keyed by raw branch value (incl. legacy branches) so it stays valid as the
+// fixed-branch set evolves; lookups fall back to `genericNeeds`.
+export const needsQuestionnaires: Record<string, NeedsQuestion[]> = {
   auto: [
     {
       id: "vehicle_type",

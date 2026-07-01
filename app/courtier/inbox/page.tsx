@@ -106,13 +106,21 @@ export default async function CourtierInboxPage() {
             title="Assistant Outlook"
             description="Votre briefing du jour, trié et prêt à traiter."
           />
-          <span
-            className="hidden items-center gap-1.5 text-[12px] sm:inline-flex"
-            style={{ color: "var(--fg-3)" }}
-          >
-            <Inbox className="size-3.5" strokeWidth={1.75} />
-            {connection?.email}
-          </span>
+          {connection?.email ? (
+            <span
+              className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] sm:inline-flex"
+              style={{
+                color: "var(--fg-2)",
+                borderColor: "var(--border-1)",
+                background: "var(--bg-surface)",
+              }}
+              title="Toutes les adresses regroupées dans cette boîte Outlook sont analysées."
+            >
+              <Inbox className="size-3.5" strokeWidth={1.75} />
+              {connection.email}
+              <span className="text-[var(--fg-4)]">· toutes adresses</span>
+            </span>
+          ) : null}
         </div>
 
         <OutlookDigest

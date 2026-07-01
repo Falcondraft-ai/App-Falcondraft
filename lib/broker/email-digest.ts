@@ -6,9 +6,11 @@ import {
   brokerInsuranceTypes,
 } from "@/lib/broker/clients";
 import {
+  getMailboxAddresses,
   getMessageAttachmentsMeta,
   getOutlookAccessForUser,
   listRecentInboxMessages,
+  resolveMailboxAddress,
   type OutlookMessage,
 } from "@/lib/email/outlook-read";
 import {
@@ -60,6 +62,10 @@ type AiAction = {
   last_name?: string;
   company_name?: string;
   email?: string;
+  phone?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
   insurance_type?: string;
   needs?: string;
   claim_type?: string;
@@ -83,10 +89,19 @@ type AiResponse = {
   emails?: AiEmailResult[];
 };
 
-function buildSystemPrompt(userName: string): string {
+function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string {
+  const addressBlock =
+    mailboxAddresses.length > 1
+      ? [
+          ``,
+          `ADRESSES DU CABINET : cette boîte Outlook regroupe plusieurs adresses de réception : ${mailboxAddresses.join(", ")}.`,
+          `Chaque email indique "received_on" = l'adresse du cabinet sur laquelle il est arrivé. Une adresse peut correspondre à une activité, une marque ou un canal différent : utilise ce contexte pour mieux trier (ex. une adresse dédiée aux sinistres, une autre aux prospects). Ne mélange pas les canaux.`,
+        ]
+      : [];
   return [
     `Tu es l'assistant de tri du courrier d'un cabinet de courtage en assurance. Tu travailles pour ${userName}.`,
     `On te donne les emails reçus récemment dans sa boîte Outlook, et la liste de ses clients existants.`,
+    ...addressBlock,
     ``,
     `TON RÔLE : produire un briefing du jour utile et RÉELLEMENT trié.`,
     ``,
@@ -101,11 +116,12 @@ function buildSystemPrompt(userName: string): string {
     `ACTIONS — ne propose une action QUE si elle a un sens évident après avoir lu le contenu :`,
     `- attach_document : seulement si une pièce jointe est un vrai document d'assurance (devis, contrat, RIB, pièce d'identité, justificatif). document_category ∈ company_quote|contract|rib|id_document|other.`,
     `- draft_reply : seulement si l'email appelle clairement une réponse. Rédige un brouillon court, professionnel, en français, prêt à relire (jamais de promesse ferme).`,
-    `- create_client : UNIQUEMENT si l'expéditeur est un vrai prospect/particulier/entreprise qui sollicite le cabinet pour de l'assurance ET qu'il ne correspond à aucun client existant. JAMAIS pour un assureur, un fournisseur, une plateforme, une pub. Extrait nom/prénom (ou raison sociale), email, et la branche probable (${brokerInsuranceTypes.join(", ")}).`,
+    `- create_client : UNIQUEMENT si l'expéditeur est un vrai prospect/particulier/entreprise qui sollicite le cabinet pour de l'assurance ET qu'il ne correspond à AUCUN client existant. JAMAIS pour un assureur, un fournisseur, une plateforme, une pub. Extrait nom/prénom (ou raison sociale), email, et la branche probable (${brokerInsuranceTypes.join(", ")}).`,
+    `- update_client : si l'expéditeur correspond à un client EXISTANT (voir known_clients) ET que l'email révèle une coordonnée nouvelle ou modifiée (téléphone, adresse, code postal, ville, email). Renseigne UNIQUEMENT les champs qui changent réellement par rapport à known_clients — n'inclus pas un champ identique à l'existant, et n'invente jamais. C'est le cœur du CRM : reconnaître un client revenant et tenir son dossier à jour.`,
     `- declare_claim : seulement si l'email évoque un sinistre concret (dégât, accident, vol...). Donne claim_type et une courte description.`,
     `- flag_renewal : seulement si l'email mentionne une échéance/résiliation/renouvellement de contrat.`,
     ``,
-    `RATTACHEMENT : si l'expéditeur correspond à un client existant (par email surtout), renseigne client_match_email avec son adresse exacte.`,
+    `RATTACHEMENT & CLIENT REVENANT : compare toujours l'expéditeur à known_clients (par email surtout). Si c'est un client connu, renseigne client_match_email avec son adresse exacte, NE propose PAS create_client, et range plutôt les pièces jointes dans son dossier (attach_document) et propose update_client si des coordonnées ont changé.`,
     ``,
     `NARRATIF : rédige "narrative" = 2 à 4 phrases, ton chaleureux et professionnel, qui raconte l'essentiel de la matinée ("Ce matin, ..."), met en avant l'urgent. Pas d'emojis, pas de jargon technique.`,
     ``,
@@ -116,7 +132,8 @@ function buildSystemPrompt(userName: string): string {
 function buildUserPayload(
   messages: OutlookMessage[],
   attachmentsByMessage: Map<string, AttachmentRef[]>,
-  clientRoster: { name: string; email: string }[],
+  clientRoster: { name: string; email: string; phone: string | null }[],
+  mailboxByMessage: Map<string, string | null>,
 ): string {
   const emails = messages.map((m, i) => ({
     ref: `e${i}`,
@@ -124,6 +141,7 @@ function buildUserPayload(
     from_email: m.fromEmail,
     subject: m.subject,
     received_at: m.receivedDateTime,
+    received_on: mailboxByMessage.get(m.id) ?? null,
     preview: m.bodyPreview,
     attachments: (attachmentsByMessage.get(m.id) ?? []).map((a) => ({
       ref: a.ref,
@@ -164,6 +182,14 @@ function buildUserPayload(
               insurance_type: "auto",
               needs: "string",
             },
+            {
+              type: "update_client",
+              phone: "string",
+              address: "string",
+              postal_code: "string",
+              city: "string",
+              email: "string",
+            },
             { type: "declare_claim", claim_type: "string", description: "string" },
             { type: "flag_renewal", note: "string" },
           ],
@@ -178,7 +204,9 @@ async function classifyEmails(
   userName: string,
   messages: OutlookMessage[],
   attachmentsByMessage: Map<string, AttachmentRef[]>,
-  clientRoster: { name: string; email: string }[],
+  clientRoster: { name: string; email: string; phone: string | null }[],
+  mailboxByMessage: Map<string, string | null>,
+  mailboxAddresses: string[],
 ): Promise<AiResponse | null> {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -191,13 +219,14 @@ async function classifyEmails(
       response_format: { type: "json_object" },
       max_completion_tokens: 4000,
       messages: [
-        { role: "system", content: buildSystemPrompt(userName) },
+        { role: "system", content: buildSystemPrompt(userName, mailboxAddresses) },
         {
           role: "user",
           content: buildUserPayload(
             messages,
             attachmentsByMessage,
             clientRoster,
+            mailboxByMessage,
           ),
         },
       ],
@@ -270,6 +299,11 @@ export async function generateDigest(
   }
   if (since < floor) since = floor;
   const sinceIso = since.toISOString();
+
+  // Mailbox aliases (primary + SMTP proxies) so we can tag each email with the
+  // address it was delivered to — the bespoke broker aggregates several.
+  const mailboxAddresses = await getMailboxAddresses(access.accessToken);
+  const mailboxAddressSet = new Set(mailboxAddresses);
 
   const allMessages = await listRecentInboxMessages(
     access.accessToken,
@@ -356,7 +390,17 @@ export async function generateDigest(
   const clientRoster = clients
     .filter((c) => c.email)
     .slice(0, 200)
-    .map((c) => ({ name: brokerClientDisplayName(c), email: c.email! }));
+    .map((c) => ({
+      name: brokerClientDisplayName(c),
+      email: c.email!,
+      phone: c.phone ?? null,
+    }));
+
+  // Resolve which mailbox address each message was delivered to.
+  const mailboxByMessage = new Map<string, string | null>();
+  for (const m of messages) {
+    mailboxByMessage.set(m.id, resolveMailboxAddress(m, mailboxAddressSet));
+  }
 
   const ai = await classifyEmails(
     apiKey,
@@ -364,6 +408,8 @@ export async function generateDigest(
     messages,
     attachmentsByMessage,
     clientRoster,
+    mailboxByMessage,
+    mailboxAddresses,
   );
 
   if (!ai) {
@@ -425,6 +471,7 @@ export async function generateDigest(
         subject: message.subject,
         received_at: message.receivedDateTime || null,
         web_link: message.webLink || null,
+        mailbox_address: mailboxByMessage.get(message.id) ?? null,
         relevance: "excluded",
         exclusion_reason: r?.reason?.trim() || null,
         has_attachments: message.hasAttachments,
@@ -459,6 +506,7 @@ export async function generateDigest(
         subject: message.subject,
         received_at: message.receivedDateTime || null,
         web_link: message.webLink || null,
+        mailbox_address: mailboxByMessage.get(message.id) ?? null,
         category,
         summary: r.summary?.trim() || null,
         urgency: r.urgency === "high" ? "high" : "normal",
@@ -538,6 +586,24 @@ export async function generateDigest(
             insurance_type: insuranceType,
             needs: action.needs?.trim() || null,
           },
+        });
+      } else if (action.type === "update_client") {
+        // Only meaningful for a returning (matched) client.
+        if (!clientId) continue;
+        const fields: Record<string, string> = {};
+        if (action.phone?.trim()) fields.phone = action.phone.trim();
+        if (action.address?.trim()) fields.address = action.address.trim();
+        if (action.postal_code?.trim())
+          fields.postal_code = action.postal_code.trim();
+        if (action.city?.trim()) fields.city = action.city.trim();
+        if (action.email?.trim()) fields.email = action.email.trim();
+        if (Object.keys(fields).length === 0) continue;
+        suggestionRows.push({
+          organization_id: ctx.organizationId,
+          item_id: item.id,
+          user_id: ctx.userId,
+          type: "update_client",
+          payload: { client_id: clientId, ...fields },
         });
       } else if (action.type === "declare_claim") {
         suggestionRows.push({

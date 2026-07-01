@@ -17,6 +17,12 @@ const createClientSchema = z
     address: z.string().trim().max(240).optional().nullable(),
     postalCode: z.string().trim().max(20).optional().nullable(),
     city: z.string().trim().max(120).optional().nullable(),
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .or(z.literal(""))
+      .nullable(),
     insuranceType: z.string().trim().max(40).optional().nullable(),
     introducerId: z.string().uuid().optional().nullable(),
     needs: z.string().trim().max(5000).optional().nullable(),
@@ -99,6 +105,7 @@ export async function POST(request: NextRequest) {
       address: values.address?.trim() || null,
       postal_code: values.postalCode?.trim() || null,
       city: values.city?.trim() || null,
+      date_of_birth: values.dateOfBirth?.trim() || null,
       insurance_type: values.insuranceType?.trim() || null,
       introducer_id: values.introducerId ?? null,
       needs: values.needs?.trim() || null,

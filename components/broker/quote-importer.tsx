@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { documentUploadAccept } from "@/lib/broker/documents";
 import { uploadBrokerDocument } from "@/lib/broker/upload-client";
 
@@ -67,21 +67,6 @@ export function QuoteImporter({
     }
   }
 
-  async function createManual() {
-    setBusy(true);
-    try {
-      const created = await createQuote(clientId, null);
-      if (!created?.success) {
-        toast.error("Création impossible.");
-        return;
-      }
-      router.push(`/courtier/clients/${clientId}/quotes/${created.quoteId}`);
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-2.5">
       <button
@@ -102,21 +87,6 @@ export function QuoteImporter({
           <Upload className="size-3.5" strokeWidth={2} />
         )}
         {busy ? "Import en cours…" : "Importer un devis (PDF)"}
-      </button>
-
-      <button
-        type="button"
-        onClick={createManual}
-        disabled={busy}
-        className="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-60"
-        style={{
-          borderColor: "var(--border-1)",
-          background: "var(--bg-surface)",
-          color: "var(--fg-2)",
-        }}
-      >
-        <Plus className="size-3.5" strokeWidth={2} />
-        Saisir sans document
       </button>
 
       <input

@@ -6,7 +6,12 @@ import {
   brokerClientStatuses,
   isBrokerClientStatus,
 } from "@/lib/broker/clients";
-import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
+import { BROKER_FILES_BUCKET } from "@/lib/broker/documents";
+import {
+  adjustOrganizationStorage,
+  logBrokerActivity,
+  requireBrokerApiContext,
+} from "@/lib/broker/server";
 import type { Database } from "@/types/database";
 
 type BrokerClientUpdate =
@@ -26,6 +31,12 @@ const updateClientSchema = z.object({
   address: z.string().trim().max(240).optional().nullable(),
   postalCode: z.string().trim().max(20).optional().nullable(),
   city: z.string().trim().max(120).optional().nullable(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
   insuranceType: z.string().trim().max(40).optional().nullable(),
   introducerId: z.string().uuid().optional().nullable(),
   needs: z.string().trim().max(5000).optional().nullable(),
@@ -114,6 +125,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   if (values.postalCode !== undefined)
     update.postal_code = trimmedOrNull(values.postalCode);
   if (values.city !== undefined) update.city = trimmedOrNull(values.city);
+  if (values.dateOfBirth !== undefined)
+    update.date_of_birth = trimmedOrNull(values.dateOfBirth);
   if (values.insuranceType !== undefined)
     update.insurance_type = trimmedOrNull(values.insuranceType);
   if (values.introducerId !== undefined)
@@ -157,37 +170,72 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext) {
     return jsonError(auth.message, auth.status, auth.reason);
   }
 
-  // Archiving is a manager-level action (mirrors deal archiving).
+  // Permanent deletion is a manager-level action.
   if (auth.context.membership?.role !== "manager") {
     return jsonError(
-      "Seul un gestionnaire peut archiver un dossier.",
+      "Seul un gestionnaire peut supprimer un dossier.",
       403,
       "insufficient_role",
     );
   }
 
   const { id } = await ctx.params;
+  const admin = auth.adminSupabase;
+  const orgId = auth.organizationId;
 
-  const { error } = await auth.adminSupabase
+  const { data: existing } = await admin
     .from("broker_clients")
-    .update({
-      archived_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("organization_id", auth.organizationId)
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("id", id)
+    .maybeSingle();
+  if (!existing) {
+    return jsonError("Dossier introuvable.", 404, "not_found");
+  }
+
+  // Remove the client's stored files first — DB rows cascade on delete, but the
+  // Storage objects and the org storage counter must be cleaned up explicitly.
+  const { data: documents } = await admin
+    .from("broker_documents")
+    .select("storage_path, size_bytes")
+    .eq("organization_id", orgId)
+    .eq("client_id", id);
+
+  const paths = (documents ?? [])
+    .map((d) => d.storage_path)
+    .filter((p): p is string => Boolean(p));
+  const freedBytes = (documents ?? []).reduce(
+    (sum, d) => sum + (d.size_bytes ?? 0),
+    0,
+  );
+
+  if (paths.length > 0) {
+    const { error: storageError } = await admin.storage
+      .from(BROKER_FILES_BUCKET)
+      .remove(paths);
+    if (storageError) {
+      console.error(
+        "[broker] client deletion — storage cleanup failed:",
+        storageError.message,
+      );
+    }
+  }
+
+  // Cascade-deletes documents, contracts, quotes, advice, claims, commissions,
+  // compliance and activity via the FK ON DELETE CASCADE constraints.
+  const { error } = await admin
+    .from("broker_clients")
+    .delete()
+    .eq("organization_id", orgId)
     .eq("id", id);
 
   if (error) {
-    return jsonError("Archivage impossible.", 500, error.message);
+    return jsonError("Suppression impossible.", 500, error.message);
   }
 
-  await logBrokerActivity(auth.adminSupabase, {
-    organizationId: auth.organizationId,
-    clientId: id,
-    userId: auth.user.id,
-    type: "client_archived",
-    description: "Dossier archivé.",
-  });
+  if (freedBytes > 0) {
+    await adjustOrganizationStorage(admin, orgId, -freedBytes);
+  }
 
   return NextResponse.json({ success: true });
 }

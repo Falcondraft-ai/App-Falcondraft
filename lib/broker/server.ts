@@ -141,6 +141,54 @@ export async function adjustOrganizationStorage(
   }
 }
 
+// Forward-only pipeline order for automatic status transitions. closed/lost are
+// terminal and never auto-changed.
+const CLIENT_STATUS_ORDER: Record<string, number> = {
+  new: 0,
+  in_progress: 1,
+  advice_ready: 2,
+  awaiting_signature: 3,
+  signed: 4,
+};
+
+/**
+ * Automatically advances a client's dossier status as the workflow progresses
+ * (e.g. a devoir de conseil is generated → advice_ready, signed → signed).
+ * Only ever moves FORWARD and never overrides a manual terminal status
+ * (closed/lost). Best-effort: never throws.
+ */
+export async function advanceClientStatus(
+  adminSupabase: SupabaseClient<Database>,
+  organizationId: string,
+  clientId: string,
+  target: keyof typeof CLIENT_STATUS_ORDER,
+): Promise<void> {
+  try {
+    const { data: client } = await adminSupabase
+      .from("broker_clients")
+      .select("status")
+      .eq("organization_id", organizationId)
+      .eq("id", clientId)
+      .maybeSingle();
+    if (!client) return;
+
+    const current = client.status as string;
+    if (current === "closed" || current === "lost") return;
+
+    const currentRank = CLIENT_STATUS_ORDER[current] ?? 0;
+    const targetRank = CLIENT_STATUS_ORDER[target];
+    if (targetRank === undefined || targetRank <= currentRank) return;
+
+    await adminSupabase
+      .from("broker_clients")
+      .update({ status: target, updated_at: new Date().toISOString() })
+      .eq("organization_id", organizationId)
+      .eq("id", clientId);
+  } catch (err) {
+    console.error("[broker] auto status advance failed:", err);
+  }
+}
+
 /** Records an entry in the per-client activity timeline (best-effort). */
 export async function logBrokerActivity(
   adminSupabase: SupabaseClient<Database>,

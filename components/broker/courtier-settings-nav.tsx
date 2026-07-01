@@ -4,11 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CreditCard,
-  FileBadge,
-  HandCoins,
   HardDrive,
   Mail,
-  ShieldCheck,
   SlidersHorizontal,
   Users,
 } from "lucide-react";
@@ -16,9 +13,6 @@ import { cn } from "@/lib/utils";
 
 const baseTabs = [
   { href: "/courtier/settings", label: "Général", icon: SlidersHorizontal },
-  { href: "/courtier/settings/contrats", label: "Types de contrat", icon: FileBadge },
-  { href: "/courtier/settings/apporteurs", label: "Apporteurs", icon: HandCoins },
-  { href: "/courtier/settings/conformite", label: "Conformité", icon: ShieldCheck },
   { href: "/courtier/settings/equipe", label: "Équipe & accès", icon: Users },
   { href: "/courtier/settings/stockage", label: "Stockage", icon: HardDrive },
   { href: "/courtier/settings/integrations", label: "Intégrations", icon: Mail },

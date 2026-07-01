@@ -83,18 +83,89 @@ export type OutlookMessage = {
   hasAttachments: boolean;
   webLink: string;
   conversationId: string;
+  /** Lowercased To/Cc addresses — used to detect which mailbox alias received it. */
+  recipients: string[];
 };
+
+type GraphRecipient = { emailAddress?: { name?: string; address?: string } };
 
 type GraphMessage = {
   id?: string;
   subject?: string;
   from?: { emailAddress?: { name?: string; address?: string } };
+  toRecipients?: GraphRecipient[];
+  ccRecipients?: GraphRecipient[];
   receivedDateTime?: string;
   bodyPreview?: string;
   hasAttachments?: boolean;
   webLink?: string;
   conversationId?: string;
 };
+
+function recipientAddresses(message: GraphMessage): string[] {
+  const out: string[] = [];
+  for (const r of [
+    ...(message.toRecipients ?? []),
+    ...(message.ccRecipients ?? []),
+  ]) {
+    const addr = r.emailAddress?.address?.trim().toLowerCase();
+    if (addr) out.push(addr);
+  }
+  return out;
+}
+
+/**
+ * Lists the SMTP addresses owned by the connected mailbox (primary + aliases).
+ * The bespoke broker aggregates several SMTP addresses inside a single Outlook
+ * account; `proxyAddresses` exposes them all (entries prefixed `SMTP:`/`smtp:`).
+ * Falls back to the primary `mail`/`userPrincipalName` when proxies are
+ * unavailable (e.g. personal accounts). Never throws — returns [] on failure.
+ */
+export async function getMailboxAddresses(
+  accessToken: string,
+): Promise<string[]> {
+  const params = new URLSearchParams({
+    $select: "mail,userPrincipalName,proxyAddresses",
+  });
+  const res = await fetch(`${GRAPH}/me?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }).catch(() => null);
+
+  if (!res || !res.ok) return [];
+
+  const me = (await res.json().catch(() => null)) as {
+    mail?: string;
+    userPrincipalName?: string;
+    proxyAddresses?: string[];
+  } | null;
+  if (!me) return [];
+
+  const set = new Set<string>();
+  for (const proxy of me.proxyAddresses ?? []) {
+    const addr = proxy.replace(/^smtp:/i, "").trim().toLowerCase();
+    if (addr.includes("@")) set.add(addr);
+  }
+  for (const primary of [me.mail, me.userPrincipalName]) {
+    const addr = primary?.trim().toLowerCase();
+    if (addr?.includes("@")) set.add(addr);
+  }
+  return [...set];
+}
+
+/**
+ * Resolves which of the mailbox's own addresses an email was delivered to
+ * (the alias the sender used). Returns null when none of the To/Cc addresses
+ * belong to the mailbox (e.g. forwarded/BCC-only mail).
+ */
+export function resolveMailboxAddress(
+  message: Pick<OutlookMessage, "recipients">,
+  mailboxAddresses: Set<string>,
+): string | null {
+  for (const addr of message.recipients) {
+    if (mailboxAddresses.has(addr)) return addr;
+  }
+  return null;
+}
 
 /** Lists inbox messages received since `sinceIso`, newest first (capped). */
 export async function listRecentInboxMessages(
@@ -104,7 +175,7 @@ export async function listRecentInboxMessages(
 ): Promise<OutlookMessage[]> {
   const params = new URLSearchParams({
     $select:
-      "id,subject,from,receivedDateTime,bodyPreview,hasAttachments,webLink,conversationId",
+      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,webLink,conversationId",
     $top: String(Math.min(Math.max(max, 1), 100)),
     $orderby: "receivedDateTime desc",
     $filter: `receivedDateTime ge ${sinceIso}`,
@@ -137,9 +208,80 @@ export async function listRecentInboxMessages(
         hasAttachments: Boolean(m.hasAttachments),
         webLink: m.webLink ?? "",
         conversationId: m.conversationId ?? "",
+        recipients: recipientAddresses(m),
       },
     ];
   });
+}
+
+/**
+ * Searches the whole mailbox for messages involving a participant email (as
+ * sender, recipient or cc). Covers the bespoke broker's multi-address setup: a
+ * single Outlook account aggregating several SMTP addresses is read in full via
+ * `/me/messages`. Optional free-text `query` narrows further. Uses KQL `$search`
+ * (cannot be combined with `$orderby`, so results come back by relevance).
+ */
+export async function searchMessagesByParticipant(
+  accessToken: string,
+  email: string,
+  query?: string,
+  max = 25,
+): Promise<OutlookMessage[]> {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) return [];
+
+  // KQL: participants covers from/to/cc. Escape double quotes defensively.
+  const safe = (s: string) => s.replace(/"/g, "");
+  const q = query?.trim();
+  const kql = q
+    ? `participants:${safe(trimmed)} AND "${safe(q)}"`
+    : `participants:${safe(trimmed)}`;
+
+  const params = new URLSearchParams({
+    $select:
+      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,webLink,conversationId",
+    $top: String(Math.min(Math.max(max, 1), 50)),
+    $search: `"${kql}"`,
+  });
+
+  const res = await fetch(`${GRAPH}/me/messages?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ConsistencyLevel: "eventual",
+    },
+  }).catch(() => null);
+
+  if (!res || !res.ok) {
+    console.error("[outlook] search messages failed:", res?.status);
+    return [];
+  }
+
+  const payload = (await res.json().catch(() => null)) as {
+    value?: GraphMessage[];
+  } | null;
+
+  const messages = (payload?.value ?? []).flatMap((m) => {
+    if (!m.id) return [];
+    return [
+      {
+        id: m.id,
+        subject: m.subject?.trim() || "(sans objet)",
+        fromName: m.from?.emailAddress?.name?.trim() || "",
+        fromEmail: m.from?.emailAddress?.address?.trim().toLowerCase() || "",
+        receivedDateTime: m.receivedDateTime ?? "",
+        bodyPreview: (m.bodyPreview ?? "").slice(0, 800),
+        hasAttachments: Boolean(m.hasAttachments),
+        webLink: m.webLink ?? "",
+        conversationId: m.conversationId ?? "",
+        recipients: recipientAddresses(m),
+      },
+    ];
+  });
+
+  // $search returns by relevance; present newest first for a mailbox feel.
+  return messages.sort((a, b) =>
+    (b.receivedDateTime ?? "").localeCompare(a.receivedDateTime ?? ""),
+  );
 }
 
 export type OutlookAttachmentMeta = {

@@ -3,15 +3,36 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { Loader2, Search } from "lucide-react";
+import { FileText, Loader2, ScrollText, Search, Users } from "lucide-react";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
+
+type SearchType = "client" | "contract" | "document";
 
 type SearchResult = {
   id: string;
+  type: SearchType;
   href: string;
   title: string;
   subtitle: string;
-  status: string;
+  status?: string;
+};
+
+const typeMeta: Record<
+  SearchType,
+  { label: string; icon: React.ReactNode }
+> = {
+  client: {
+    label: "Dossier",
+    icon: <Users className="size-3.5" strokeWidth={1.75} />,
+  },
+  contract: {
+    label: "Contrat",
+    icon: <ScrollText className="size-3.5" strokeWidth={1.75} />,
+  },
+  document: {
+    label: "Document",
+    icon: <FileText className="size-3.5" strokeWidth={1.75} />,
+  },
 };
 
 export function CourtierTopbarSearch({ placeholder }: { placeholder: string }) {
@@ -177,6 +198,16 @@ export function CourtierTopbarSearch({ placeholder }: { placeholder: string }) {
                           : "transparent",
                       }}
                     >
+                      <span
+                        className="flex size-8 shrink-0 items-center justify-center rounded-md"
+                        style={{
+                          background: "var(--brand-navy-50)",
+                          color: "var(--brand-navy-700)",
+                          border: "1px solid var(--border-1)",
+                        }}
+                      >
+                        {typeMeta[result.type]?.icon}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
                           {result.title}
@@ -185,7 +216,16 @@ export function CourtierTopbarSearch({ placeholder }: { placeholder: string }) {
                           {result.subtitle}
                         </p>
                       </div>
-                      <BrokerStatusBadge status={result.status} showDot={false} />
+                      {result.type === "client" && result.status ? (
+                        <BrokerStatusBadge
+                          status={result.status}
+                          showDot={false}
+                        />
+                      ) : (
+                        <span className="shrink-0 text-[10.5px] font-medium uppercase tracking-[0.06em] text-[var(--fg-4)]">
+                          {typeMeta[result.type]?.label}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );

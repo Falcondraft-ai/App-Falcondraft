@@ -7,6 +7,11 @@ import {
   type AgentToolContext,
 } from "@/lib/broker/agent-tools";
 import { requireBrokerApiContext } from "@/lib/broker/server";
+import { hasProposalAutomation } from "@/lib/billing/entitlements";
+
+// Tools that only make sense for the SaaS broker offering (commissions &
+// sinistres modules). The bespoke broker never sees them.
+const SAAS_ONLY_TOOLS = new Set(["get_commission_summary", "get_open_claims"]);
 
 // OpenAI agentic model for the assistant (function calling + streaming).
 // Configurable via env so the model/cost can be tuned without a code change.
@@ -26,6 +31,18 @@ const schema = z.object({
     )
     .min(1)
     .max(40),
+  attachments: z
+    .array(
+      z.object({
+        uploadId: z.string().min(1).max(100),
+        storagePath: z.string().min(1).max(400),
+        fileName: z.string().min(1).max(300),
+        mimeType: z.string().min(1).max(150),
+        sizeBytes: z.number().int().nonnegative(),
+      }),
+    )
+    .max(5)
+    .optional(),
 });
 
 function jsonError(message: string, status: number, reason: string) {
@@ -55,9 +72,11 @@ function buildSystemPrompt(organizationName: string, userName: string): string {
     `- Si la demande est ambiguë, pose UNE question de clarification brève plutôt que de supposer.`,
     ``,
     `ACTIONS`,
-    `- Tu peux créer un dossier, changer un statut, ou générer un brouillon de devoir de conseil — UNIQUEMENT si l'utilisateur le demande clairement.`,
-    `- Tu peux consulter la boîte Outlook : lister les emails récents, lire un email, et préparer un BROUILLON de réponse (jamais d'envoi automatique — le courtier relit et envoie). Avant de rédiger une réponse, lis l'email concerné.`,
-    `- Avant une action qui modifie des données, assure-toi d'avoir les informations nécessaires ; sinon demande-les.`,
+    `- Tu peux créer un dossier, mettre à jour ses informations (update_client), changer un statut, générer un devoir de conseil, ranger une pièce jointe d'email dans un dossier (attach_email_attachment_to_client), et lister les contrats d'un dossier — UNIQUEMENT si l'utilisateur le demande clairement.`,
+    `- Reconnaître un client connu : devant un email, utilise find_client_by_email pour vérifier s'il s'agit d'un dossier existant AVANT de proposer d'en créer un. Si le client existe, propose plutôt de mettre à jour son dossier ou d'y ranger les pièces.`,
+    `- Tu peux consulter la boîte Outlook : lister les emails récents, lire un email, lister ses pièces jointes (list_email_attachments), et préparer un BROUILLON de réponse (jamais d'envoi automatique — le courtier relit et envoie). Avant de rédiger une réponse, lis l'email concerné.`,
+    `- Si l'utilisateur joint un fichier au message (ex. un PDF) et demande de le ranger, utilise attach_uploaded_file_to_client avec l'upload_id indiqué à côté du fichier et le bon client_id. Si le dossier n'est pas évident, demande-lui de préciser lequel avant de ranger.`,
+    `- Avant une action qui modifie des données, assure-toi d'avoir les informations nécessaires ; sinon demande-les. Pour ranger une pièce jointe, liste d'abord les pièces de l'email pour obtenir l'attachment_id.`,
     `- Après une action, confirme en une phrase ce qui a été fait et donne le lien.`,
     ``,
     `STYLE`,
@@ -164,27 +183,59 @@ export async function POST(request: NextRequest) {
   }
 
   const canWrite = canCreateWorkspaceRecords(auth.context.membership?.role);
+
+  // Files attached to this turn (staged via /agent/upload), exposed to the tool
+  // that files them into a dossier.
+  const attachments = parsed.data.attachments ?? [];
+  const pendingUploads = new Map(
+    attachments.map((a) => [
+      a.uploadId,
+      {
+        storagePath: a.storagePath,
+        fileName: a.fileName,
+        mimeType: a.mimeType,
+        sizeBytes: a.sizeBytes,
+      },
+    ]),
+  );
+
   const toolCtx: AgentToolContext = {
     adminSupabase,
     organization,
     userId,
     canWrite,
+    pendingUploads,
   };
 
-  const openaiTools = agentToolDefinitions.map((t) => ({
-    type: "function" as const,
-    function: {
-      name: t.name,
-      description: t.description,
-      parameters: t.input_schema,
-    },
-  }));
+  const includeSaasTools = hasProposalAutomation(organization);
+  const openaiTools = agentToolDefinitions
+    .filter((t) => includeSaasTools || !SAAS_ONLY_TOOLS.has(t.name))
+    .map((t) => ({
+      type: "function" as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.input_schema,
+      },
+    }));
 
   // OpenAI Chat Completions takes the system prompt as the first message.
   const messages: Record<string, unknown>[] = [
     { role: "system", content: buildSystemPrompt(organization.name, userName) },
     ...parsed.data.messages.map((m) => ({ role: m.role, content: m.content })),
   ];
+
+  // Surface attached files (and their upload_id) to the model on the last turn.
+  if (attachments.length > 0) {
+    const note =
+      "\n\n[Pièces jointes fournies dans ce message :\n" +
+      attachments
+        .map((a) => `- ${a.fileName} (${a.mimeType}) — upload_id: ${a.uploadId}`)
+        .join("\n") +
+      "\nPour ranger l'une d'elles dans un dossier, appelle attach_uploaded_file_to_client avec son upload_id.]";
+    const last = messages[messages.length - 1];
+    last.content = `${String(last.content ?? "")}${note}`;
+  }
 
   const encoder = new TextEncoder();
 

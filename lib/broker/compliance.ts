@@ -131,27 +131,60 @@ export const complianceLevelTone: Record<
 // Cabinet-level "fiche d'information" (DDA) — stored on broker_settings.compliance
 // ---------------------------------------------------------------------------
 export type CabinetComplianceInfo = {
+  // Identité
   legalName: string;
   legalForm: string;
+  capital: string;
   siren: string;
+  rcsCity: string;
+  address: string;
+  email: string;
+  phone: string;
+  website: string;
+  manager: string;
+  /** Chemin/URL du logo cabinet (asset public ou Storage). Non éditable ici. */
+  logoUrl: string;
+  // Immatriculation & garanties
   oriasNumber: string;
   oriasCategories: string;
-  address: string;
+  adviceScope: string;
+  financialLinks: string;
+  remuneration: string;
   rcpInsurer: string;
+  rcpInsurerAddress: string;
   rcpReference: string;
   financialGuarantee: string;
   acprStatement: string;
+  // Réclamation & médiation
+  claimsAddress: string;
+  claimsEmail: string;
+  claimsDelay: string;
   mediatorName: string;
+  mediatorAddress: string;
+  mediatorEmail: string;
   mediatorUrl: string;
+  // RGPD
+  /** "none" | "external" | "internal" */
+  dpoMode: string;
+  dpoContact: string;
 };
+
+export type CabinetFieldGroup =
+  | "identity"
+  | "regulatory"
+  | "recourse"
+  | "rgpd";
 
 export const cabinetComplianceFields: {
   key: keyof CabinetComplianceInfo;
   label: string;
   placeholder: string;
-  group: "identity" | "regulatory" | "mediation";
+  group: CabinetFieldGroup;
   multiline?: boolean;
+  type?: "text" | "textarea" | "select";
+  options?: { value: string; label: string }[];
 }[] = [
+  // --- Identité ---
   {
     key: "legalName",
     label: "Dénomination du cabinet",
@@ -165,17 +198,54 @@ export const cabinetComplianceFields: {
     group: "identity",
   },
   {
+    key: "capital",
+    label: "Capital social",
+    placeholder: "Ex. 1 000 €",
+    group: "identity",
+  },
+  {
     key: "siren",
-    label: "SIREN",
-    placeholder: "Ex. 812 345 678",
+    label: "SIREN / SIRET",
+    placeholder: "Ex. 812 345 678 00013",
+    group: "identity",
+  },
+  {
+    key: "rcsCity",
+    label: "Ville du RCS",
+    placeholder: "Ex. Nice",
     group: "identity",
   },
   {
     key: "address",
-    label: "Adresse du cabinet",
+    label: "Adresse du siège",
     placeholder: "12 rue des Lilas, 75011 Paris",
     group: "identity",
   },
+  {
+    key: "email",
+    label: "Email de contact",
+    placeholder: "contact@cabinet.fr",
+    group: "identity",
+  },
+  {
+    key: "phone",
+    label: "Téléphone",
+    placeholder: "01 23 45 67 89",
+    group: "identity",
+  },
+  {
+    key: "website",
+    label: "Site web",
+    placeholder: "www.cabinet.fr",
+    group: "identity",
+  },
+  {
+    key: "manager",
+    label: "Représentant légal / gérant",
+    placeholder: "Ex. Prénom Nom",
+    group: "identity",
+  },
+  // --- Immatriculation & garanties ---
   {
     key: "oriasNumber",
     label: "N° ORIAS",
@@ -184,47 +254,129 @@ export const cabinetComplianceFields: {
   },
   {
     key: "oriasCategories",
-    label: "Catégories d’immatriculation ORIAS",
-    placeholder: "Ex. Courtier en assurance (COA)",
+    label: "Catégorie d’immatriculation ORIAS",
+    placeholder: "Ex. Courtier d’assurance (catégorie B)",
     group: "regulatory",
+  },
+  {
+    key: "adviceScope",
+    label: "Modalités d’exercice / base du conseil",
+    placeholder:
+      "Ex. Exerce selon l’article L.521-2 II b) du Code des assurances ; analyse fondée sur un nombre restreint de contrats.",
+    group: "regulatory",
+    multiline: true,
+  },
+  {
+    key: "financialLinks",
+    label: "Liens financiers avec les compagnies",
+    placeholder:
+      "Ex. Aucune compagnie ne détient plus de 10 % du cabinet ; le cabinet ne détient pas plus de 10 % d’une compagnie (Néant).",
+    group: "regulatory",
+    multiline: true,
+  },
+  {
+    key: "remuneration",
+    label: "Mode de rémunération",
+    placeholder:
+      "Ex. Honoraires payés par le client, commissions incluses dans la prime…",
+    group: "regulatory",
+    multiline: true,
   },
   {
     key: "rcpInsurer",
     label: "Assureur responsabilité civile professionnelle (RCP)",
-    placeholder: "Ex. MMA",
+    placeholder: "Ex. CGPA",
+    group: "regulatory",
+  },
+  {
+    key: "rcpInsurerAddress",
+    label: "Adresse de l’assureur RCP",
+    placeholder: "Ex. 125 rue de la Faisanderie, 75116 Paris",
     group: "regulatory",
   },
   {
     key: "rcpReference",
-    label: "Référence du contrat RCP",
-    placeholder: "N° de police RCP",
+    label: "N° de police RCP",
+    placeholder: "Ex. RCP00000",
     group: "regulatory",
   },
   {
     key: "financialGuarantee",
     label: "Garantie financière",
-    placeholder: "Établissement et montant",
+    placeholder: "Ex. Police GFI00000",
     group: "regulatory",
   },
   {
     key: "acprStatement",
     label: "Autorité de contrôle (ACPR)",
     placeholder:
-      "Immatriculé auprès de l’ACPR — 4 place de Budapest, 75009 Paris",
+      "Sous le contrôle de l’ACPR — 4 place de Budapest, CS 92459, 75436 Paris Cedex 09",
     group: "regulatory",
     multiline: true,
+  },
+  // --- Réclamation & médiation ---
+  {
+    key: "claimsAddress",
+    label: "Adresse du service réclamation",
+    placeholder: "Service Réclamation, 12 rue des Lilas, 75011 Paris",
+    group: "recourse",
+    multiline: true,
+  },
+  {
+    key: "claimsEmail",
+    label: "Email réclamation",
+    placeholder: "reclamation@cabinet.fr",
+    group: "recourse",
+  },
+  {
+    key: "claimsDelay",
+    label: "Délai de traitement des réclamations",
+    placeholder: "Ex. 1 mois",
+    group: "recourse",
   },
   {
     key: "mediatorName",
     label: "Médiateur de l’assurance",
     placeholder: "Ex. La Médiation de l’Assurance",
-    group: "mediation",
+    group: "recourse",
+  },
+  {
+    key: "mediatorAddress",
+    label: "Adresse du médiateur",
+    placeholder: "Pôle CSCA, TSA 50110, 75441 Paris CEDEX 09",
+    group: "recourse",
+    multiline: true,
+  },
+  {
+    key: "mediatorEmail",
+    label: "Email du médiateur",
+    placeholder: "le.mediateur@mediation-assurance.org",
+    group: "recourse",
   },
   {
     key: "mediatorUrl",
     label: "Site du médiateur",
     placeholder: "https://www.mediation-assurance.org",
-    group: "mediation",
+    group: "recourse",
+  },
+  // --- RGPD ---
+  {
+    key: "dpoMode",
+    label: "Délégué à la protection des données (DPO)",
+    placeholder: "",
+    group: "rgpd",
+    type: "select",
+    options: [
+      { value: "none", label: "Aucun DPO désigné" },
+      { value: "external", label: "DPO externe" },
+      { value: "internal", label: "DPO interne" },
+    ],
+  },
+  {
+    key: "dpoContact",
+    label: "Coordonnées du DPO (si applicable)",
+    placeholder: "Nom + email du délégué",
+    group: "rgpd",
   },
 ];
 
@@ -232,16 +384,34 @@ export function emptyCabinetComplianceInfo(): CabinetComplianceInfo {
   return {
     legalName: "",
     legalForm: "",
+    capital: "",
     siren: "",
+    rcsCity: "",
+    address: "",
+    email: "",
+    phone: "",
+    website: "",
+    manager: "",
+    logoUrl: "",
     oriasNumber: "",
     oriasCategories: "",
-    address: "",
+    adviceScope: "",
+    financialLinks: "",
+    remuneration: "",
     rcpInsurer: "",
+    rcpInsurerAddress: "",
     rcpReference: "",
     financialGuarantee: "",
     acprStatement: "",
+    claimsAddress: "",
+    claimsEmail: "",
+    claimsDelay: "",
     mediatorName: "",
+    mediatorAddress: "",
+    mediatorEmail: "",
     mediatorUrl: "",
+    dpoMode: "none",
+    dpoContact: "",
   };
 }
 

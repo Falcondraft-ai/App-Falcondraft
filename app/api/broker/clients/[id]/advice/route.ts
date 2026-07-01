@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
-import { buildAdviceTemplate } from "@/lib/broker/advice";
-import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
-import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
+import { buildAdviceJustificationDraft } from "@/lib/broker/advice-document";
+import {
+  advanceClientStatus,
+  logBrokerActivity,
+  requireBrokerApiContext,
+} from "@/lib/broker/server";
+import type { BrokerQuoteRow } from "@/types/database";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
 
   const content =
     values.mode === "template"
-      ? buildAdviceTemplate(client as BrokerClientRow, quote)
+      ? buildAdviceJustificationDraft()
       : "";
 
   const now = new Date().toISOString();
@@ -115,6 +119,14 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
         : "Devoir de conseil créé (vierge).",
     metadata: { advice_id: advice.id },
   });
+
+  // A devoir de conseil exists → the dossier is actively being worked on.
+  await advanceClientStatus(
+    auth.adminSupabase,
+    auth.organizationId,
+    clientId,
+    "in_progress",
+  );
 
   return NextResponse.json({ success: true, adviceId: advice.id });
 }

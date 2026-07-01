@@ -6,18 +6,40 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   FilePlus2,
   FileSignature,
+  FileText,
   ListChecks,
+  Loader2,
   Mail,
   Maximize2,
   Minimize2,
+  Paperclip,
   RotateCcw,
   Send,
   Sparkle,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
+import { documentUploadAccept } from "@/lib/broker/documents";
 import { cn } from "@/lib/utils";
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+type MessageAttachment = { fileName: string };
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  attachments?: MessageAttachment[];
+};
+
+/** A file staged for the next message via /api/courtier/agent/upload. */
+type PendingAttachment = {
+  tempId: string;
+  fileName: string;
+  status: "uploading" | "ready" | "error";
+  uploadId?: string;
+  storagePath?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+};
 
 type Capability = {
   icon: React.ReactNode;
@@ -111,7 +133,66 @@ export function AgentChat() {
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [historyLoaded, setHistoryLoaded] = React.useState(false);
+  const [attachments, setAttachments] = React.useState<PendingAttachment[]>([]);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const uploading = attachments.some((a) => a.status === "uploading");
+
+  async function uploadFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      const tempId = crypto.randomUUID();
+      setAttachments((cur) => [
+        ...cur,
+        { tempId, fileName: file.name, status: "uploading" },
+      ]);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/courtier/agent/upload", {
+          method: "POST",
+          body: form,
+        }).catch(() => null);
+        const data = (await res?.json().catch(() => null)) as
+          | {
+              success?: boolean;
+              uploadId?: string;
+              storagePath?: string;
+              mimeType?: string;
+              sizeBytes?: number;
+              message?: string;
+            }
+          | null;
+        if (!res?.ok || !data?.success || !data.uploadId) {
+          toast.error(data?.message ?? "Envoi du fichier impossible.");
+          setAttachments((cur) => cur.filter((a) => a.tempId !== tempId));
+          continue;
+        }
+        setAttachments((cur) =>
+          cur.map((a) =>
+            a.tempId === tempId
+              ? {
+                  ...a,
+                  status: "ready",
+                  uploadId: data.uploadId,
+                  storagePath: data.storagePath,
+                  mimeType: data.mimeType,
+                  sizeBytes: data.sizeBytes,
+                }
+              : a,
+          ),
+        );
+      } catch {
+        toast.error("Envoi du fichier impossible.");
+        setAttachments((cur) => cur.filter((a) => a.tempId !== tempId));
+      }
+    }
+  }
+
+  function removeAttachment(tempId: string) {
+    setAttachments((cur) => cur.filter((a) => a.tempId !== tempId));
+  }
 
   React.useEffect(() => {
     if (open && scrollRef.current) {
@@ -145,18 +226,46 @@ export function AgentChat() {
   }, [open, historyLoaded]);
 
   async function send(text: string) {
+    if (loading || uploading) return;
+    const ready = attachments.filter((a) => a.status === "ready");
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
-    const next = [...messages, { role: "user" as const, content: trimmed }];
+    // Allow sending with only an attachment (default the ask).
+    const content =
+      trimmed ||
+      (ready.length
+        ? "Range cette pièce jointe dans le bon dossier."
+        : "");
+    if (!content) return;
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      content,
+      attachments: ready.length
+        ? ready.map((a) => ({ fileName: a.fileName }))
+        : undefined,
+    };
+    const next = [...messages, userMessage];
     setMessages(next);
     setInput("");
+    setAttachments([]);
     setLoading(true);
     let started = false;
     try {
       const res = await fetch("/api/courtier/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next.slice(-20) }),
+        body: JSON.stringify({
+          messages: next
+            .slice(-20)
+            .map((m) => ({ role: m.role, content: m.content })),
+          attachments: ready.map((a) => ({
+            uploadId: a.uploadId,
+            storagePath: a.storagePath,
+            fileName: a.fileName,
+            mimeType: a.mimeType,
+            sizeBytes: a.sizeBytes,
+          })),
+        }),
       });
       const reader = res.body?.getReader();
       if (!reader) throw new Error("no stream");
@@ -385,6 +494,20 @@ export function AgentChat() {
                     }
                   >
                     {m.role === "assistant" ? renderContent(body) : body}
+                    {m.role === "user" && m.attachments?.length ? (
+                      <div className="mt-2 flex flex-col gap-1.5">
+                        {m.attachments.map((a, ai) => (
+                          <span
+                            key={ai}
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11.5px]"
+                            style={{ background: "rgba(255,255,255,.14)" }}
+                          >
+                            <FileText className="size-3.5 shrink-0" strokeWidth={1.75} />
+                            <span className="truncate">{a.fileName}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </motion.div>
               );
@@ -463,6 +586,52 @@ export function AgentChat() {
           ) : null}
         </AnimatePresence>
 
+        {attachments.length > 0 ? (
+          <div className="mx-auto mb-2 flex max-w-[680px] flex-wrap gap-1.5">
+            {attachments.map((a) => (
+              <span
+                key={a.tempId}
+                className="inline-flex max-w-[220px] items-center gap-1.5 rounded-lg border px-2 py-1 text-[12px]"
+                style={{
+                  borderColor: "var(--border-1)",
+                  background: "var(--bg-surface)",
+                  color: "var(--fg-2)",
+                }}
+              >
+                {a.status === "uploading" ? (
+                  <Loader2 className="size-3.5 shrink-0 animate-spin" strokeWidth={2} />
+                ) : (
+                  <FileText
+                    className="size-3.5 shrink-0 text-[var(--brand-navy-700)]"
+                    strokeWidth={1.75}
+                  />
+                )}
+                <span className="truncate">{a.fileName}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(a.tempId)}
+                  aria-label="Retirer le fichier"
+                  className="shrink-0 rounded p-0.5 text-[var(--fg-4)] transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--fg-1)]"
+                >
+                  <X className="size-3" strokeWidth={2.25} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={documentUploadAccept}
+          className="hidden"
+          onChange={(e) => {
+            void uploadFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -470,6 +639,17 @@ export function AgentChat() {
           }}
           className="mx-auto flex max-w-[680px] items-end gap-2"
         >
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            aria-label="Joindre un fichier"
+            title="Joindre un fichier"
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl border transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
+            style={{ borderColor: "var(--border-1)", color: "var(--fg-2)" }}
+          >
+            <Paperclip className="size-4" strokeWidth={1.75} />
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -486,7 +666,12 @@ export function AgentChat() {
           />
           <motion.button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={
+              loading ||
+              uploading ||
+              (!input.trim() &&
+                !attachments.some((a) => a.status === "ready"))
+            }
             aria-label="Envoyer"
             whileTap={{ scale: 0.92 }}
             className="flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-50"

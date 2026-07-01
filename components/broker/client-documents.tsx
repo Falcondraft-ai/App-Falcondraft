@@ -25,6 +25,17 @@ import {
   documentUploadAccept,
   type BrokerDocumentCategory,
 } from "@/lib/broker/documents";
+
+// Categories that already have a dedicated section in the dossier — excluded
+// from the generic document uploader to avoid duplication.
+const DEDICATED_CATEGORIES: BrokerDocumentCategory[] = [
+  "contract",
+  "company_quote",
+  "advice_document",
+];
+const uploadableCategories = brokerDocumentCategories.filter(
+  (c) => !DEDICATED_CATEGORIES.includes(c),
+);
 import { formatBytes } from "@/lib/broker/storage";
 import { uploadBrokerDocument } from "@/lib/broker/upload-client";
 import { formatDate } from "@/lib/format";
@@ -45,7 +56,7 @@ export function ClientDocuments({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [documents, setDocuments] = React.useState(initialDocuments);
   const [category, setCategory] =
-    React.useState<BrokerDocumentCategory>("contract");
+    React.useState<BrokerDocumentCategory>("id_document");
   const [uploading, setUploading] = React.useState(false);
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
     null,
@@ -141,7 +152,7 @@ export function ClientDocuments({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {brokerDocumentCategories.map((cat) => (
+              {uploadableCategories.map((cat) => (
                 <SelectItem key={cat} value={cat}>
                   {brokerDocumentCategoryLabels[cat]}
                 </SelectItem>

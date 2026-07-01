@@ -58,6 +58,7 @@ export type BrokerClientRow = {
   address: string | null;
   postal_code: string | null;
   city: string | null;
+  date_of_birth: string | null;
   insurance_type: string | null;
   status:
     | "new"
@@ -153,6 +154,8 @@ export type BrokerQuoteRow = {
   currency: string;
   coverage_summary: string | null;
   deductible: string | null;
+  vigilance_points: string | null;
+  other_info: string | null;
   notes: string | null;
   extracted_data: Record<string, unknown>;
   extraction_status: "pending" | "extracted" | "validated" | "failed" | string;
@@ -343,6 +346,7 @@ export type BrokerEmailItemRow = {
   subject: string | null;
   received_at: string | null;
   web_link: string | null;
+  mailbox_address: string | null;
   category: string | null;
   summary: string | null;
   urgency: "normal" | "high" | string;
@@ -1310,6 +1314,7 @@ export type Database = {
           address?: string | null;
           postal_code?: string | null;
           city?: string | null;
+          date_of_birth?: string | null;
           insurance_type?: string | null;
           status?: string;
           needs?: string | null;
@@ -1331,6 +1336,7 @@ export type Database = {
           address?: string | null;
           postal_code?: string | null;
           city?: string | null;
+          date_of_birth?: string | null;
           insurance_type?: string | null;
           status?: string;
           needs?: string | null;
@@ -1423,6 +1429,8 @@ export type Database = {
           currency?: string;
           coverage_summary?: string | null;
           deductible?: string | null;
+          vigilance_points?: string | null;
+          other_info?: string | null;
           notes?: string | null;
           extracted_data?: Record<string, unknown>;
           extraction_status?: string;
@@ -1441,6 +1449,8 @@ export type Database = {
           currency?: string;
           coverage_summary?: string | null;
           deductible?: string | null;
+          vigilance_points?: string | null;
+          other_info?: string | null;
           notes?: string | null;
           extracted_data?: Record<string, unknown>;
           extraction_status?: string;
@@ -1639,6 +1649,7 @@ export type Database = {
           subject?: string | null;
           received_at?: string | null;
           web_link?: string | null;
+          mailbox_address?: string | null;
           category?: string | null;
           summary?: string | null;
           urgency?: string;
@@ -1657,6 +1668,7 @@ export type Database = {
           relevance?: string;
           exclusion_reason?: string | null;
           suggested_client_id?: string | null;
+          mailbox_address?: string | null;
           status?: string;
           updated_at?: string;
         }

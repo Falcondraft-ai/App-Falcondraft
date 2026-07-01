@@ -1,16 +1,9 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  FileBadge,
-  HardDrive,
-  Mail,
-  Users,
-} from "lucide-react";
+import { ArrowRight, HardDrive, Mail, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { getTeamMembersForOrganization } from "@/lib/data/supabase-app-data";
 import { getOutlookConnectionForUser } from "@/lib/email/connections";
-import { parseBrokerSettings } from "@/lib/broker/settings";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +64,6 @@ export default async function CourtierGeneralSettingsPage() {
     }),
   ]);
   const usage = computeStorageUsage(organization);
-  const settings = parseBrokerSettings(organization);
 
   return (
     <div className="space-y-5">
@@ -90,13 +82,6 @@ export default async function CourtierGeneralSettingsPage() {
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <ShortcutCard
-          href="/courtier/settings/contrats"
-          icon={<FileBadge className="size-5" strokeWidth={1.75} />}
-          title="Types de contrat"
-          value={`${settings.enabledBranches.length} branche${settings.enabledBranches.length > 1 ? "s" : ""}`}
-          hint="Branches et compagnies partenaires"
-        />
         <ShortcutCard
           href="/courtier/settings/equipe"
           icon={<Users className="size-5" strokeWidth={1.75} />}

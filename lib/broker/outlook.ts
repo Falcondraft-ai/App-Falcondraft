@@ -55,6 +55,7 @@ export const suggestionTypes = [
   "attach_document",
   "draft_reply",
   "create_client",
+  "update_client",
   "declare_claim",
   "flag_renewal",
 ] as const;
@@ -65,6 +66,7 @@ export const suggestionTypeLabels: Record<SuggestionType, string> = {
   attach_document: "Rattacher la pièce jointe",
   draft_reply: "Préparer un brouillon de réponse",
   create_client: "Créer le dossier client",
+  update_client: "Mettre à jour le dossier",
   declare_claim: "Pré-remplir une déclaration de sinistre",
   flag_renewal: "Signaler l’échéance",
 };
@@ -74,8 +76,19 @@ export const suggestionAcceptLabels: Record<SuggestionType, string> = {
   attach_document: "Rattacher",
   draft_reply: "Créer le brouillon",
   create_client: "Créer le dossier",
+  update_client: "Mettre à jour",
   declare_claim: "Créer le sinistre",
   flag_renewal: "Noter",
+};
+
+/** Human label for a client field referenced by an update_client suggestion. */
+const updateFieldLabels: Record<string, string> = {
+  email: "email",
+  phone: "téléphone",
+  address: "adresse",
+  postal_code: "code postal",
+  city: "ville",
+  date_of_birth: "date de naissance",
 };
 
 export function isSuggestionType(value: string): value is SuggestionType {
@@ -107,6 +120,93 @@ export function normalizeAttachmentCategory(
 ): AttachmentDocCategory {
   if (value && isAttachmentDocCategory(value)) return value;
   return "other";
+}
+
+// ---------------------------------------------------------------------------
+// Suggestion description (shared by the Outlook digest and the dashboard queue)
+// ---------------------------------------------------------------------------
+function pstr(payload: Record<string, unknown>, key: string): string | null {
+  const v = payload[key];
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+/** Human sentence describing what accepting a suggestion will do. */
+export function describeSuggestion(
+  type: string,
+  payload: Record<string, unknown> | null | undefined,
+  clientName: string | null,
+): string {
+  const p = payload ?? {};
+  switch (type) {
+    case "attach_document": {
+      const file = pstr(p, "file_name") ?? "pièce jointe";
+      return clientName
+        ? `Ranger « ${file} » dans le dossier ${clientName}`
+        : `Ranger « ${file} » (choisir un dossier)`;
+    }
+    case "draft_reply":
+      return pstr(p, "subject")
+        ? `Brouillon de réponse — « ${pstr(p, "subject")} »`
+        : "Préparer un brouillon de réponse";
+    case "create_client": {
+      const name =
+        pstr(p, "company_name") ||
+        [pstr(p, "first_name"), pstr(p, "last_name")]
+          .filter(Boolean)
+          .join(" ") ||
+        pstr(p, "email") ||
+        "ce prospect";
+      return `Créer le dossier client pour ${name}`;
+    }
+    case "update_client": {
+      const fields = Object.keys(p)
+        .filter((k) => k !== "client_id" && updateFieldLabels[k])
+        .map((k) => updateFieldLabels[k]);
+      const who = clientName ? `le dossier ${clientName}` : "le dossier client";
+      return fields.length
+        ? `Mettre à jour ${who} : ${fields.join(", ")}`
+        : `Mettre à jour ${who}`;
+    }
+    case "declare_claim":
+      return pstr(p, "claim_type")
+        ? `Pré-remplir un sinistre — ${pstr(p, "claim_type")}`
+        : "Pré-remplir une déclaration de sinistre";
+    case "flag_renewal":
+      return pstr(p, "note") ?? "Signaler l’échéance mentionnée";
+    default:
+      return suggestionTypeLabels[type as SuggestionType] ?? "Action";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Multi-adresse — couleurs par adresse de réception
+// ---------------------------------------------------------------------------
+/**
+ * Palette catégorielle pour distinguer visuellement les adresses SMTP regroupées
+ * dans une même boîte. Couleurs dédiées au codage par donnée (pas de token CSS
+ * sémantique pour « adresse n°N ») — chaque adresse reçoit une teinte stable.
+ */
+export type MailboxColor = { dot: string; soft: string; fg: string; border: string };
+
+const MAILBOX_PALETTE: MailboxColor[] = [
+  { dot: "#2563EB", soft: "#EFF4FF", fg: "#1E40AF", border: "rgba(37,99,235,0.22)" },
+  { dot: "#16A34A", soft: "#F0FDF4", fg: "#15803D", border: "rgba(22,163,74,0.22)" },
+  { dot: "#B8922A", soft: "#FDF7E8", fg: "#7A5E10", border: "rgba(184,146,42,0.25)" },
+  { dot: "#9333EA", soft: "#F6F0FF", fg: "#6D28D9", border: "rgba(147,51,234,0.22)" },
+  { dot: "#DC2626", soft: "#FEF2F2", fg: "#B91C1C", border: "rgba(220,38,38,0.22)" },
+  { dot: "#0891B2", soft: "#ECFEFF", fg: "#0E7490", border: "rgba(8,145,178,0.22)" },
+  { dot: "#EA580C", soft: "#FFF5ED", fg: "#C2410C", border: "rgba(234,88,12,0.22)" },
+  { dot: "#DB2777", soft: "#FDF2F8", fg: "#BE185D", border: "rgba(219,39,119,0.22)" },
+];
+
+/** Stable color for a mailbox address (deterministic hash → palette index). */
+export function mailboxAddressColor(address: string): MailboxColor {
+  let hash = 0;
+  const key = address.trim().toLowerCase();
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return MAILBOX_PALETTE[hash % MAILBOX_PALETTE.length];
 }
 
 // ---------------------------------------------------------------------------

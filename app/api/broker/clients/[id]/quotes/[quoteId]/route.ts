@@ -17,6 +17,8 @@ const schema = z.object({
   currency: z.string().trim().max(8).optional(),
   coverageSummary: z.string().trim().max(5000).optional().nullable(),
   deductible: z.string().trim().max(255).optional().nullable(),
+  vigilancePoints: z.string().trim().max(5000).optional().nullable(),
+  otherInfo: z.string().trim().max(5000).optional().nullable(),
   notes: z.string().trim().max(5000).optional().nullable(),
   validate: z.boolean().optional(),
 });
@@ -79,6 +81,10 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
     update.coverage_summary = trimmedOrNull(values.coverageSummary);
   if (values.deductible !== undefined)
     update.deductible = trimmedOrNull(values.deductible);
+  if (values.vigilancePoints !== undefined)
+    update.vigilance_points = trimmedOrNull(values.vigilancePoints);
+  if (values.otherInfo !== undefined)
+    update.other_info = trimmedOrNull(values.otherInfo);
   if (values.notes !== undefined) update.notes = trimmedOrNull(values.notes);
 
   if (values.validate) {

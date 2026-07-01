@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
-import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
+import {
+  advanceClientStatus,
+  logBrokerActivity,
+  requireBrokerApiContext,
+} from "@/lib/broker/server";
 import type { Database } from "@/types/database";
 
 type BrokerAdviceUpdate =
@@ -81,6 +85,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       description: "Devoir de conseil validé.",
       metadata: { advice_id: adviceId },
     });
+    // Validated devoir de conseil → dossier ready for signature.
+    await advanceClientStatus(
+      auth.adminSupabase,
+      auth.organizationId,
+      clientId,
+      "advice_ready",
+    );
   }
 
   return NextResponse.json({ success: true });

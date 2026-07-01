@@ -12,10 +12,11 @@ import {
   cabinetComplianceFields,
   isCabinetComplianceComplete,
   type CabinetComplianceInfo,
+  type CabinetFieldGroup,
 } from "@/lib/broker/compliance";
 
 const groups: {
-  key: "identity" | "regulatory" | "mediation";
+  key: CabinetFieldGroup;
   title: string;
   description: string;
 }[] = [
@@ -28,12 +29,19 @@ const groups: {
     key: "regulatory",
     title: "Immatriculation & garanties",
     description:
-      "Immatriculation ORIAS, responsabilité civile professionnelle et autorité de contrôle.",
+      "Immatriculation ORIAS, rémunération, responsabilité civile professionnelle et autorité de contrôle.",
   },
   {
-    key: "mediation",
-    title: "Médiation",
-    description: "Le médiateur compétent en cas de litige avec un client.",
+    key: "recourse",
+    title: "Réclamation & médiation",
+    description:
+      "Le service réclamation du cabinet et le médiateur compétent en cas de litige.",
+  },
+  {
+    key: "rgpd",
+    title: "Protection des données (RGPD)",
+    description:
+      "Délégué à la protection des données, repris dans le devoir de conseil.",
   },
 ];
 
@@ -212,13 +220,32 @@ export function ComplianceSettingsForm({
         >
           {cabinetComplianceFields
             .filter((field) => field.group === group.key)
+            .filter(
+              (field) =>
+                !(field.key === "dpoContact" && form.dpoMode === "none"),
+            )
             .map((field) => (
               <div
                 key={field.key}
                 className={field.multiline ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}
               >
                 <Label htmlFor={`cc-${field.key}`}>{field.label}</Label>
-                {field.multiline ? (
+                {field.type === "select" ? (
+                  <select
+                    id={`cc-${field.key}`}
+                    value={form[field.key]}
+                    onChange={(e) => update(field.key, e.target.value)}
+                    disabled={!canEdit || saving}
+                    className="flex h-9 w-full rounded-md border bg-transparent px-3 text-[13px] text-[var(--fg-1)] shadow-sm outline-none focus:ring-2 focus:ring-[var(--brand-navy-800)] disabled:opacity-50"
+                    style={{ borderColor: "var(--border-1)" }}
+                  >
+                    {field.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.multiline ? (
                   <Textarea
                     id={`cc-${field.key}`}
                     value={form[field.key]}

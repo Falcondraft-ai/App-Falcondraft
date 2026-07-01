@@ -4,6 +4,8 @@ import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
+import { ClientDeleteButton } from "@/components/broker/client-delete-button";
+import { ClientsExportButton } from "@/components/broker/clients-export-button";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
+import { isWorkspaceManager } from "@/lib/auth/workspace-permissions";
 import {
   brokerClientDisplayName,
   brokerClientStatusLabels,
@@ -48,6 +51,7 @@ export default async function CourtierClientsPage({
 }) {
   const context = await requireActiveWorkspaceContext();
   const organizationId = context.organization!.id;
+  const canManage = isWorkspaceManager(context.membership?.role);
 
   const { status: statusParam, q } = await searchParams;
   const activeStatus =
@@ -72,17 +76,22 @@ export default async function CourtierClientsPage({
       <div className="space-y-5">
         <PageHeader
           title="Vos dossiers clients"
-          description="Centralisez et suivez tous vos dossiers, du recueil de besoins à la signature."
+          description="Centralisez et suivez tous vos dossiers, du premier contact à la signature."
           actions={
-            <Button asChild>
-              <Link
-                href="/courtier/clients/new"
-                className="inline-flex items-center gap-1.5"
-              >
-                <Plus className="size-3.5" strokeWidth={2.25} />
-                Nouveau dossier
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              {canManage && clients.length > 0 ? (
+                <ClientsExportButton />
+              ) : null}
+              <Button asChild>
+                <Link
+                  href="/courtier/clients/new"
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <Plus className="size-3.5" strokeWidth={2.25} />
+                  Nouveau dossier
+                </Link>
+              </Button>
+            </div>
           }
         />
 
@@ -171,6 +180,11 @@ export default async function CourtierClientsPage({
                     <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
                       Mis à jour
                     </TableHead>
+                    {canManage ? (
+                      <TableHead className="h-10 w-12 text-right">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,6 +220,15 @@ export default async function CourtierClientsPage({
                       <TableCell className="font-mono text-[12px] text-[var(--fg-3)]">
                         {formatDate(client.updated_at)}
                       </TableCell>
+                      {canManage ? (
+                        <TableCell className="text-right">
+                          <ClientDeleteButton
+                            clientId={client.id}
+                            clientName={brokerClientDisplayName(client)}
+                            variant="row"
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

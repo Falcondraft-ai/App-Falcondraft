@@ -46,36 +46,54 @@ export function isBrokerClientStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Insurance branches
+// Insurance branches — fixed set for the bespoke broker (non éditable)
 // ---------------------------------------------------------------------------
 export const brokerInsuranceTypes = [
+  "immobilier",
+  "personnes",
   "auto",
-  "habitation",
-  "sante",
-  "prevoyance",
-  "emprunteur",
   "pro",
-  "epargne",
   "autre",
 ] as const;
 
 export type BrokerInsuranceType = (typeof brokerInsuranceTypes)[number];
 
 export const brokerInsuranceTypeLabels: Record<BrokerInsuranceType, string> = {
+  immobilier: "Immobilier",
+  personnes: "Assurances de personnes",
   auto: "Auto",
-  habitation: "Habitation",
-  sante: "Santé / Mutuelle",
-  prevoyance: "Prévoyance",
-  emprunteur: "Emprunteur",
-  pro: "Professionnelle",
-  epargne: "Épargne / Retraite",
+  pro: "Professionnels",
   autre: "Autre",
+};
+
+/** Optional one-line hint shown under a branch to clarify what it covers. */
+export const brokerInsuranceTypeHints: Record<BrokerInsuranceType, string> = {
+  immobilier: "Habitation, immeubles, PNO, emprunteur…",
+  personnes: "Santé, prévoyance, vie, retraite — tout ce qui touche la personne",
+  auto: "Véhicules, flotte, moto…",
+  pro: "Entreprises, RC pro, multirisque, décennale…",
+  autre: "Tout dossier hors catégories ci-dessus",
+};
+
+/**
+ * Legacy branch values (from earlier models) mapped to their closest current
+ * branch so existing dossiers stay readable.
+ */
+const legacyBranchLabels: Record<string, string> = {
+  vie: "Assurances de personnes",
+  sante: "Assurances de personnes",
+  prevoyance: "Assurances de personnes",
+  epargne: "Assurances de personnes",
+  habitation: "Immobilier",
+  emprunteur: "Immobilier",
 };
 
 export function insuranceTypeLabel(value: string | null | undefined): string {
   if (!value) return "—";
   return (
-    brokerInsuranceTypeLabels[value as BrokerInsuranceType] ?? value
+    brokerInsuranceTypeLabels[value as BrokerInsuranceType] ??
+    legacyBranchLabels[value] ??
+    value
   );
 }
 

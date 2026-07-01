@@ -100,13 +100,12 @@ export default async function QuoteValidationPage({
             />
             <div>
               <p className="text-[13px] font-semibold text-[var(--brand-amber-900)]">
-                Extraction automatique bientôt disponible
+                À vérifier et valider
               </p>
               <p className="mt-0.5 text-[12.5px] leading-5 text-[var(--brand-amber-800)]">
-                L’analyse automatique du devis arrive prochainement. En
-                attendant, vérifiez et complétez les informations ci-dessous,
-                puis validez. Vous restez seul responsable des informations
-                retenues.
+                Les informations sont lues automatiquement depuis le devis.
+                Vérifiez-les, complétez si besoin, puis validez. Vous restez seul
+                responsable des informations retenues.
               </p>
             </div>
           </div>

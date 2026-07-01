@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
-import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
+import {
+  advanceClientStatus,
+  logBrokerActivity,
+  requireBrokerApiContext,
+} from "@/lib/broker/server";
 import type { Database } from "@/types/database";
 
 type BrokerAdviceUpdate =
@@ -92,6 +96,23 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
     description: activityDesc,
     metadata: { advice_id: adviceId },
   });
+
+  // Auto-advance the dossier status to match the signature workflow.
+  if (values.markSigned) {
+    await advanceClientStatus(
+      auth.adminSupabase,
+      auth.organizationId,
+      clientId,
+      "signed",
+    );
+  } else if (values.signatureUrl) {
+    await advanceClientStatus(
+      auth.adminSupabase,
+      auth.organizationId,
+      clientId,
+      "awaiting_signature",
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

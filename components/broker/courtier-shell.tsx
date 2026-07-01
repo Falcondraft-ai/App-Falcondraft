@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   HardDrive,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -27,12 +28,10 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import * as React from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -51,6 +50,7 @@ import {
 } from "@/lib/profile-photo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AgentChat } from "@/components/broker/agent-chat";
 import { CourtierNotifications } from "@/components/broker/courtier-notifications";
 import { CourtierTopbarSearch } from "@/components/broker/courtier-topbar-search";
@@ -115,8 +115,6 @@ const baseNavSections: NavSection[] = [
           },
         ],
       },
-      { href: "/courtier/commissions", label: "Commissions", icon: Wallet },
-      { href: "/courtier/sinistres", label: "Sinistres", icon: ShieldAlert },
       { href: "/courtier/documents", label: "Documents", icon: FolderOpen },
     ],
   },
@@ -181,13 +179,25 @@ const proposalsSection: NavSection = {
   ],
 };
 
+// Commissions & Sinistres belong to the SaaS broker offering only — the bespoke
+// ("sur mesure") broker doesn't use them.
+const saasGestionItems: NavItem[] = [
+  { href: "/courtier/commissions", label: "Commissions", icon: Wallet },
+  { href: "/courtier/sinistres", label: "Sinistres", icon: ShieldAlert },
+];
+
 /**
- * SaaS brokers also get the proposal-automation module, inserted just before the
- * Communication section. Bespoke ("sur mesure") brokers keep the base nav only.
+ * SaaS brokers also get the proposal-automation module (inserted before the
+ * Communication section) plus the Commissions/Sinistres items in the Gestion
+ * section. Bespoke ("sur mesure") brokers keep the trimmed base nav only.
  */
 function buildNavSections(showProposals: boolean): NavSection[] {
   if (!showProposals) return baseNavSections;
-  const sections = [...baseNavSections];
+  const sections = baseNavSections.map((section) =>
+    section.label === "Gestion"
+      ? { ...section, items: [...section.items, ...saasGestionItems] }
+      : section,
+  );
   sections.splice(sections.length - 1, 0, proposalsSection);
   return sections;
 }
@@ -196,12 +206,6 @@ const settingsItem: NavItem = {
   href: "/courtier/settings",
   label: "Paramètres",
   icon: Settings,
-};
-
-export type CourtierShellUser = {
-  name: string;
-  email: string;
-  roleKey: string;
 };
 
 function getInitials(name: string) {
@@ -214,6 +218,12 @@ function getInitials(name: string) {
       .join("") || "FD"
   );
 }
+
+export type CourtierShellUser = {
+  name: string;
+  email: string;
+  roleKey: string;
+};
 
 function isActive(pathname: string, href: string) {
   if (href === "/courtier") return pathname === href;
@@ -627,6 +637,8 @@ function AccountBlock({
     </Avatar>
   );
 
+  const role = roleLabels[user.roleKey] ?? "Collaborateur";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -653,7 +665,7 @@ function AccountBlock({
                   className="block truncate text-[11px]"
                   style={{ color: "var(--sidebar-text)" }}
                 >
-                  {roleLabels[user.roleKey] ?? "Collaborateur"}
+                  {role}
                 </span>
               </span>
               <ChevronsUpDown
@@ -666,25 +678,100 @@ function AccountBlock({
           ) : null}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-56">
-        <DropdownMenuLabel>
-          <span className="block text-sm">{user.name}</span>
-          <span className="text-muted-foreground block text-xs font-normal">
-            {user.email}
-          </span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/courtier/settings" className="flex items-center gap-2">
-            <Settings className="size-4" strokeWidth={1.75} />
-            Paramètres
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onSignOut} className="flex items-center gap-2">
-          <LogOut className="size-4" strokeWidth={1.75} />
-          Se déconnecter
-        </DropdownMenuItem>
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={10}
+        className="w-[252px] overflow-hidden rounded-xl p-0"
+      >
+        {/* Branded header — dark navy strip, matches the sidebar */}
+        <div
+          className="flex items-center gap-3 px-3.5 py-3.5"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--sidebar-bg) 0%, #16203a 100%)",
+          }}
+        >
+          <Avatar className="size-10 shrink-0 rounded-[12px] ring-1 ring-white/10">
+            {profilePhotoUrl ? (
+              <AvatarImage
+                src={profilePhotoUrl}
+                alt=""
+                className="rounded-[12px]"
+              />
+            ) : null}
+            <AvatarFallback
+              className="rounded-[12px] text-[13px] font-semibold tracking-[0.02em]"
+              style={{
+                background: "linear-gradient(155deg, #283450, #181f31)",
+                color: "var(--accent)",
+              }}
+            >
+              {getInitials(user.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p
+              className="truncate text-[13.5px] font-semibold"
+              style={{ color: "#FFFFFF" }}
+            >
+              {user.name}
+            </p>
+            <p
+              className="truncate text-[11.5px]"
+              style={{ color: "var(--sidebar-text)" }}
+            >
+              {user.email}
+            </p>
+            <span
+              className="mt-1.5 inline-flex items-center rounded-full px-2 py-[1px] text-[10px] font-semibold uppercase tracking-[0.06em]"
+              style={{
+                background: "rgba(184,146,42,0.16)",
+                color: "var(--accent)",
+              }}
+            >
+              {role}
+            </span>
+          </div>
+        </div>
+
+        <div className="p-1.5">
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer rounded-lg px-2.5 py-2 text-[13px]"
+          >
+            <Link href="/courtier/settings" className="flex items-center gap-2.5">
+              <Settings
+                className="size-4 text-[var(--fg-3)]"
+                strokeWidth={1.75}
+              />
+              Paramètres
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer rounded-lg px-2.5 py-2 text-[13px]"
+          >
+            <a
+              href="mailto:support@falcondraft.com"
+              className="flex items-center gap-2.5"
+            >
+              <HelpCircle
+                className="size-4 text-[var(--fg-3)]"
+                strokeWidth={1.75}
+              />
+              Aide & support
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="my-1.5" />
+          <DropdownMenuItem
+            onSelect={onSignOut}
+            className="cursor-pointer rounded-lg px-2.5 py-2 text-[13px] font-medium text-[var(--destructive)] focus:bg-[var(--destructive-soft)] focus:text-[var(--destructive)]"
+          >
+            <LogOut className="size-4" strokeWidth={1.75} />
+            Se déconnecter
+          </DropdownMenuItem>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -1056,7 +1143,7 @@ export function CourtierShell({
             style={{ top: "50%", transform: "translate(-50%, -50%)" }}
           >
             <div className="pointer-events-auto">
-              <CourtierTopbarSearch placeholder="Rechercher un client…" />
+              <CourtierTopbarSearch placeholder="Rechercher un client, une compagnie, un RIB, une adresse…" />
             </div>
           </div>
 

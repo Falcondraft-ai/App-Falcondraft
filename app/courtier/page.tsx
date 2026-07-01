@@ -15,10 +15,13 @@ import { Stagger } from "@/components/common/stagger";
 import { ActivityFeed } from "@/components/broker/activity-feed";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
 import {
-  AttentionPanel,
   BriefingSummaryPanel,
   type EmailBriefingSummary,
 } from "@/components/broker/daily-briefing";
+import {
+  ValidationQueue,
+  type ValidationItem,
+} from "@/components/broker/validation-queue";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -86,10 +89,30 @@ export default async function CourtierDashboardPage() {
     generatedAt: null,
     top: [],
   };
+  let validationItems: ValidationItem[] = [];
   if (latestDigest) {
     const { items: emailItems, suggestions: emailSuggestions } =
       await getEmailDigestDetail(organizationId, latestDigest.id);
     const relevantItems = emailItems.filter((i) => i.relevance === "relevant");
+
+    // Build the dashboard "À valider" queue from pending AI suggestions.
+    const itemsById = new Map(emailItems.map((i) => [i.id, i]));
+    validationItems = emailSuggestions
+      .filter((s) => s.status === "pending")
+      .slice(0, 6)
+      .map((s) => {
+        const item = itemsById.get(s.item_id);
+        return {
+          id: s.id,
+          type: s.type,
+          payload: (s.payload ?? null) as Record<string, unknown> | null,
+          clientName: item?.suggested_client_id
+            ? (clientNames.get(item.suggested_client_id) ?? null)
+            : null,
+          from: item?.from_name || item?.from_email || "Expéditeur",
+          subject: item?.subject || "(sans objet)",
+        };
+      });
     emailSummary = {
       connected: true,
       hasDigest: true,
@@ -123,11 +146,6 @@ export default async function CourtierDashboardPage() {
     signed: clients.filter((c) => c.status === "signed").length,
   };
   const recentClients = clients.slice(0, 6);
-  const attentionClients = clients
-    .filter(
-      (c) => c.status === "advice_ready" || c.status === "awaiting_signature",
-    )
-    .slice(0, 5);
 
   const firstName =
     (context.profile?.full_name ?? context.user.email ?? "").split(" ").at(0) ??
@@ -288,7 +306,7 @@ export default async function CourtierDashboardPage() {
 
           {/* Rail: validation queue, renewals, activity */}
           <div className="space-y-4">
-            <AttentionPanel clients={attentionClients} />
+            <ValidationQueue items={validationItems} />
 
             {topRenewals.length > 0 ? (
               <section

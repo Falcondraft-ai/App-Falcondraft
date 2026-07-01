@@ -7,17 +7,23 @@ import { AdviceCreator } from "@/components/broker/advice-creator";
 import { AdviceStatusBadge } from "@/components/broker/advice-status-badge";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
 import { ClaimManager } from "@/components/broker/claim-manager";
+import { ClientDeleteButton } from "@/components/broker/client-delete-button";
 import { ClientDocuments } from "@/components/broker/client-documents";
-import { ClientIntroducerSelect } from "@/components/broker/client-introducer-select";
+import { ClientEmails } from "@/components/broker/client-emails";
+import { ClientHistory } from "@/components/broker/client-history";
+import { ClientInfoEditor } from "@/components/broker/client-info-editor";
 import { ClientStatusControl } from "@/components/broker/client-status-control";
 import { CommissionStatusBadge } from "@/components/broker/commission-status-badge";
-import { CompliancePanel } from "@/components/broker/compliance-panel";
 import { ContractManager } from "@/components/broker/contract-manager";
-import { NeedsQuestionnaire } from "@/components/broker/needs-questionnaire";
+import { QuoteDeleteButton } from "@/components/broker/quote-delete-button";
 import { QuoteImporter } from "@/components/broker/quote-importer";
 import { QuoteStatusBadge } from "@/components/broker/quote-status-badge";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
-import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import {
+  canCreateWorkspaceRecords,
+  isWorkspaceManager,
+} from "@/lib/auth/workspace-permissions";
+import { hasProposalAutomation } from "@/lib/billing/entitlements";
 import {
   brokerClientDisplayName,
   insuranceTypeLabel,
@@ -29,18 +35,15 @@ import {
   getBrokerClientAdvice,
   getBrokerClientClaims,
   getBrokerClientCommissions,
-  getBrokerClientCompliance,
   getBrokerClientContracts,
   getBrokerClientDocuments,
   getBrokerClientQuotes,
-  getBrokerIntroducers,
 } from "@/lib/broker/data";
 import { formatEuro, netCommission } from "@/lib/broker/commissions";
 import { parseBrokerSettings } from "@/lib/broker/settings";
-import { brokerActivityLabel } from "@/lib/broker/activity";
 import { formatPremium } from "@/lib/broker/quotes";
 import { computeStorageUsage } from "@/lib/broker/storage";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,7 +61,7 @@ function Card({
 }) {
   return (
     <section
-      className="rounded-lg border bg-[var(--bg-surface)] p-5"
+      className="rounded-xl border bg-[var(--bg-surface)] p-5"
       style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
     >
       <div className="flex items-start justify-between gap-3">
@@ -79,24 +82,14 @@ function Card({
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-2">
-      <span className="text-[12.5px] text-[var(--fg-3)]">{label}</span>
-      <span className="text-right text-[13px] font-medium text-[var(--fg-1)]">
-        {value || "—"}
-      </span>
-    </div>
-  );
-}
-
 export default async function BrokerClientDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const context = await requireActiveWorkspaceContext();
-  const organizationId = context.organization!.id;
+  const organization = context.organization!;
+  const organizationId = organization.id;
   const { id } = await params;
 
   const client = await getBrokerClient(organizationId, id);
@@ -104,38 +97,39 @@ export default async function BrokerClientDetailPage({
     notFound();
   }
 
-  const [
-    activity,
-    documents,
-    quotes,
-    advice,
-    contracts,
-    compliance,
-    commissions,
-    claims,
-    introducers,
-  ] = await Promise.all([
+  const saasModules = hasProposalAutomation(organization);
+
+  const [activity, documents, quotes, advice, contracts] = await Promise.all([
     getBrokerClientActivity(organizationId, id),
     getBrokerClientDocuments(organizationId, id),
     getBrokerClientQuotes(organizationId, id),
     getBrokerClientAdvice(organizationId, id),
     getBrokerClientContracts(organizationId, id),
-    getBrokerClientCompliance(organizationId, id),
-    getBrokerClientCommissions(organizationId, id),
-    getBrokerClientClaims(organizationId, id),
-    getBrokerIntroducers(organizationId),
   ]);
+
+  // Commissions & sinistres only exist in the SaaS broker offering.
+  const [commissions, claims] = saasModules
+    ? await Promise.all([
+        getBrokerClientCommissions(organizationId, id),
+        getBrokerClientClaims(organizationId, id),
+      ])
+    : [[], []];
+
   const claimContractOptions = contracts.map((c) => ({
     id: c.id,
     label: contractDisplayLabel(c),
   }));
   const displayName = brokerClientDisplayName(client);
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
-  const brokerSettings = parseBrokerSettings(context.organization);
-  const storageFull = computeStorageUsage(context.organization).isFull;
+  const canDelete = isWorkspaceManager(context.membership?.role);
+  const brokerSettings = parseBrokerSettings(organization);
+  const storageFull = computeStorageUsage(organization).isFull;
   const hasValidatedQuote = quotes.some(
     (q) => q.extraction_status === "validated",
   );
+  const branchLabel = client.insurance_type
+    ? insuranceTypeLabel(client.insurance_type)
+    : null;
 
   return (
     <PageTransition>
@@ -154,100 +148,61 @@ export default async function BrokerClientDetailPage({
           </span>
         </nav>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className="fd-eyebrow mb-2">
-              {client.client_type === "company" ? "Entreprise" : "Particulier"}
-              {client.insurance_type
-                ? ` · ${insuranceTypeLabel(client.insurance_type)}`
-                : ""}
-            </p>
-            <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[30px]">
-              {displayName}
-            </h1>
-            <div className="mt-3">
-              <BrokerStatusBadge status={client.status} />
-            </div>
-          </div>
-          <div className="flex flex-col items-start gap-1.5 sm:items-end">
-            <span className="fd-eyebrow">Statut du dossier</span>
-            <ClientStatusControl clientId={client.id} status={client.status} />
-          </div>
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-[1.7fr_1fr]">
-          <div className="space-y-5">
-            <Card title="Informations client">
-              <div className="divide-y" style={{ borderColor: "var(--border-1)" }}>
-                <InfoRow label="Email" value={client.email} />
-                <InfoRow label="Téléphone" value={client.phone} />
-                <InfoRow
-                  label="Adresse"
-                  value={
-                    [client.address, client.postal_code, client.city]
-                      .filter(Boolean)
-                      .join(", ") || null
-                  }
-                />
-                <InfoRow
-                  label="Branche"
-                  value={insuranceTypeLabel(client.insurance_type)}
-                />
-              </div>
-            </Card>
-
-            <Card
-              title="Recueil de besoins"
-              description="Votre base de travail pour le devoir de conseil."
-            >
-              <NeedsQuestionnaire
-                clientId={client.id}
-                branch={client.insurance_type}
-                initialData={client.structured_needs}
-                initialNeeds={client.needs}
-                canEdit={canEdit}
-              />
-              {client.notes ? (
-                <div
-                  className="mt-4 rounded-md border px-4 py-3"
+        {/* Hero header — sobre, sans dégradé ni avatar */}
+        <header
+          className="rounded-xl border bg-[var(--bg-surface)] px-5 py-5 sm:px-6"
+          style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="fd-eyebrow flex items-center gap-2 text-[var(--accent-foreground)]">
+                <span>Dossier</span>
+                {branchLabel ? (
+                  <>
+                    <span aria-hidden className="opacity-40">
+                      ·
+                    </span>
+                    <span>{branchLabel}</span>
+                  </>
+                ) : null}
+              </p>
+              <h1 className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[30px]">
+                {displayName}
+              </h1>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <span
+                  className="rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium text-[var(--fg-2)]"
                   style={{
                     borderColor: "var(--border-1)",
-                    background: "var(--brand-navy-50)",
+                    background: "var(--bg-sunken)",
                   }}
                 >
-                  <p className="fd-eyebrow mb-1">Notes internes</p>
-                  <p className="whitespace-pre-wrap text-[12.5px] leading-5 text-[var(--fg-2)]">
-                    {client.notes}
-                  </p>
+                  {client.client_type === "company"
+                    ? "Entreprise"
+                    : "Particulier"}
+                </span>
+                <BrokerStatusBadge status={client.status} />
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
+              <span className="fd-eyebrow">Statut du dossier</span>
+              <ClientStatusControl clientId={client.id} status={client.status} />
+              {canDelete ? (
+                <div className="mt-1.5">
+                  <ClientDeleteButton
+                    clientId={client.id}
+                    clientName={displayName}
+                  />
                 </div>
               ) : null}
-            </Card>
+            </div>
+          </div>
+        </header>
 
-            <Card
-              title="Documents du dossier"
-              description="Contrats, pièces d’identité, RIB, devis compagnies et autres pièces."
-            >
-              <ClientDocuments
-                clientId={client.id}
-                documents={documents}
-                canEdit={canEdit}
-                storageFull={storageFull}
-              />
-            </Card>
-
-            {brokerSettings.complianceEnabled ? (
-              <Card
-                title="Conformité — DDA / LCB-FT / RGPD"
-                description="Obligations réglementaires du dossier : fiche d’information, vérification d’identité, classification du risque et consentements."
-              >
-                <CompliancePanel
-                  clientId={client.id}
-                  compliance={compliance}
-                  documents={documents}
-                  canEdit={canEdit}
-                />
-              </Card>
-            ) : null}
+        <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+          {/* Main column — parcours logique : infos → contrats → devis → conseil */}
+          <div className="space-y-5">
+            <ClientInfoEditor client={client} canEdit={canEdit} />
 
             <Card
               title="Contrats"
@@ -263,24 +218,185 @@ export default async function BrokerClientDetailPage({
             </Card>
 
             <Card
-              title="Sinistres"
-              description="Suivez les sinistres déclarés par le client, leur instruction et leur indemnisation."
+              title="Devis compagnie"
+              description="Importez un devis reçu d’une compagnie, vérifiez les informations puis validez."
             >
-              <ClaimManager
+              <div className="space-y-4">
+                <QuoteImporter
+                  clientId={client.id}
+                  canEdit={canEdit}
+                  storageFull={storageFull}
+                />
+
+                {quotes.length > 0 ? (
+                  <ul
+                    className="divide-y overflow-hidden rounded-lg border"
+                    style={{ borderColor: "var(--border-1)" }}
+                  >
+                    {quotes.map((quote) => (
+                      <li
+                        key={quote.id}
+                        className="flex items-center"
+                        style={{ background: "var(--bg-surface)" }}
+                      >
+                        <Link
+                          href={`/courtier/clients/${client.id}/quotes/${quote.id}`}
+                          className="flex min-w-0 flex-1 items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[var(--bg-sunken)]"
+                        >
+                          <span
+                            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+                            style={{
+                              background: "var(--brand-navy-50)",
+                              border: "1px solid var(--border-1)",
+                              color: "var(--brand-navy-700)",
+                            }}
+                          >
+                            <ScrollText className="size-4" strokeWidth={1.75} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
+                              {quote.insurer_name || "Devis à compléter"}
+                              {quote.product_name
+                                ? ` — ${quote.product_name}`
+                                : ""}
+                            </p>
+                            <p className="truncate text-[11.5px] text-[var(--fg-3)]">
+                              {quote.premium_monthly
+                                ? `${formatPremium(quote.premium_monthly, quote.currency)} / mois`
+                                : quote.premium_annual
+                                  ? `${formatPremium(quote.premium_annual, quote.currency)} / an`
+                                  : "Montant à renseigner"}
+                            </p>
+                          </div>
+                          <QuoteStatusBadge status={quote.extraction_status} />
+                        </Link>
+                        {canDelete ? (
+                          <QuoteDeleteButton
+                            clientId={client.id}
+                            quoteId={quote.id}
+                          />
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[12.5px] text-[var(--fg-3)]">
+                    Aucun devis importé. Importez un PDF reçu d’une compagnie pour
+                    commencer.
+                  </p>
+                )}
+              </div>
+            </Card>
+
+            {/* Devoir de conseil — après le devis (logique du parcours) */}
+            <section
+              className="rounded-xl border bg-[var(--bg-surface)]"
+              style={{
+                borderColor: "var(--border-1)",
+                boxShadow: "var(--shadow-sm)",
+                borderTop: "2px solid var(--accent)",
+              }}
+            >
+              <div
+                className="flex items-center gap-2.5 border-b px-5 py-3.5"
+                style={{ borderColor: "var(--border-1)" }}
+              >
+                <FileText
+                  className="size-[18px] text-[var(--accent-foreground)]"
+                  strokeWidth={1.75}
+                />
+                <h2 className="text-[14px] font-semibold tracking-[-0.005em] text-[var(--fg-1)]">
+                  Devoir de conseil
+                </h2>
+              </div>
+              <div className="space-y-4 p-5">
+                <AdviceCreator
+                  clientId={client.id}
+                  hasValidatedQuote={hasValidatedQuote}
+                  canEdit={canEdit}
+                />
+
+                {advice.length > 0 ? (
+                  <ul
+                    className="divide-y overflow-hidden rounded-lg border"
+                    style={{ borderColor: "var(--border-1)" }}
+                  >
+                    {advice.map((doc) => (
+                      <li key={doc.id}>
+                        <Link
+                          href={`/courtier/clients/${client.id}/advice/${doc.id}`}
+                          className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[var(--bg-sunken)]"
+                          style={{ background: "var(--bg-surface)" }}
+                        >
+                          <span
+                            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+                            style={{
+                              background: "var(--brand-navy-50)",
+                              border: "1px solid var(--border-1)",
+                              color: "var(--brand-navy-700)",
+                            }}
+                          >
+                            <FileText className="size-4" strokeWidth={1.75} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
+                              {doc.title}
+                            </p>
+                            <p className="truncate text-[11.5px] text-[var(--fg-3)]">
+                              Mis à jour le {formatDate(doc.updated_at)}
+                            </p>
+                          </div>
+                          <AdviceStatusBadge status={doc.status} />
+                          <ChevronRight
+                            className="size-4 shrink-0 text-[var(--fg-4)]"
+                            strokeWidth={1.75}
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </section>
+
+            <Card
+              title="Documents du dossier"
+              description="Contrats, pièces d’identité, RIB et autres pièces."
+            >
+              <ClientDocuments
                 clientId={client.id}
-                claims={claims}
-                contracts={claimContractOptions}
+                documents={documents}
                 canEdit={canEdit}
+                storageFull={storageFull}
               />
             </Card>
 
-            {commissions.length > 0 ? (
+            {saasModules ? (
+              <Card
+                title="Sinistres"
+                description="Suivez les sinistres déclarés par le client, leur instruction et leur indemnisation."
+              >
+                <ClaimManager
+                  clientId={client.id}
+                  claims={claims}
+                  contracts={claimContractOptions}
+                  canEdit={canEdit}
+                />
+              </Card>
+            ) : null}
+          </div>
+
+          {/* Rail — emails (utile, prend la largeur), commissions, historique discret */}
+          <div className="space-y-5">
+            <ClientEmails clientId={client.id} hasEmail={Boolean(client.email)} />
+
+            {saasModules && commissions.length > 0 ? (
               <Card
                 title="Commissions"
-                description="Les commissions liées à ce dossier, saisies depuis les bordereaux compagnies."
+                description="Les commissions liées à ce dossier."
               >
                 <ul
-                  className="divide-y overflow-hidden rounded-md border"
+                  className="divide-y overflow-hidden rounded-lg border"
                   style={{ borderColor: "var(--border-1)" }}
                 >
                   {commissions.map((line) => (
@@ -310,175 +426,8 @@ export default async function BrokerClientDetailPage({
               </Card>
             ) : null}
 
-            <Card
-              title="Devis compagnie"
-              description="Importez un devis reçu d’une compagnie, vérifiez les informations puis validez."
-            >
-              <div className="space-y-4">
-                <QuoteImporter
-                  clientId={client.id}
-                  canEdit={canEdit}
-                  storageFull={storageFull}
-                />
-
-                {quotes.length > 0 ? (
-                  <ul
-                    className="divide-y overflow-hidden rounded-md border"
-                    style={{ borderColor: "var(--border-1)" }}
-                  >
-                    {quotes.map((quote) => (
-                      <li key={quote.id}>
-                        <Link
-                          href={`/courtier/clients/${client.id}/quotes/${quote.id}`}
-                          className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[rgba(14,34,56,0.025)]"
-                          style={{ background: "var(--bg-surface)" }}
-                        >
-                          <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-                            style={{
-                              background: "var(--brand-navy-50)",
-                              border: "1px solid var(--border-1)",
-                              color: "var(--brand-navy-700)",
-                            }}
-                          >
-                            <ScrollText
-                              className="size-4"
-                              strokeWidth={1.75}
-                            />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
-                              {quote.insurer_name || "Devis à compléter"}
-                              {quote.product_name
-                                ? ` — ${quote.product_name}`
-                                : ""}
-                            </p>
-                            <p className="truncate text-[11.5px] text-[var(--fg-3)]">
-                              {quote.premium_monthly
-                                ? `${formatPremium(quote.premium_monthly, quote.currency)} / mois`
-                                : quote.premium_annual
-                                  ? `${formatPremium(quote.premium_annual, quote.currency)} / an`
-                                  : "Montant à renseigner"}
-                            </p>
-                          </div>
-                          <QuoteStatusBadge status={quote.extraction_status} />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-[12.5px] text-[var(--fg-3)]">
-                    Aucun devis importé. Importez un PDF reçu d’une compagnie pour
-                    commencer.
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            <Card
-              title="Devoir de conseil"
-              description="Généré à partir des besoins du client et du devis validé, modifiable et validable avant envoi."
-            >
-              <div className="space-y-4">
-                <AdviceCreator
-                  clientId={client.id}
-                  hasValidatedQuote={hasValidatedQuote}
-                  canEdit={canEdit}
-                />
-
-                {advice.length > 0 ? (
-                  <ul
-                    className="divide-y overflow-hidden rounded-md border"
-                    style={{ borderColor: "var(--border-1)" }}
-                  >
-                    {advice.map((doc) => (
-                      <li key={doc.id}>
-                        <Link
-                          href={`/courtier/clients/${client.id}/advice/${doc.id}`}
-                          className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[rgba(14,34,56,0.025)]"
-                          style={{ background: "var(--bg-surface)" }}
-                        >
-                          <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-                            style={{
-                              background: "var(--brand-navy-50)",
-                              border: "1px solid var(--border-1)",
-                              color: "var(--brand-navy-700)",
-                            }}
-                          >
-                            <FileText className="size-4" strokeWidth={1.75} />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
-                              {doc.title}
-                            </p>
-                            <p className="truncate text-[11.5px] text-[var(--fg-3)]">
-                              Mis à jour le {formatDate(doc.updated_at)}
-                            </p>
-                          </div>
-                          <AdviceStatusBadge status={doc.status} />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </Card>
-          </div>
-
-          <div className="space-y-5">
-            {brokerSettings.introducersEnabled ? (
-              <Card
-                title="Apporteur"
-                description="L’apporteur qui a amené ce client. Sa rétrocession s’applique automatiquement à ses commissions."
-              >
-                <ClientIntroducerSelect
-                  clientId={client.id}
-                  introducers={introducers.map((i) => ({
-                    id: i.id,
-                    name: i.name,
-                  }))}
-                  currentIntroducerId={client.introducer_id}
-                  canEdit={canEdit}
-                />
-              </Card>
-            ) : null}
-
-            <Card
-              title="Historique"
-              description="Toutes les actions sur ce dossier."
-            >
-              {activity.length > 0 ? (
-                <ol className="space-y-4">
-                  {activity.map((entry) => (
-                    <li key={entry.id} className="flex gap-3">
-                      <span
-                        aria-hidden
-                        className="mt-1.5 size-2 shrink-0 rounded-full"
-                        style={{ background: "var(--accent)" }}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-medium text-[var(--fg-1)]">
-                          {brokerActivityLabel(entry.type)}
-                        </p>
-                        {entry.description ? (
-                          <p className="mt-0.5 text-[12px] leading-5 text-[var(--fg-3)]">
-                            {entry.description}
-                          </p>
-                        ) : null}
-                        <p className="mt-0.5 font-mono text-[11px] text-[var(--fg-4)]">
-                          {formatDateTime(entry.created_at)}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="text-[13px] text-[var(--fg-3)]">
-                  Aucune action enregistrée pour le moment.
-                </p>
-              )}
-            </Card>
+            {/* Historique — discret, replié sous le reste (déplié animé) */}
+            <ClientHistory activity={activity} />
           </div>
         </div>
       </div>
