@@ -912,6 +912,118 @@ export const brokerEmailSuggestions = pgTable(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// Portfolio import (reprise CRM) — staged files classified by AI, regrouped
+// into proposed client dossiers, reviewed, then committed. See migration 0053.
+// ---------------------------------------------------------------------------
+export const brokerImportBatches = pgTable(
+  "broker_import_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").notNull(),
+    sourceType: text("source_type").default("folder").notNull(),
+    status: text("status").default("uploading").notNull(),
+    fileCount: integer("file_count").default(0).notNull(),
+    analyzedCount: integer("analyzed_count").default(0).notNull(),
+    groupCount: integer("group_count").default(0).notNull(),
+    narrative: text("narrative"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    organizationIdx: index("broker_import_batches_organization_id_idx").on(
+      table.organizationId,
+    ),
+    statusIdx: index("broker_import_batches_status_idx").on(table.status),
+    createdAtIdx: index("broker_import_batches_created_at_idx").on(
+      table.createdAt,
+    ),
+  }),
+);
+
+export const brokerImportGroups = pgTable(
+  "broker_import_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => brokerImportBatches.id, { onDelete: "cascade" }),
+    matchClientId: uuid("match_client_id").references(() => brokerClients.id, {
+      onDelete: "set null",
+    }),
+    clientType: text("client_type").default("individual").notNull(),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    companyName: text("company_name"),
+    email: text("email"),
+    phone: text("phone"),
+    address: text("address"),
+    postalCode: text("postal_code"),
+    city: text("city"),
+    insuranceType: text("insurance_type"),
+    needs: text("needs"),
+    confidence: numeric("confidence", { mode: "number" }),
+    status: text("status").default("pending").notNull(),
+    createdClientId: uuid("created_client_id").references(
+      () => brokerClients.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("broker_import_groups_organization_id_idx").on(
+      table.organizationId,
+    ),
+    batchIdx: index("broker_import_groups_batch_id_idx").on(table.batchId),
+    statusIdx: index("broker_import_groups_status_idx").on(table.status),
+  }),
+);
+
+export const brokerImportFiles = pgTable(
+  "broker_import_files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => brokerImportBatches.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references(() => brokerImportGroups.id, {
+      onDelete: "set null",
+    }),
+    uploadedBy: uuid("uploaded_by").notNull(),
+    originalPath: text("original_path").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).default(0).notNull(),
+    storagePath: text("staging_path").notNull(),
+    analysisStatus: text("analysis_status").default("pending").notNull(),
+    extracted: jsonb("extracted").default({}).notNull(),
+    decision: text("decision").default("include").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("broker_import_files_organization_id_idx").on(
+      table.organizationId,
+    ),
+    batchIdx: index("broker_import_files_batch_id_idx").on(table.batchId),
+    groupIdx: index("broker_import_files_group_id_idx").on(table.groupId),
+    analysisStatusIdx: index("broker_import_files_analysis_status_idx").on(
+      table.analysisStatus,
+    ),
+  }),
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

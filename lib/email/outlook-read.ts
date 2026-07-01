@@ -284,6 +284,146 @@ export async function searchMessagesByParticipant(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Client-centric search — everything that CONCERNS a client, not just mail
+// exchanged with their address. An insurer's quote/contract about a client
+// rarely carries the client's own email, but cites their name or policy/claim
+// reference; a company's correspondence spans many addresses at its domain.
+// ---------------------------------------------------------------------------
+
+/** Consumer mail providers whose domain must NOT be used to match a "company". */
+const PUBLIC_EMAIL_DOMAINS = new Set<string>([
+  "gmail.com", "googlemail.com", "outlook.com", "outlook.fr", "hotmail.com",
+  "hotmail.fr", "live.com", "live.fr", "msn.com", "yahoo.com", "yahoo.fr",
+  "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com",
+  "gmx.fr", "orange.fr", "wanadoo.fr", "free.fr", "sfr.fr", "laposte.net",
+  "bbox.fr", "numericable.fr", "neuf.fr", "aliceadsl.fr",
+]);
+
+/** The company email domain worth matching on (null for individuals / webmail). */
+export function companyEmailDomain(
+  email: string | null | undefined,
+  isCompany: boolean,
+): string | null {
+  if (!isCompany || !email) return null;
+  const domain = email.split("@")[1]?.trim().toLowerCase();
+  if (!domain || !domain.includes(".") || PUBLIC_EMAIL_DOMAINS.has(domain)) {
+    return null;
+  }
+  return domain;
+}
+
+export type ClientSearchCriteria = {
+  /** The client's own address(es) — participant matches. */
+  emails: string[];
+  /** Full name / company name — matched as phrases across subject/body/participants. */
+  names: string[];
+  /** Policy numbers, claim references — matched as phrases. */
+  references: string[];
+  /** Company email domain (non-webmail) — participant match. */
+  domain: string | null;
+};
+
+function mapGraphMessage(m: GraphMessage): OutlookMessage | null {
+  if (!m.id) return null;
+  return {
+    id: m.id,
+    subject: m.subject?.trim() || "(sans objet)",
+    fromName: m.from?.emailAddress?.name?.trim() || "",
+    fromEmail: m.from?.emailAddress?.address?.trim().toLowerCase() || "",
+    receivedDateTime: m.receivedDateTime ?? "",
+    bodyPreview: (m.bodyPreview ?? "").slice(0, 800),
+    hasAttachments: Boolean(m.hasAttachments),
+    webLink: m.webLink ?? "",
+    conversationId: m.conversationId ?? "",
+    recipients: recipientAddresses(m),
+  };
+}
+
+/** One mailbox-wide KQL `$search` (kqlInner without Graph's outer quotes). */
+async function runKqlSearch(
+  accessToken: string,
+  kqlInner: string,
+  max: number,
+): Promise<OutlookMessage[]> {
+  const params = new URLSearchParams({
+    $select:
+      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,webLink,conversationId",
+    $top: String(Math.min(Math.max(max, 1), 50)),
+    $search: `"${kqlInner}"`,
+  });
+  const res = await fetch(`${GRAPH}/me/messages?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ConsistencyLevel: "eventual",
+    },
+  }).catch(() => null);
+  if (!res || !res.ok) {
+    console.error("[outlook] client search failed:", res?.status);
+    return [];
+  }
+  const payload = (await res.json().catch(() => null)) as {
+    value?: GraphMessage[];
+  } | null;
+  return (payload?.value ?? []).flatMap((m) => {
+    const mapped = mapGraphMessage(m);
+    return mapped ? [mapped] : [];
+  });
+}
+
+/**
+ * Searches the mailbox for everything concerning a client: participant matches
+ * on their address(es)/company domain PLUS phrase matches on their name and
+ * contract/claim references. Runs one search per signal and merges by id —
+ * simpler and more reliable than one deeply-nested KQL, and reuses the
+ * mailbox-wide read already granted. Optional `query` narrows each signal.
+ */
+export async function searchMessagesForClient(
+  accessToken: string,
+  criteria: ClientSearchCriteria,
+  query?: string,
+  max = 30,
+  maxUnits = 10,
+): Promise<OutlookMessage[]> {
+  const safe = (s: string) => s.replace(/"/g, "").trim();
+  const units: string[] = [];
+  for (const e of criteria.emails) {
+    const v = safe(e);
+    if (v.includes("@")) units.push(`participants:${v}`);
+  }
+  if (criteria.domain) {
+    const v = safe(criteria.domain);
+    if (v) units.push(`participants:${v}`);
+  }
+  for (const n of criteria.names) {
+    const v = safe(n);
+    if (v.length >= 3) units.push(`"${v}"`);
+  }
+  for (const r of criteria.references) {
+    const v = safe(r);
+    if (v.length >= 4) units.push(`"${v}"`);
+  }
+
+  const unique = [...new Set(units)].slice(0, Math.max(1, maxUnits));
+  if (unique.length === 0) return [];
+
+  const q = query?.trim() ? safe(query) : "";
+  const perUnit = Math.max(10, Math.ceil(max / Math.min(unique.length, 3)));
+  const lists = await Promise.all(
+    unique.map((u) => runKqlSearch(accessToken, q ? `${u} AND "${q}"` : u, perUnit)),
+  );
+
+  const byId = new Map<string, OutlookMessage>();
+  for (const list of lists) {
+    for (const m of list) if (!byId.has(m.id)) byId.set(m.id, m);
+  }
+  return [...byId.values()]
+    .sort((a, b) =>
+      (b.receivedDateTime ?? "").localeCompare(a.receivedDateTime ?? ""),
+    )
+    .slice(0, max);
+}
+
 export type OutlookAttachmentMeta = {
   id: string;
   name: string;

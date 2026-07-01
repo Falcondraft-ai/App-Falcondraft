@@ -8,6 +8,7 @@ import {
   ChevronsUpDown,
   FileSignature,
   FileText,
+  FolderInput,
   FolderOpen,
   HardDrive,
   HelpCircle,
@@ -116,6 +117,11 @@ const baseNavSections: NavSection[] = [
         ],
       },
       { href: "/courtier/documents", label: "Documents", icon: FolderOpen },
+      {
+        href: "/courtier/import",
+        label: "Importer des clients",
+        icon: FolderInput,
+      },
     ],
   },
   {

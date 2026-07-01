@@ -11,6 +11,7 @@ import {
   brokerClientDisplayName,
   insuranceTypeLabel,
 } from "@/lib/broker/clients";
+import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
 import type { BrokerClientRow } from "@/types/database";
 
 const attentionMeta: Record<string, { label: string; icon: ReactNode }> = {
@@ -146,17 +147,23 @@ export function BriefingSummaryPanel({
         icon={<Mail className="size-4" strokeWidth={1.75} />}
         title="Résumé de vos emails"
         hint={
-          data?.hasDigest && data.pendingActions > 0 ? (
-            <span
-              className="rounded-full px-2 py-[2px] text-[10.5px] font-semibold"
-              style={{
-                background: "var(--brand-amber-50, #fdf7e8)",
-                color: "var(--brand-amber-800, #92610f)",
-                border: "1px solid var(--brand-amber-200, rgba(184,146,42,0.25))",
-              }}
-            >
-              {data.pendingActions} action{data.pendingActions > 1 ? "s" : ""}
-            </span>
+          data?.connected ? (
+            <div className="flex items-center gap-2">
+              {data.hasDigest && data.pendingActions > 0 ? (
+                <span
+                  className="rounded-full px-2 py-[2px] text-[10.5px] font-semibold"
+                  style={{
+                    background: "var(--brand-amber-50, #fdf7e8)",
+                    color: "var(--brand-amber-800, #92610f)",
+                    border:
+                      "1px solid var(--brand-amber-200, rgba(184,146,42,0.25))",
+                  }}
+                >
+                  {data.pendingActions} action{data.pendingActions > 1 ? "s" : ""}
+                </span>
+              ) : null}
+              <GenerateDigestButton variant="ghost" />
+            </div>
           ) : null
         }
       />

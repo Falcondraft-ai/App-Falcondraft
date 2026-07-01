@@ -388,7 +388,7 @@ export default async function BrokerClientDetailPage({
 
           {/* Rail — emails (utile, prend la largeur), commissions, historique discret */}
           <div className="space-y-5">
-            <ClientEmails clientId={client.id} hasEmail={Boolean(client.email)} />
+            <ClientEmails clientId={client.id} />
 
             {saasModules && commissions.length > 0 ? (
               <Card

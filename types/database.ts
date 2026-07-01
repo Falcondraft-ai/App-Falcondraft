@@ -379,6 +379,69 @@ export type BrokerEmailSuggestionRow = {
   updated_at: string;
 };
 
+export type BrokerImportBatchRow = {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  source_type: "folder" | "zip" | string;
+  status:
+    | "uploading"
+    | "analyzing"
+    | "review"
+    | "committing"
+    | "completed"
+    | "failed"
+    | string;
+  file_count: number;
+  analyzed_count: number;
+  group_count: number;
+  narrative: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+
+export type BrokerImportGroupRow = {
+  id: string;
+  organization_id: string;
+  batch_id: string;
+  match_client_id: string | null;
+  client_type: "individual" | "company" | string;
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  insurance_type: string | null;
+  needs: string | null;
+  confidence: number | null;
+  status: "pending" | "confirmed" | "skipped" | "committed" | string;
+  created_client_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BrokerImportFileRow = {
+  id: string;
+  organization_id: string;
+  batch_id: string;
+  group_id: string | null;
+  uploaded_by: string;
+  original_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  staging_path: string;
+  analysis_status: "pending" | "analyzed" | "skipped" | "failed" | string;
+  extracted: Record<string, unknown>;
+  decision: "include" | "exclude" | string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProfileRow = {
   id: string;
   user_id: string;
@@ -1693,6 +1756,106 @@ export type Database = {
           status?: string;
           payload?: Record<string, unknown>;
           result?: Record<string, unknown>;
+          updated_at?: string;
+        }
+      >;
+
+      broker_import_batches: TableDefinition<
+        BrokerImportBatchRow,
+        {
+          id?: string;
+          organization_id: string;
+          created_by: string;
+          source_type?: string;
+          status?: string;
+          file_count?: number;
+          analyzed_count?: number;
+          group_count?: number;
+          narrative?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          completed_at?: string | null;
+        },
+        {
+          status?: string;
+          file_count?: number;
+          analyzed_count?: number;
+          group_count?: number;
+          narrative?: string | null;
+          updated_at?: string;
+          completed_at?: string | null;
+        }
+      >;
+
+      broker_import_groups: TableDefinition<
+        BrokerImportGroupRow,
+        {
+          id?: string;
+          organization_id: string;
+          batch_id: string;
+          match_client_id?: string | null;
+          client_type?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          company_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          postal_code?: string | null;
+          city?: string | null;
+          insurance_type?: string | null;
+          needs?: string | null;
+          confidence?: number | null;
+          status?: string;
+          created_client_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          match_client_id?: string | null;
+          client_type?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          company_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          postal_code?: string | null;
+          city?: string | null;
+          insurance_type?: string | null;
+          needs?: string | null;
+          confidence?: number | null;
+          status?: string;
+          created_client_id?: string | null;
+          updated_at?: string;
+        }
+      >;
+
+      broker_import_files: TableDefinition<
+        BrokerImportFileRow,
+        {
+          id?: string;
+          organization_id: string;
+          batch_id: string;
+          group_id?: string | null;
+          uploaded_by: string;
+          original_path: string;
+          file_name: string;
+          mime_type: string;
+          size_bytes?: number;
+          staging_path: string;
+          analysis_status?: string;
+          extracted?: Record<string, unknown>;
+          decision?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          group_id?: string | null;
+          staging_path?: string;
+          analysis_status?: string;
+          extracted?: Record<string, unknown>;
+          decision?: string;
           updated_at?: string;
         }
       >;
