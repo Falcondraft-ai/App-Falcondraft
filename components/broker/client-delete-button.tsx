@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 /**
  * Permanent deletion of a client dossier and everything attached (documents,
  * contracts, quotes, advice, claims, commissions, compliance). Manager-only,
- * irreversible — guarded by a type-to-confirm dialog.
+ * irreversible — guarded by a confirmation checkbox.
  *
  * - `variant="detail"` renders a full ghost button and redirects to the list.
  * - `variant="row"` renders a compact icon button and refreshes the table.
@@ -37,10 +37,9 @@ export function ClientDeleteButton({
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  const [confirmText, setConfirmText] = React.useState("");
+  const [confirmed, setConfirmed] = React.useState(false);
 
-  const canConfirm =
-    confirmText.trim().toLowerCase() === clientName.trim().toLowerCase();
+  const canConfirm = confirmed;
 
   async function remove() {
     if (busy || !canConfirm) return;
@@ -72,7 +71,7 @@ export function ClientDeleteButton({
       onOpenChange={(next) => {
         if (busy) return;
         setOpen(next);
-        if (!next) setConfirmText("");
+        if (!next) setConfirmed(false);
       }}
     >
       <AlertDialogTrigger asChild>
@@ -119,24 +118,23 @@ export function ClientDeleteButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-1.5">
-          <label
-            htmlFor={`confirm-delete-${clientId}`}
-            className="text-[12px] text-[var(--fg-3)]"
-          >
-            Pour confirmer, saisissez le nom du dossier :
-          </label>
+        <label
+          htmlFor={`confirm-delete-${clientId}`}
+          className="flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 transition-colors hover:bg-[var(--bg-sunken)]"
+          style={{ borderColor: "var(--border-1)" }}
+        >
           <input
             id={`confirm-delete-${clientId}`}
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder={clientName}
-            autoComplete="off"
-            className="h-9 w-full rounded-md border bg-[var(--bg-surface)] px-3 text-[13px] outline-none transition-colors focus:border-[var(--border-focus)]"
-            style={{ borderColor: "var(--border-1)", color: "var(--fg-1)" }}
+            type="checkbox"
+            checked={confirmed}
+            onChange={(e) => setConfirmed(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-[var(--destructive)]"
           />
-        </div>
+          <span className="text-[12.5px] leading-5 text-[var(--fg-2)]">
+            Je comprends que cette action est définitive et supprime tout le
+            dossier.
+          </span>
+        </label>
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Annuler</AlertDialogCancel>

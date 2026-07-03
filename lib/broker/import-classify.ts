@@ -89,7 +89,7 @@ function buildInstruction(fileName: string, folderHint: string): string {
   return [
     "Ce fichier provient du portefeuille désordonné d'un cabinet de courtage en assurance qu'on est en train de reprendre dans un CRM.",
     folderHint
-      ? `Il se trouvait dans un dossier nommé « ${folderHint} » (souvent le nom du client — à confirmer par le contenu).`
+      ? `Il se trouvait dans un dossier nommé « ${folderHint} » : c'est généralement le NOM EXACT du client. Utilise-le pour client_first_name/client_last_name (ou client_company_name) et ne le remplace PAS par un nom lu sur une pièce d'identité (souvent mal océrisé). Ex. dossier « Timeo Marcopoulos » → ne renvoie jamais « Marcopolidos ».`
       : "",
     `Nom du fichier : « ${fileName} ».`,
     "Analyse son CONTENU et renvoie STRICTEMENT ce JSON :",

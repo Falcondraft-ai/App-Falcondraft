@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Shared page header. The bottom hairline with its small amber tick is the
+ * FalconDraft signature rule — keep it consistent across pages.
+ */
 export function PageHeader({
   eyebrow,
   title,
@@ -15,7 +19,10 @@ export function PageHeader({
   size?: "default" | "large";
 }) {
   return (
-    <div className="flex flex-col justify-between gap-3 pb-5 sm:flex-row sm:items-end sm:gap-4">
+    <div
+      className="relative flex flex-col justify-between gap-3 border-b pb-5 sm:flex-row sm:items-end sm:gap-4"
+      style={{ borderColor: "var(--border-1)" }}
+    >
       <div className="min-w-0">
         {eyebrow ? <p className="fd-eyebrow mb-2">{eyebrow}</p> : null}
         <h1
@@ -46,6 +53,11 @@ export function PageHeader({
           {actions}
         </div>
       ) : null}
+      <span
+        aria-hidden
+        className="absolute -bottom-px left-0 h-[2px] w-10"
+        style={{ background: "var(--accent)" }}
+      />
     </div>
   );
 }

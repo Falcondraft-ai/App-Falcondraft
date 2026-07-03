@@ -1,6 +1,7 @@
 import { Inbox, MailSearch } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
+import { DigestBackfillMenu } from "@/components/broker/digest-backfill-menu";
 import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
 import { OutlookConnectionCard } from "@/components/broker/outlook-connection-card";
 import { OutlookDigest } from "@/components/broker/outlook-digest";
@@ -78,9 +79,14 @@ export default async function CourtierInboxPage() {
               pas le courtage, résume l’essentiel et vous propose les bonnes
               actions — que vous validez une par une.
             </p>
-            <div className="mt-5 flex justify-center">
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
               <GenerateDigestButton />
+              <DigestBackfillMenu />
             </div>
+            <p className="mx-auto mt-3 max-w-md text-[11.5px] text-[var(--fg-4)]">
+              « Remonter » analyse aussi les emails plus anciens non encore
+              traités (jusqu’à 90 jours).
+            </p>
           </div>
         </div>
       </PageTransition>

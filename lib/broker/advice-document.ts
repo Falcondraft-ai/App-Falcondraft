@@ -30,6 +30,9 @@ export type AdviceDocumentData = {
     companyName: string | null;
     address: string | null;
     birthDate: string | null;
+    birthCountry: string | null;
+    /** "Oui" / "Non" (from compliance) — omitted from the PDF when unknown. */
+    pep: string | null;
     email: string | null;
     phone: string | null;
   };
@@ -93,6 +96,11 @@ export function buildAdviceDocumentData(input: {
   quote: BrokerQuoteRow | null;
   justification: string;
   date?: string | null;
+  /** AI-generated "exigences en termes de garantie" (bullets), from the quote. */
+  requirements?: string | null;
+  /** Identity extras not on the client row (omitted from the PDF when absent). */
+  birthCountry?: string | null;
+  pep?: string | null;
 }): AdviceDocumentData {
   const { cabinet, client, quote } = input;
   const isCompany = client.client_type === "company";
@@ -120,6 +128,8 @@ export function buildAdviceDocumentData(input: {
       companyName: client.company_name,
       address: composeAddress(client),
       birthDate: client.date_of_birth ? frenchDate(client.date_of_birth) : null,
+      birthCountry: input.birthCountry ?? null,
+      pep: input.pep ?? null,
       email: client.email,
       phone: client.phone,
     },
@@ -131,11 +141,20 @@ export function buildAdviceDocumentData(input: {
       const label = branch && branch !== "—" ? branch : null;
       return { checkedLabel: checked, otherText: checked ? null : label };
     })(),
-    needsText: client.needs?.trim() ? client.needs.trim() : null,
-    structuredNeeds: summarizeStructuredNeeds(
-      client.insurance_type,
-      client.structured_needs,
-    ),
+    needsText: client.notes?.trim() || client.needs?.trim() || null,
+    // Prefer the AI-generated exigences (from the quote); else the questionnaire.
+    structuredNeeds: (() => {
+      const aiExigences = (input.requirements ?? "")
+        .split("\n")
+        .map((l) => l.trim().replace(/^[-–•·]\s*/, ""))
+        .filter((l) => l.length > 0);
+      return aiExigences.length > 0
+        ? aiExigences
+        : summarizeStructuredNeeds(
+            client.insurance_type,
+            client.structured_needs,
+          );
+    })(),
     proposition,
     justification: input.justification?.trim() ?? "",
     date: frenchDate(input.date ?? undefined),

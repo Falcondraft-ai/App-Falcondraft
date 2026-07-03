@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,44 +14,55 @@ export function AdviceEditor({
   clientId,
   advice,
   canEdit,
-  canDelete = false,
+  onValidated,
 }: {
   clientId: string;
   advice: BrokerAdviceRow;
   canEdit: boolean;
-  canDelete?: boolean;
+  /** Called after a successful validation — the flow closes this step. */
+  onValidated?: () => void;
 }) {
   const router = useRouter();
   const [title, setTitle] = React.useState(advice.title);
+  const [requirements, setRequirements] = React.useState(
+    advice.requirements ?? "",
+  );
   const [content, setContent] = React.useState(advice.content);
   const [saving, setSaving] = React.useState<
-    "none" | "save" | "validate" | "delete"
+    "none" | "save" | "validate" | "regenerate"
   >("none");
-  const [aiBusy, setAiBusy] = React.useState(false);
-  const isValidated = advice.status === "validated";
+  const isValidated = advice.status !== "draft";
 
-  async function handleDelete() {
+  async function regenerate() {
     if (saving !== "none") return;
     if (
       !window.confirm(
-        "Supprimer définitivement ce devoir de conseil ? Cette action est irréversible.",
+        "Remplacer les exigences et les motifs actuels par une nouvelle proposition de l'assistant ?",
       )
     ) {
       return;
     }
-    setSaving("delete");
+    setSaving("regenerate");
     try {
       const res = await fetch(
-        `/api/broker/clients/${clientId}/advice/${advice.id}`,
-        { method: "DELETE" },
-      ).catch(() => null);
-      if (!res?.ok) {
-        toast.error("Suppression impossible.");
+        `/api/broker/clients/${clientId}/advice/${advice.id}/motifs`,
+        { method: "POST" },
+      );
+      const data = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        motifs?: string;
+        requirements?: string;
+        message?: string;
+      } | null;
+      if (!res.ok || !data?.success) {
+        toast.error("Régénération impossible", { description: data?.message });
         return;
       }
-      toast.success("Devoir de conseil supprimé.");
-      router.push(`/courtier/clients/${clientId}`);
-      router.refresh();
+      if (data.requirements?.trim()) setRequirements(data.requirements);
+      if (data.motifs?.trim()) setContent(data.motifs);
+      toast.success("Nouvelle proposition prête.", {
+        description: "Relisez-la puis validez le contenu.",
+      });
     } finally {
       setSaving("none");
     }
@@ -66,7 +77,7 @@ export function AdviceEditor({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, content, validate }),
+          body: JSON.stringify({ title, content, requirements, validate }),
         },
       );
       if (!res.ok) {
@@ -79,37 +90,17 @@ export function AdviceEditor({
         );
         return;
       }
-      toast.success(validate ? "Devoir de conseil validé." : "Enregistré.");
       if (validate) {
-        router.push(`/courtier/clients/${clientId}`);
+        toast.success("Contenu validé.", {
+          description: "Vous pouvez maintenant générer le document PDF.",
+        });
+        onValidated?.();
+      } else {
+        toast.success("Modifications enregistrées.");
       }
       router.refresh();
     } finally {
       setSaving("none");
-    }
-  }
-
-  async function suggestMotifs() {
-    if (aiBusy || saving !== "none") return;
-    setAiBusy(true);
-    try {
-      const res = await fetch(
-        `/api/broker/clients/${clientId}/advice/${advice.id}/motifs`,
-        { method: "POST" },
-      );
-      const data = (await res.json().catch(() => null)) as {
-        success?: boolean;
-        motifs?: string;
-        message?: string;
-      } | null;
-      if (!res.ok || !data?.success || !data.motifs) {
-        toast.error("Suggestion impossible", { description: data?.message });
-        return;
-      }
-      setContent(data.motifs);
-      toast.success("Motifs suggérés — relisez et ajustez avant de valider.");
-    } finally {
-      setAiBusy(false);
     }
   }
 
@@ -134,31 +125,27 @@ export function AdviceEditor({
       </div>
 
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="advice-content">
-            Justification du conseil (motifs)
-          </Label>
-          {canEdit ? (
-            <button
-              type="button"
-              onClick={() => void suggestMotifs()}
-              disabled={aiBusy || saving !== "none"}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-60"
-              style={{
-                border: "1px solid var(--border-1)",
-                color: "var(--accent-foreground)",
-                background: "var(--accent-soft)",
-              }}
-            >
-              {aiBusy ? (
-                <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
-              ) : (
-                <Sparkles className="size-3.5" strokeWidth={2} />
-              )}
-              {aiBusy ? "Génération…" : "Suggérer (IA)"}
-            </button>
-          ) : null}
-        </div>
+        <Label htmlFor="advice-requirements">
+          Exigences en termes de garantie
+        </Label>
+        <Textarea
+          id="advice-requirements"
+          value={requirements}
+          onChange={(e) => setRequirements(e.target.value)}
+          rows={5}
+          disabled={disabled}
+          className="font-mono text-[12.5px] leading-6"
+        />
+        <p className="text-[11.5px] text-[var(--fg-3)]">
+          Une puce « - » par exigence de garantie du client — générées à partir
+          du devis, à relire.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="advice-content">
+          Justification du conseil (motifs)
+        </Label>
         <Textarea
           id="advice-content"
           value={content}
@@ -174,46 +161,41 @@ export function AdviceEditor({
         </p>
       </div>
 
-      {canEdit || canDelete ? (
+      {canEdit ? (
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          {canDelete ? (
+          <button
+            type="button"
+            onClick={() => void regenerate()}
+            disabled={saving !== "none"}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--fg-3)] transition-colors hover:text-[var(--fg-1)] disabled:opacity-50"
+          >
+            {saving === "regenerate" ? (
+              <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <Sparkles className="size-3.5" strokeWidth={1.75} />
+            )}
+            {saving === "regenerate"
+              ? "Nouvelle proposition…"
+              : "Régénérer avec l'assistant"}
+          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" variant="ghost" disabled={saving !== "none"}>
+              {saving === "save" ? "Enregistrement…" : "Enregistrer"}
+            </Button>
             <Button
               type="button"
-              variant="ghost"
-              onClick={handleDelete}
+              onClick={() => void submit(true)}
               disabled={saving !== "none"}
-              className="inline-flex items-center gap-1.5 text-[var(--destructive)] hover:text-[var(--destructive)]"
+              className="inline-flex items-center gap-1.5"
             >
-              <Trash2 className="size-3.5" strokeWidth={1.75} />
-              {saving === "delete" ? "Suppression…" : "Supprimer"}
+              <CheckCircle2 className="size-3.5" strokeWidth={2} />
+              {saving === "validate"
+                ? "Validation…"
+                : isValidated
+                  ? "Enregistrer et revalider"
+                  : "Valider le contenu"}
             </Button>
-          ) : (
-            <span />
-          )}
-          {canEdit ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="submit"
-                variant="ghost"
-                disabled={saving !== "none"}
-              >
-                {saving === "save" ? "Enregistrement…" : "Enregistrer"}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void submit(true)}
-                disabled={saving !== "none"}
-                className="inline-flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="size-3.5" strokeWidth={2} />
-                {saving === "validate"
-                  ? "Validation…"
-                  : isValidated
-                    ? "Enregistrer et revalider"
-                    : "Valider le devoir de conseil"}
-              </Button>
-            </div>
-          ) : null}
+          </div>
         </div>
       ) : null}
     </form>

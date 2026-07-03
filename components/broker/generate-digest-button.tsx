@@ -25,7 +25,12 @@ export function GenerateDigestButton({
         method: "POST",
       }).catch(() => null);
       const result = (await res?.json().catch(() => null)) as
-        | { success?: boolean; message?: string; relevant?: number }
+        | {
+            success?: boolean;
+            message?: string;
+            relevant?: number;
+            uncertain?: number;
+          }
         | null;
 
       if (!res?.ok || !result?.success) {
@@ -34,9 +39,10 @@ export function GenerateDigestButton({
         });
         return;
       }
+      const toReview = (result.relevant ?? 0) + (result.uncertain ?? 0);
       toast.success(
-        result.relevant && result.relevant > 0
-          ? `Briefing prêt — ${result.relevant} email${result.relevant > 1 ? "s" : ""} à traiter.`
+        toReview > 0
+          ? `Briefing prêt — ${toReview} email${toReview > 1 ? "s" : ""} à traiter.`
           : "Briefing à jour — rien de neuf côté courtage.",
       );
       router.refresh();

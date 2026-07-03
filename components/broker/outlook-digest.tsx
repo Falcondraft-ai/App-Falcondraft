@@ -20,6 +20,7 @@ import {
   ScrollText,
   Search,
   ShieldAlert,
+  StickyNote,
   UserCog,
   UserPlus,
   X,
@@ -36,6 +37,7 @@ import {
   type SuggestionType,
 } from "@/lib/broker/outlook";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
+import { DigestBackfillMenu } from "@/components/broker/digest-backfill-menu";
 import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -65,6 +67,7 @@ const suggestionIcons: Record<SuggestionType, React.ReactNode> = {
   update_client: <UserCog className="size-3.5" strokeWidth={1.75} />,
   declare_claim: <ShieldAlert className="size-3.5" strokeWidth={1.75} />,
   flag_renewal: <CalendarClock className="size-3.5" strokeWidth={1.75} />,
+  add_note: <StickyNote className="size-3.5" strokeWidth={1.75} />,
 };
 
 function pstr(payload: Record<string, unknown>, key: string): string | null {
@@ -104,6 +107,11 @@ function suggestionDescription(
         : "Pré-remplir une déclaration de sinistre";
     case "flag_renewal":
       return pstr(p, "note") ?? "Signaler l’échéance mentionnée";
+    case "add_note": {
+      const note = pstr(p, "note");
+      const who = clientName ? `au dossier ${clientName}` : "au dossier";
+      return note ? `Noter ${who} : « ${note} »` : `Ajouter une note ${who}`;
+    }
     default:
       return suggestionTypeLabels[suggestion.type as SuggestionType] ?? "Action";
   }
@@ -744,7 +752,10 @@ export function OutlookDigest({
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <p className="fd-eyebrow">Votre briefing du jour</p>
-            <GenerateDigestButton variant="ghost" />
+            <div className="flex items-center gap-1.5">
+              <DigestBackfillMenu />
+              <GenerateDigestButton variant="ghost" />
+            </div>
           </div>
           <div className="mt-3 max-w-2xl text-[15px] leading-7 text-[var(--fg-1)] sm:text-[16px]">
             {narrativeSentences.length > 0 ? (

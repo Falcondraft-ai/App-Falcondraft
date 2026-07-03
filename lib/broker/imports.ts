@@ -190,6 +190,76 @@ function firstNonEmpty(values: (string | null | undefined)[]): string | null {
   return null;
 }
 
+// --- Folder name → client identity -----------------------------------------
+// Generic folder names that are NOT a client name (don't build an identity).
+const GENERIC_FOLDER =
+  /^(documents?|docs?|clients?|dossiers?|divers|autres?|à ?trier|a ?trier|scans?|scan|imports?|import|pi[èe]ces?|sans ?nom|temp|tmp|new ?folder|nouveau ?dossier|copie|copies|archive|archives)$/i;
+
+// Company markers → treat the folder as an entreprise.
+const COMPANY_HINT =
+  /(\b(sarl|sasu|sas|eurl|sci|scp|selarl|selas|snc|scm|gie|sa|association|asso|mutuelle|cabinet|groupe|group|holding|st[ée]|soci[ée]t[ée]|entreprise|ets|[ée]tablissements)\b|&|\bltd\b|\binc\b|\bgmbh\b)/i;
+
+function titleWord(w: string): string {
+  return w.replace(
+    /[a-zà-ÿ]+/gi,
+    (m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase(),
+  );
+}
+
+function titleName(s: string): string {
+  return s.split(/\s+/).filter(Boolean).map(titleWord).join(" ");
+}
+
+export type FolderIdentity = {
+  client_type: "individual" | "company";
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+};
+
+/**
+ * Derives a client identity from a folder name. The folder is the broker's OWN
+ * labelling of the dossier — so it is authoritative for the client's NAME, over
+ * a name mis-read from a document inside (e.g. a blurry passport). Returns null
+ * for generic folders ("documents", "à trier"…) so we fall back to content.
+ */
+export function parseFolderIdentity(folder: string): FolderIdentity | null {
+  const cleaned = (folder ?? "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  // Drop a leading civility and a trailing "(2)" style counter.
+  const name = cleaned
+    .replace(/^\s*(m|mr|mme|mlle|dr|me)\.?\s+/i, "")
+    .replace(/\s*[([]\d+[)\]]\s*$/, "")
+    .trim();
+  if (!name || GENERIC_FOLDER.test(name)) return null;
+
+  if (COMPANY_HINT.test(name)) {
+    return {
+      client_type: "company",
+      first_name: null,
+      last_name: null,
+      company_name: titleName(name),
+    };
+  }
+
+  const words = name.split(" ").filter(Boolean);
+  if (words.length === 1) {
+    return {
+      client_type: "individual",
+      first_name: null,
+      last_name: titleWord(words[0]),
+      company_name: null,
+    };
+  }
+  // Keep the folder's word order for the display name (first + last are just
+  // joined back), so "Dupont Jean" and "Jean Dupont" both round-trip correctly.
+  return {
+    client_type: "individual",
+    first_name: titleWord(words[0]),
+    last_name: titleName(words.slice(1).join(" ")),
+    company_name: null,
+  };
+}
+
 /**
  * Groups staged files into proposed dossiers, deterministically: primary signal
  * is the top-level folder, then the extracted email, then the extracted name.
@@ -222,14 +292,42 @@ export function clusterImportFiles(files: ClusterInputFile[]): {
         (b.extraction.confidence ?? 0) - (a.extraction.confidence ?? 0),
     );
     const ex = sorted.map((f) => f.extraction);
-    const company = firstNonEmpty(ex.map((e) => e.client_company_name));
-    const first = firstNonEmpty(ex.map((e) => e.client_first_name));
-    const last = firstNonEmpty(ex.map((e) => e.client_last_name));
+    const contentCompany = firstNonEmpty(ex.map((e) => e.client_company_name));
+    const contentFirst = firstNonEmpty(ex.map((e) => e.client_first_name));
+    const contentLast = firstNonEmpty(ex.map((e) => e.client_last_name));
     const explicitType = ex.find((e) => e.client_type)?.client_type ?? null;
-    const clientType: "individual" | "company" =
-      explicitType === "company" || (!!company && !first && !last)
-        ? "company"
-        : "individual";
+
+    // The folder name (broker's own labelling) is authoritative for the NAME —
+    // it beats a name mis-read from a document, and it names an otherwise empty
+    // folder. Content still provides email/phone/address and a company reading.
+    const folderId = bucket[0].folder
+      ? parseFolderIdentity(bucket[0].folder)
+      : null;
+
+    let clientType: "individual" | "company";
+    let first: string | null;
+    let last: string | null;
+    let company: string | null;
+    if (folderId) {
+      clientType = folderId.client_type;
+      first = folderId.first_name;
+      last = folderId.last_name;
+      company = folderId.company_name;
+      // Folder gave a person but yielded no usable name and content sees a
+      // company → defer to the company reading.
+      if (clientType === "individual" && !first && !last && contentCompany) {
+        clientType = "company";
+        company = contentCompany;
+      }
+    } else {
+      company = contentCompany;
+      first = contentFirst;
+      last = contentLast;
+      clientType =
+        explicitType === "company" || (!!company && !first && !last)
+          ? "company"
+          : "individual";
+    }
     const confidences = ex
       .map((e) => e.confidence)
       .filter((c): c is number => typeof c === "number");

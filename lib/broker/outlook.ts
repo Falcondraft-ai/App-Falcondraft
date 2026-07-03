@@ -58,6 +58,7 @@ export const suggestionTypes = [
   "update_client",
   "declare_claim",
   "flag_renewal",
+  "add_note",
 ] as const;
 
 export type SuggestionType = (typeof suggestionTypes)[number];
@@ -69,6 +70,7 @@ export const suggestionTypeLabels: Record<SuggestionType, string> = {
   update_client: "Mettre à jour le dossier",
   declare_claim: "Pré-remplir une déclaration de sinistre",
   flag_renewal: "Signaler l’échéance",
+  add_note: "Noter l’information dans le dossier",
 };
 
 /** Short verb shown on the accept button. */
@@ -79,6 +81,7 @@ export const suggestionAcceptLabels: Record<SuggestionType, string> = {
   update_client: "Mettre à jour",
   declare_claim: "Créer le sinistre",
   flag_renewal: "Noter",
+  add_note: "Ajouter la note",
 };
 
 /** Human label for a client field referenced by an update_client suggestion. */
@@ -173,6 +176,11 @@ export function describeSuggestion(
         : "Pré-remplir une déclaration de sinistre";
     case "flag_renewal":
       return pstr(p, "note") ?? "Signaler l’échéance mentionnée";
+    case "add_note": {
+      const note = pstr(p, "note");
+      const who = clientName ? `au dossier ${clientName}` : "au dossier";
+      return note ? `Noter ${who} : « ${note} »` : `Ajouter une note ${who}`;
+    }
     default:
       return suggestionTypeLabels[type as SuggestionType] ?? "Action";
   }

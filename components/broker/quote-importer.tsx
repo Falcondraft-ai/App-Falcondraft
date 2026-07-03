@@ -8,7 +8,7 @@ import { documentUploadAccept } from "@/lib/broker/documents";
 import { uploadBrokerDocument } from "@/lib/broker/upload-client";
 
 type CreateResponse =
-  | { success: true; quoteId: string }
+  | { success: true; quoteId: string; extracted?: boolean }
   | { success: false; message?: string };
 
 async function createQuote(
@@ -59,8 +59,13 @@ export function QuoteImporter({
         });
         return;
       }
-      toast.success("Devis importé. Vérifiez les informations.");
-      router.push(`/courtier/clients/${clientId}/quotes/${created.quoteId}`);
+      toast.success(
+        created.extracted
+          ? "Devis importé et lu — prêt pour le devoir de conseil."
+          : "Devis importé. Ouvrez-le pour compléter les informations.",
+      );
+      // On reste sur le dossier client — le devis apparaît dans la liste,
+      // pré-rempli. On n'entre plus d'office dans le détail d'extraction.
       router.refresh();
     } finally {
       setBusy(false);

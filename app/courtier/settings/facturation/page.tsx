@@ -96,7 +96,7 @@ export default async function CourtierBillingSettingsPage() {
         {hasCustomer && plan && config ? (
           <>
             <div className="mt-1 flex flex-wrap items-center gap-3">
-              <h2 className="text-[22px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
+              <h2 className="fd-serif text-[22px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
                 {PLAN_LABELS[plan] ?? plan}
               </h2>
               {statusMeta ? (
@@ -166,7 +166,7 @@ export default async function CourtierBillingSettingsPage() {
           </>
         ) : (
           <>
-            <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
+            <h2 className="fd-serif mt-1 text-[20px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
               Activez votre offre
             </h2>
             <p className="mt-1 text-[13px] leading-6 text-[var(--fg-3)]">

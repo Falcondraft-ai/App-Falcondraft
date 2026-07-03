@@ -99,6 +99,24 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
   }
 
   try {
+    // Keep the email tied to the dossier it acts on, so it always appears in
+    // that dossier's emails — even when the sender isn't the client (create_client
+    // links the item itself once the new dossier exists).
+    if (
+      suggestion.type !== "create_client" &&
+      resolvedClientId &&
+      item.suggested_client_id !== resolvedClientId
+    ) {
+      await admin
+        .from("broker_email_items")
+        .update({
+          suggested_client_id: resolvedClientId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", orgId)
+        .eq("id", item.id);
+    }
+
     if (suggestion.type === "create_client") {
       const clientType = str(payload, "company_name") ? "company" : "individual";
       const { data: created, error } = await admin
@@ -112,7 +130,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
           company_name: str(payload, "company_name"),
           email: str(payload, "email"),
           insurance_type: str(payload, "insurance_type"),
-          needs: str(payload, "needs"),
+          notes: str(payload, "notes"),
           status: "new",
         })
         .select("*")
@@ -341,6 +359,45 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
         });
       }
       await markDone({ flagged: true });
+      return NextResponse.json({ success: true, status: "done" });
+    }
+
+    if (suggestion.type === "add_note") {
+      if (!resolvedClientId) {
+        return jsonError(
+          "Rattachez d’abord cet email à un dossier avant d’y ajouter une note.",
+          409,
+          "client_required",
+        );
+      }
+      const note = str(payload, "note");
+      if (!note) throw new Error("empty_note");
+      // Append to the dossier's internal notes (dated) — never overwrite.
+      const { data: clientRow } = await admin
+        .from("broker_clients")
+        .select("notes")
+        .eq("organization_id", orgId)
+        .eq("id", resolvedClientId)
+        .maybeSingle();
+      const existing = (clientRow?.notes ?? "").trim();
+      const stamp = new Date().toLocaleDateString("fr-FR");
+      const combined = existing
+        ? `${existing}\n\n[${stamp}] ${note}`
+        : `[${stamp}] ${note}`;
+      const { error } = await admin
+        .from("broker_clients")
+        .update({ notes: combined, updated_at: new Date().toISOString() })
+        .eq("organization_id", orgId)
+        .eq("id", resolvedClientId);
+      if (error) throw new Error(error.message);
+      await logBrokerActivity(admin, {
+        organizationId: orgId,
+        clientId: resolvedClientId,
+        userId,
+        type: "note_added",
+        description: "Information ajoutée au dossier depuis un email.",
+      });
+      await markDone({ client_id: resolvedClientId });
       return NextResponse.json({ success: true, status: "done" });
     }
 

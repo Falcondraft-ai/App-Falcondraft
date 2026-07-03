@@ -298,7 +298,10 @@
     color: var(--foreground);
   }
 
-  h1, h2,
+  /* Fraunces is reserved for display moments (page titles, large numbers,
+     empty-state titles) — section/card headings stay in the UI sans so the
+     serif keeps its editorial weight instead of becoming wallpaper. */
+  h1,
   .text-2xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl {
     font-family: var(--font-heading);
   }
@@ -323,6 +326,10 @@
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--fg-2);
+}
+/* Opt-in display serif — for deliberate moments outside h1/text-2xl+. */
+.fd-serif {
+  font-family: var(--font-heading);
 }
 .fd-numeric {
   font-variant-numeric: tabular-nums lining-nums;

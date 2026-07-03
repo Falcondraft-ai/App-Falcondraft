@@ -72,7 +72,7 @@ export default async function CourtierGeneralSettingsPage() {
         style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
       >
         <p className="fd-eyebrow">Cabinet</p>
-        <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
+        <h2 className="fd-serif mt-1 text-[20px] font-semibold tracking-[-0.01em] text-[var(--fg-1)]">
           {organization.name}
         </h2>
         <p className="mt-1 text-[13px] leading-6 text-[var(--fg-3)]">

@@ -11,6 +11,7 @@ import {
   Paperclip,
   PenLine,
   ShieldAlert,
+  StickyNote,
   UserCog,
   UserPlus,
   X,
@@ -36,6 +37,7 @@ const icons: Record<string, React.ReactNode> = {
   update_client: <UserCog className="size-3.5" strokeWidth={1.75} />,
   declare_claim: <ShieldAlert className="size-3.5" strokeWidth={1.75} />,
   flag_renewal: <CalendarClock className="size-3.5" strokeWidth={1.75} />,
+  add_note: <StickyNote className="size-3.5" strokeWidth={1.75} />,
 };
 
 export function ValidationQueue({ items }: { items: ValidationItem[] }) {

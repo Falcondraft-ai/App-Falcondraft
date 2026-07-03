@@ -11,51 +11,55 @@ const detailTone: Record<DeltaTone, string> = {
   neutral: "text-[var(--fg-3)]",
 };
 
-const iconTone: Record<Tone, string> = {
-  neutral: "text-[var(--fg-3)]",
-  accent: "text-[var(--brand-amber-700)]",
-  success: "text-[var(--status-signed-fg)]",
-  warning: "text-[var(--brand-amber-700)]",
-  danger: "text-[var(--status-error-fg)]",
+const toneDot: Record<Exclude<Tone, "neutral">, string> = {
+  accent: "var(--brand-amber-500)",
+  success: "var(--status-signed-fg)",
+  warning: "var(--brand-amber-700)",
+  danger: "var(--status-error-fg)",
 };
 
+/**
+ * Ledger-style stat: eyebrow label (with a state dot when toned), a serif
+ * figure, then the reading. `variant="cell"` drops the own chrome so several
+ * stats can share one bordered strip (see StatStrip).
+ */
 export function DashboardStatCard({
   label,
   value,
   detail,
   tone = "neutral",
-  icon,
   deltaTone = "neutral",
+  variant = "card",
 }: {
   label: ReactNode;
   value: string;
   detail: ReactNode;
   tone?: Tone;
+  /** Accepted for backward compatibility — decorative icons are not rendered. */
   icon?: ReactNode;
   deltaTone?: DeltaTone;
+  variant?: "card" | "cell";
 }) {
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-lg border bg-[var(--bg-surface)] px-5 py-4",
-        "border-[var(--border-1)] shadow-[var(--shadow-sm)]",
-        "transition-shadow duration-200 ease-out hover:shadow-[var(--shadow-md)]",
+        "px-5 py-4",
+        variant === "card" &&
+          "rounded-lg border border-[var(--border-1)] bg-[var(--bg-surface)] shadow-[var(--shadow-sm)]",
+        variant === "cell" && "bg-[var(--bg-surface)]",
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="fd-eyebrow">{label}</p>
-        {icon ? (
+      <p className="fd-eyebrow flex items-center gap-1.5">
+        {tone !== "neutral" ? (
           <span
-            className={cn(
-              "flex h-5 w-5 items-center justify-center",
-              iconTone[tone],
-            )}
-          >
-            {icon}
-          </span>
+            aria-hidden
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: toneDot[tone] }}
+          />
         ) : null}
-      </div>
-      <p className="fd-numeric mt-3 text-[28px] font-semibold leading-none tracking-[-0.015em] text-[var(--fg-1)]">
+        {label}
+      </p>
+      <p className="fd-serif fd-numeric mt-3 text-[30px] font-semibold leading-none tracking-[-0.01em] text-[var(--fg-1)]">
         {value}
       </p>
       <p
@@ -76,6 +80,31 @@ export function DashboardStatCard({
         ) : null}
         {detail}
       </p>
+    </section>
+  );
+}
+
+/**
+ * One bordered strip holding several stat cells, separated by hairlines in
+ * both directions (the 1px gap over the border color does the ruling). Use
+ * with `DashboardStatCard variant="cell"` children.
+ */
+export function StatStrip({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "grid gap-px overflow-hidden rounded-lg border border-[var(--border-1)] shadow-[var(--shadow-sm)]",
+        className,
+      )}
+      style={{ background: "var(--border-1)" }}
+    >
+      {children}
     </section>
   );
 }

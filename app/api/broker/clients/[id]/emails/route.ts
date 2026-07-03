@@ -19,8 +19,12 @@ export type ClientEmail = {
   preview: string;
   hasAttachments: boolean;
   webLink: string;
-  /** "direct" = client is a participant; "mention" = concerns the client (name/ref). */
-  matchType: "direct" | "mention";
+  /**
+   * "linked" = the briefing tied this email to the dossier (creation, update,
+   * attachment, note) — definitive; "direct" = client is a participant;
+   * "mention" = the live search found the client cited (name/ref).
+   */
+  matchType: "linked" | "direct" | "mention";
 };
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -58,87 +62,140 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   > | null;
   if (!client) return jsonError("Dossier introuvable.", 404, "not_found");
 
-  const access = await getOutlookAccessForUser(orgId, auth.user.id);
-  if (!access) {
-    return NextResponse.json({ emails: [], reason: "not_connected" });
-  }
+  // 1) Persisted links — emails the briefing tied to THIS dossier (creation,
+  //    update, attachment, note). Definitive, independent of the live search and
+  //    of whether the client even has an email address: this is what guarantees
+  //    a dossier created from a third-party email still shows that email.
+  const { data: linkedItems } = await admin
+    .from("broker_email_items")
+    .select(
+      "graph_message_id, from_name, from_email, subject, received_at, web_link, has_attachments, summary",
+    )
+    .eq("organization_id", orgId)
+    .eq("suggested_client_id", id)
+    .order("received_at", { ascending: false })
+    .limit(100);
 
-  // Gather every signal that identifies this client.
-  const [{ data: contracts }, { data: claims }] = await Promise.all([
-    admin
-      .from("broker_contracts")
-      .select("policy_number")
-      .eq("organization_id", orgId)
-      .eq("client_id", id)
-      .not("policy_number", "is", null)
-      .limit(50),
-    admin
-      .from("broker_claims")
-      .select("reference")
-      .eq("organization_id", orgId)
-      .eq("client_id", id)
-      .not("reference", "is", null)
-      .limit(50),
-  ]);
-
-  const displayName = brokerClientDisplayName(client);
-  const names = [displayName];
-  if (
-    client.company_name?.trim() &&
-    client.company_name.trim() !== displayName
-  ) {
-    names.push(client.company_name.trim());
-  }
-
-  const references = [
-    ...(contracts ?? []).map((c) => (c as { policy_number: string | null }).policy_number),
-    ...(claims ?? []).map((c) => (c as { reference: string | null }).reference),
-  ].filter((r): r is string => Boolean(r && r.trim()));
-
-  const domain = companyEmailDomain(client.email, client.client_type === "company");
-
-  const criteria: ClientSearchCriteria = {
-    emails: client.email ? [client.email.trim().toLowerCase()] : [],
-    names,
-    references,
-    domain,
-  };
-
-  if (
-    criteria.emails.length === 0 &&
-    criteria.names.length === 0 &&
-    criteria.references.length === 0 &&
-    !criteria.domain
-  ) {
-    return NextResponse.json({ emails: [], reason: "no_criteria" });
-  }
-
-  const messages = await searchMessagesForClient(access.accessToken, criteria, q);
-
-  // Classify: is the client an actual participant, or merely mentioned?
-  const emailSet = new Set(criteria.emails);
-  const isDirect = (m: OutlookMessage): boolean => {
-    if (m.fromEmail && emailSet.has(m.fromEmail)) return true;
-    if (m.recipients.some((r) => emailSet.has(r))) return true;
-    if (criteria.domain) {
-      const at = `@${criteria.domain}`;
-      if (m.fromEmail.endsWith(at)) return true;
-      if (m.recipients.some((r) => r.endsWith(at))) return true;
-    }
-    return false;
-  };
-
-  const emails: ClientEmail[] = messages.map((m) => ({
-    id: m.id,
-    subject: m.subject,
-    from: m.fromName || m.fromEmail,
-    fromEmail: m.fromEmail,
-    receivedAt: m.receivedDateTime,
-    preview: m.bodyPreview,
-    hasAttachments: m.hasAttachments,
-    webLink: m.webLink,
-    matchType: isDirect(m) ? "direct" : "mention",
+  const needle = q?.toLowerCase();
+  let linkedEmails: ClientEmail[] = (linkedItems ?? []).map((it) => ({
+    id: it.graph_message_id,
+    subject: it.subject || "(sans objet)",
+    from: it.from_name || it.from_email || "Expéditeur",
+    fromEmail: it.from_email || "",
+    receivedAt: it.received_at || "",
+    preview: it.summary || "",
+    hasAttachments: it.has_attachments ?? false,
+    webLink: it.web_link || "",
+    matchType: "linked",
   }));
+  if (needle) {
+    linkedEmails = linkedEmails.filter((e) =>
+      [e.subject, e.from, e.fromEmail, e.preview].some((f) =>
+        f.toLowerCase().includes(needle),
+      ),
+    );
+  }
+  const linkedIds = new Set(linkedEmails.map((e) => e.id));
 
-  return NextResponse.json({ emails, mailbox: access.email });
+  const access = await getOutlookAccessForUser(orgId, auth.user.id);
+
+  // 2) Live mailbox search (direct exchanges + mentions), merged with the
+  //    persisted links which always take precedence.
+  let liveEmails: ClientEmail[] = [];
+  let criteriaEmpty = true;
+  if (access) {
+    // Gather every signal that identifies this client.
+    const [{ data: contracts }, { data: claims }] = await Promise.all([
+      admin
+        .from("broker_contracts")
+        .select("policy_number")
+        .eq("organization_id", orgId)
+        .eq("client_id", id)
+        .not("policy_number", "is", null)
+        .limit(50),
+      admin
+        .from("broker_claims")
+        .select("reference")
+        .eq("organization_id", orgId)
+        .eq("client_id", id)
+        .not("reference", "is", null)
+        .limit(50),
+    ]);
+
+    const displayName = brokerClientDisplayName(client);
+    const names = [displayName];
+    if (
+      client.company_name?.trim() &&
+      client.company_name.trim() !== displayName
+    ) {
+      names.push(client.company_name.trim());
+    }
+
+    const references = [
+      ...(contracts ?? []).map(
+        (c) => (c as { policy_number: string | null }).policy_number,
+      ),
+      ...(claims ?? []).map((c) => (c as { reference: string | null }).reference),
+    ].filter((r): r is string => Boolean(r && r.trim()));
+
+    const domain = companyEmailDomain(
+      client.email,
+      client.client_type === "company",
+    );
+
+    const criteria: ClientSearchCriteria = {
+      emails: client.email ? [client.email.trim().toLowerCase()] : [],
+      names,
+      references,
+      domain,
+    };
+    criteriaEmpty =
+      criteria.emails.length === 0 &&
+      criteria.names.length === 0 &&
+      criteria.references.length === 0 &&
+      !criteria.domain;
+
+    if (!criteriaEmpty) {
+      const messages = await searchMessagesForClient(
+        access.accessToken,
+        criteria,
+        q,
+      );
+      const emailSet = new Set(criteria.emails);
+      const isDirect = (m: OutlookMessage): boolean => {
+        if (m.fromEmail && emailSet.has(m.fromEmail)) return true;
+        if (m.recipients.some((r) => emailSet.has(r))) return true;
+        if (criteria.domain) {
+          const at = `@${criteria.domain}`;
+          if (m.fromEmail.endsWith(at)) return true;
+          if (m.recipients.some((r) => r.endsWith(at))) return true;
+        }
+        return false;
+      };
+      liveEmails = messages
+        .filter((m) => !linkedIds.has(m.id))
+        .map((m) => ({
+          id: m.id,
+          subject: m.subject,
+          from: m.fromName || m.fromEmail,
+          fromEmail: m.fromEmail,
+          receivedAt: m.receivedDateTime,
+          preview: m.bodyPreview,
+          hasAttachments: m.hasAttachments,
+          webLink: m.webLink,
+          matchType: isDirect(m) ? "direct" : "mention",
+        }));
+    }
+  }
+
+  // Nothing persisted and no way to search live → keep the guiding empty states.
+  if (linkedEmails.length === 0) {
+    if (!access) return NextResponse.json({ emails: [], reason: "not_connected" });
+    if (criteriaEmpty) return NextResponse.json({ emails: [], reason: "no_criteria" });
+  }
+
+  return NextResponse.json({
+    emails: [...linkedEmails, ...liveEmails],
+    mailbox: access?.email,
+  });
 }

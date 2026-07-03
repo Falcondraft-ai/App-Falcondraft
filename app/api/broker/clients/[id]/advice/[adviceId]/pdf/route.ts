@@ -67,6 +67,14 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
   if (!advice || advice.client_id !== clientId) {
     return jsonError("Devoir de conseil introuvable.", 404, "advice_not_found");
   }
+  // The PDF is only produced from reviewed content — same rule as DocuSeal.
+  if (advice.status === "draft") {
+    return jsonError(
+      "Relisez et validez le contenu avant de générer le PDF.",
+      400,
+      "not_validated",
+    );
+  }
   if (!client) {
     return jsonError("Dossier introuvable.", 404, "client_not_found");
   }
@@ -82,6 +90,14 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     quote = (data as BrokerQuoteRow | null) ?? null;
   }
 
+  // PPE for the identity section comes from the client's LCB-FT compliance row.
+  const { data: compliance } = await auth.adminSupabase
+    .from("broker_compliance")
+    .select("is_pep")
+    .eq("organization_id", auth.organizationId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+
   const settings = parseBrokerSettings(organization);
   const cabinet: CabinetInfo = {
     ...settings.compliance,
@@ -93,6 +109,9 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     client,
     quote,
     justification: advice.content ?? "",
+    requirements: advice.requirements,
+    birthCountry: client.birth_country,
+    pep: compliance ? (compliance.is_pep ? "Oui" : "Non") : null,
     date: advice.generated_at,
   });
 

@@ -1,11 +1,13 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildAdviceTemplate } from "@/lib/broker/advice";
 import { brokerAdviceStatusLabels } from "@/lib/broker/advice";
+import { generateAdviceContent } from "@/lib/broker/advice-ai";
+import { buildAdviceJustificationDraft } from "@/lib/broker/advice-document";
 import {
   brokerClientDisplayName,
   brokerClientStatusLabels,
+  brokerInsuranceTypes,
   insuranceTypeLabel,
   isBrokerClientStatus,
 } from "@/lib/broker/clients";
@@ -28,22 +30,28 @@ import {
   sanitizeFileName,
 } from "@/lib/broker/documents";
 import {
+  isReadableDocument,
+  understandDocument,
+} from "@/lib/broker/document-understanding";
+import {
   brokerQuoteStatusLabels,
   formatPremium,
 } from "@/lib/broker/quotes";
 import {
   adjustOrganizationStorage,
-  advanceClientStatus,
   logBrokerActivity,
 } from "@/lib/broker/server";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
 import { createOutlookDraft } from "@/lib/email/outlook-drafts";
 import {
+  companyEmailDomain,
   getFileAttachmentBytes,
   getMessageAttachmentsMeta,
   getOutlookAccessForUser,
   getOutlookMessageBody,
   listRecentInboxMessages,
+  searchMessagesForClient,
+  type ClientSearchCriteria,
 } from "@/lib/email/outlook-read";
 import type {
   BrokerClaimRow,
@@ -89,10 +97,23 @@ export const agentToolDefinitions = [
   {
     name: "get_client",
     description:
-      "Vue complète d'un dossier : informations, besoins, documents, devis compagnies, devoirs de conseil, historique. Toujours utiliser avant de détailler un dossier.",
+      "Vue complète d'un dossier : informations, notes internes, contrats, documents, devis compagnies, devoirs de conseil, historique. Toujours utiliser avant de détailler un dossier ou d'agir dessus.",
     input_schema: {
       type: "object",
       properties: { client_id: { type: "string" } },
+      required: ["client_id"],
+    },
+  },
+  {
+    name: "list_client_emails",
+    description:
+      "Retrouve les emails de la boîte Outlook qui CONCERNENT un dossier client : échanges avec le client, mais aussi emails d'assureurs ou de tiers qui citent son nom, son entreprise ou une référence de contrat/sinistre. À utiliser pour reconstituer l'historique ou le contexte d'un dossier (« où en est-on avec ce client ? »). Paramètre optionnel query (texte libre) pour affiner. Les message_id renvoyés s'utilisent avec read_email / list_email_attachments.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        query: { type: "string" },
+      },
       required: ["client_id"],
     },
   },
@@ -138,6 +159,29 @@ export const agentToolDefinitions = [
       type: "object",
       properties: { message_id: { type: "string" } },
       required: ["message_id"],
+    },
+  },
+  {
+    name: "inspect_email_attachment",
+    description:
+      "Ouvre et LIT une pièce jointe d'un email Outlook (PDF ou image) pour dire ce que c'est : nature du document (devis, contrat, RIB, pièce d'identité, autre), résumé de son contenu, et personne/entreprise concernée. À utiliser avant de ranger une pièce jointe pour choisir la bonne catégorie, ou quand l'utilisateur demande « c'est quoi cette pièce jointe ». Fournir message_id et attachment_id (via list_email_attachments).",
+    input_schema: {
+      type: "object",
+      properties: {
+        message_id: { type: "string" },
+        attachment_id: { type: "string" },
+      },
+      required: ["message_id", "attachment_id"],
+    },
+  },
+  {
+    name: "inspect_uploaded_file",
+    description:
+      "Ouvre et LIT un fichier (PDF ou image) que l'utilisateur a joint dans la conversation, pour dire ce que c'est : nature du document (devis, contrat, RIB, pièce d'identité, autre), résumé de son contenu, et personne/entreprise concernée. À utiliser dès que l'utilisateur joint un document et demande de l'analyser, de dire ce que c'est, ou avant de le ranger pour choisir la bonne catégorie. Fournir upload_id (la référence entre crochets à côté du nom du fichier joint).",
+    input_schema: {
+      type: "object",
+      properties: { upload_id: { type: "string" } },
+      required: ["upload_id"],
     },
   },
   {
@@ -200,7 +244,7 @@ export const agentToolDefinitions = [
   {
     name: "create_client",
     description:
-      "Crée un nouveau dossier client. À n'utiliser que si l'utilisateur le demande explicitement. Pour un particulier, fournir au moins last_name ; pour une entreprise, company_name.",
+      "Crée un nouveau dossier client. À n'utiliser que si l'utilisateur le demande explicitement. Le dossier doit être au nom de la personne/entreprise ASSURÉE (celle décrite dans le contenu), pas de l'expéditeur d'un email s'il n'est qu'un intermédiaire. Renseigne email/phone avec les coordonnées du client lui-même. Pour un particulier, fournir au moins last_name ; pour une entreprise, company_name.",
     input_schema: {
       type: "object",
       properties: {
@@ -214,7 +258,11 @@ export const agentToolDefinitions = [
           type: "string",
           description: "immobilier, personnes, auto, pro ou autre",
         },
-        needs: { type: "string", description: "Recueil de besoins." },
+        notes: {
+          type: "string",
+          description:
+            "Note interne du dossier : situation du client, objet à assurer et ses caractéristiques, contexte de la demande.",
+        },
       },
       required: ["client_type"],
     },
@@ -289,7 +337,7 @@ export const agentToolDefinitions = [
   {
     name: "generate_advice",
     description:
-      "Génère un brouillon de devoir de conseil pour un dossier, pré-rempli à partir des besoins et du dernier devis validé. Renvoie le lien à ouvrir pour le relire et le valider.",
+      "Génère un brouillon de devoir de conseil pour un dossier : les motifs et les exigences de garantie sont rédigés automatiquement à partir des besoins notés et du dernier devis validé. Renvoie le lien à ouvrir pour le relire, le compléter et le valider.",
     input_schema: {
       type: "object",
       properties: { client_id: { type: "string" } },
@@ -307,6 +355,13 @@ function str(input: ToolInput, key: string): string | undefined {
 function num(input: ToolInput, key: string): number | undefined {
   const v = input[key];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+/** Only the module's fixed branches are stored — anything else is dropped. */
+function insuranceTypeOf(input: ToolInput): string | undefined {
+  const v = str(input, "insurance_type")?.toLowerCase();
+  return v && (brokerInsuranceTypes as readonly string[]).includes(v)
+    ? v
+    : undefined;
 }
 
 const clientSelect = "*";
@@ -366,11 +421,12 @@ export async function executeAgentTool(
     if (!client) return { error: "Dossier introuvable." };
     const c = client as BrokerClientRow;
 
-    const [docs, quotes, advice, activity] = await Promise.all([
+    const [docs, quotes, advice, activity, contractsRes] = await Promise.all([
       adminSupabase.from("broker_documents").select("title, category, size_bytes").eq("organization_id", organizationId).eq("client_id", clientId),
-      adminSupabase.from("broker_quotes").select("insurer_name, product_name, premium_monthly, currency, extraction_status").eq("organization_id", organizationId).eq("client_id", clientId),
+      adminSupabase.from("broker_quotes").select("insurer_name, product_name, premium_monthly, premium_annual, currency, extraction_status").eq("organization_id", organizationId).eq("client_id", clientId),
       adminSupabase.from("broker_advice").select("title, status, updated_at").eq("organization_id", organizationId).eq("client_id", clientId),
       adminSupabase.from("broker_activity").select("type, description, created_at").eq("organization_id", organizationId).eq("client_id", clientId).order("created_at", { ascending: false }).limit(8),
+      adminSupabase.from("broker_contracts").select("*").eq("organization_id", organizationId).eq("client_id", clientId).order("renewal_date", { ascending: true }),
     ]);
 
     return {
@@ -382,8 +438,9 @@ export async function executeAgentTool(
       email: c.email,
       phone: c.phone,
       address: [c.address, c.postal_code, c.city].filter(Boolean).join(", "),
-      needs: c.needs,
-      notes: c.notes,
+      // Everything the cabinet records about a client lives in the internal
+      // notes now (needs is legacy — fold it in for old dossiers).
+      notes: [c.notes, c.needs].filter((v) => v?.trim()).join("\n\n") || null,
       link: `/courtier/clients/${c.id}`,
       documents: (docs.data ?? []).map((d) => ({
         title: d.title,
@@ -393,8 +450,26 @@ export async function executeAgentTool(
       quotes: (quotes.data ?? []).map((q) => ({
         insurer: q.insurer_name,
         product: q.product_name,
-        premium_monthly: formatPremium(q.premium_monthly, q.currency),
+        premium:
+          q.premium_monthly != null
+            ? `${formatPremium(q.premium_monthly, q.currency)} / mois`
+            : q.premium_annual != null
+              ? `${formatPremium(q.premium_annual, q.currency)} / an`
+              : null,
         status: brokerQuoteStatusLabels[(q.extraction_status as keyof typeof brokerQuoteStatusLabels) ?? "pending"],
+      })),
+      contracts: ((contractsRes.data ?? []) as BrokerContractRow[]).map((ct) => ({
+        label: contractDisplayLabel(ct),
+        insurer: ct.insurer_name,
+        policy_number: ct.policy_number,
+        premium: formatContractPremium(ct),
+        renewal_date: ct.renewal_date,
+        days_until_renewal: daysUntil(ct.renewal_date),
+        tacit_renewal: ct.tacit_renewal,
+        status:
+          brokerContractStatusLabels[
+            isBrokerContractStatus(ct.status) ? ct.status : "active"
+          ],
       })),
       advice: (advice.data ?? []).map((a) => ({
         title: a.title,
@@ -453,6 +528,7 @@ export async function executeAgentTool(
       .from("broker_clients")
       .select(clientSelect)
       .eq("organization_id", organizationId)
+      .is("archived_at", null)
       .ilike("email", email)
       .limit(5);
     const clients = (data ?? []) as BrokerClientRow[];
@@ -504,6 +580,101 @@ export async function executeAgentTool(
     };
   }
 
+  if (name === "list_client_emails") {
+    const clientId = str(input, "client_id");
+    if (!clientId) return { error: "client_id requis." };
+    const { data: client } = await adminSupabase
+      .from("broker_clients")
+      .select(clientSelect)
+      .eq("organization_id", organizationId)
+      .eq("id", clientId)
+      .maybeSingle();
+    if (!client) return { error: "Dossier introuvable." };
+    const c = client as BrokerClientRow;
+    const access = await getOutlookAccessForUser(organizationId, ctx.userId);
+    if (!access) return { error: "Boîte Outlook non connectée." };
+
+    // Same signals as the dossier's "Emails" tab: address, name(s), company
+    // domain, and contract/claim references — so an insurer's mail that only
+    // cites the policy number still surfaces.
+    const [contractsRes, claimsRes, linkedRes] = await Promise.all([
+      adminSupabase
+        .from("broker_contracts")
+        .select("policy_number")
+        .eq("organization_id", organizationId)
+        .eq("client_id", clientId)
+        .not("policy_number", "is", null)
+        .limit(50),
+      adminSupabase
+        .from("broker_claims")
+        .select("reference")
+        .eq("organization_id", organizationId)
+        .eq("client_id", clientId)
+        .not("reference", "is", null)
+        .limit(50),
+      adminSupabase
+        .from("broker_email_items")
+        .select("graph_message_id, from_name, from_email, subject, received_at, summary")
+        .eq("organization_id", organizationId)
+        .eq("suggested_client_id", clientId)
+        .order("received_at", { ascending: false })
+        .limit(15),
+    ]);
+
+    const displayName = brokerClientDisplayName(c);
+    const names = [displayName];
+    if (c.company_name?.trim() && c.company_name.trim() !== displayName) {
+      names.push(c.company_name.trim());
+    }
+    const references = [
+      ...((contractsRes.data ?? []) as { policy_number: string | null }[]).map(
+        (r) => r.policy_number,
+      ),
+      ...((claimsRes.data ?? []) as { reference: string | null }[]).map(
+        (r) => r.reference,
+      ),
+    ].filter((r): r is string => Boolean(r && r.trim()));
+    const criteria: ClientSearchCriteria = {
+      emails: c.email ? [c.email.trim().toLowerCase()] : [],
+      names,
+      references,
+      domain: companyEmailDomain(c.email, c.client_type === "company"),
+    };
+
+    const live = await searchMessagesForClient(
+      access.accessToken,
+      criteria,
+      str(input, "query"),
+      20,
+    );
+    const linked = linkedRes.data ?? [];
+    const linkedIds = new Set(linked.map((r) => r.graph_message_id));
+    return {
+      client: displayName,
+      // Emails the briefing already tied to this dossier (definitive links).
+      linked_emails: linked.map((r) => ({
+        message_id: r.graph_message_id,
+        from: r.from_name || r.from_email,
+        subject: r.subject,
+        received_at: r.received_at,
+        summary: r.summary,
+      })),
+      // Live mailbox matches (participant, name or reference cited).
+      mailbox_matches: live
+        .filter((m) => !linkedIds.has(m.id))
+        .map((m) => ({
+          message_id: m.id,
+          from: m.fromName || m.fromEmail,
+          from_email: m.fromEmail,
+          subject: m.subject,
+          received_at: m.receivedDateTime,
+          preview: m.bodyPreview,
+          has_attachments: m.hasAttachments,
+        })),
+      note: "Utilise read_email avec un message_id pour lire un email en entier.",
+    };
+  }
+
   if (name === "list_email_attachments") {
     const messageId = str(input, "message_id");
     if (!messageId) return { error: "message_id requis." };
@@ -521,6 +692,93 @@ export async function executeAgentTool(
         content_type: a.contentType,
         size: formatBytes(a.size),
       })),
+    };
+  }
+
+  if (name === "inspect_email_attachment") {
+    const messageId = str(input, "message_id");
+    const attachmentId = str(input, "attachment_id");
+    if (!messageId || !attachmentId) {
+      return { error: "message_id et attachment_id requis." };
+    }
+    const access = await getOutlookAccessForUser(organizationId, ctx.userId);
+    if (!access) return { error: "Boîte Outlook non connectée." };
+    const file = await getFileAttachmentBytes(
+      access.accessToken,
+      messageId,
+      attachmentId,
+    );
+    if (!file) return { error: "Pièce jointe introuvable ou illisible." };
+    if (!isReadableDocument(file.contentType, file.name)) {
+      return {
+        file_name: file.name,
+        readable: false,
+        note: "Ce type de fichier ne peut pas être lu automatiquement (ni PDF ni image).",
+      };
+    }
+    const buffer = Buffer.from(file.contentBase64, "base64");
+    const understood = await understandDocument({
+      buffer,
+      mimeType: file.contentType,
+      fileName: file.name,
+    });
+    if (!understood.ok) {
+      return { file_name: file.name, readable: true, error: understood.message };
+    }
+    return {
+      file_name: file.name,
+      readable: true,
+      detected_type: understood.data.category,
+      detected_type_label: documentCategoryLabel(understood.data.category),
+      label: understood.data.label,
+      summary: understood.data.summary,
+      concerns: understood.data.subject_name,
+      hint: "Pour la ranger, utilise attach_email_attachment_to_client avec category = detected_type.",
+    };
+  }
+
+  if (name === "inspect_uploaded_file") {
+    const uploadId = str(input, "upload_id");
+    if (!uploadId) return { error: "upload_id requis." };
+    const upload = ctx.pendingUploads?.get(uploadId);
+    if (!upload) {
+      return {
+        error:
+          "Fichier introuvable. Demandez à l'utilisateur de joindre à nouveau le document.",
+      };
+    }
+    if (!upload.storagePath.startsWith(`${organizationId}/_agent/`)) {
+      return { error: "Référence de fichier invalide." };
+    }
+    if (!isReadableDocument(upload.mimeType, upload.fileName)) {
+      return {
+        file_name: upload.fileName,
+        readable: false,
+        note: "Ce type de fichier ne peut pas être lu automatiquement (ni PDF ni image).",
+      };
+    }
+    const { data: blob, error: dlError } = await adminSupabase.storage
+      .from(BROKER_FILES_BUCKET)
+      .download(upload.storagePath);
+    if (dlError || !blob) return { error: "Lecture du fichier impossible." };
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const understood = await understandDocument({
+      buffer,
+      mimeType: upload.mimeType,
+      fileName: upload.fileName,
+    });
+    if (!understood.ok) {
+      return { file_name: upload.fileName, readable: true, error: understood.message };
+    }
+    return {
+      file_name: upload.fileName,
+      readable: true,
+      detected_type: understood.data.category,
+      detected_type_label: documentCategoryLabel(understood.data.category),
+      label: understood.data.label,
+      summary: understood.data.summary,
+      concerns: understood.data.subject_name,
+      hint: "Pour le ranger, utilise attach_uploaded_file_to_client avec category = detected_type.",
     };
   }
 
@@ -752,13 +1010,16 @@ export async function executeAgentTool(
         company_name: companyName ?? null,
         email: str(input, "email") ?? null,
         phone: str(input, "phone") ?? null,
-        insurance_type: str(input, "insurance_type") ?? null,
-        needs: str(input, "needs") ?? null,
+        insurance_type: insuranceTypeOf(input) ?? null,
+        notes: str(input, "notes") ?? null,
         status: "new",
       })
       .select("*")
       .single();
-    if (error || !data) return { error: "Création impossible." };
+    if (error || !data) {
+      console.error("[agent] create_client failed:", error?.message);
+      return { error: "Création impossible." };
+    }
     await logBrokerActivity(adminSupabase, {
       organizationId,
       clientId: data.id,
@@ -834,7 +1095,7 @@ export async function executeAgentTool(
     if (postalCode !== undefined) update.postal_code = postalCode;
     const city = str(input, "city");
     if (city !== undefined) update.city = city;
-    const insuranceType = str(input, "insurance_type");
+    const insuranceType = insuranceTypeOf(input);
     if (insuranceType !== undefined) update.insurance_type = insuranceType;
     const notes = str(input, "notes");
     if (notes !== undefined) update.notes = notes;
@@ -1037,6 +1298,23 @@ export async function executeAgentTool(
       .maybeSingle();
     if (!client) return { error: "Dossier introuvable." };
 
+    // A dossier holds a single devoir de conseil — refuse a duplicate.
+    const { data: existingAdvice } = await adminSupabase
+      .from("broker_advice")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("client_id", clientId)
+      .limit(1)
+      .maybeSingle();
+    if (existingAdvice) {
+      return {
+        error:
+          "Un devoir de conseil existe déjà pour ce dossier. Supprimez l'ancien avant d'en générer un nouveau.",
+        existing_advice_id: existingAdvice.id,
+        link: `/courtier/clients/${clientId}/advice/${existingAdvice.id}`,
+      };
+    }
+
     const { data: quote } = await adminSupabase
       .from("broker_quotes")
       .select("*")
@@ -1047,10 +1325,23 @@ export async function executeAgentTool(
       .limit(1)
       .maybeSingle();
 
-    const content = buildAdviceTemplate(
-      client as BrokerClientRow,
-      (quote as BrokerQuoteRow | null) ?? null,
-    );
+    // Same generation as the dossier's own flow: AI-written motifs (content)
+    // + exigences (requirements) from the validated quote, with the editable
+    // scaffold as fallback. Keeping both paths identical means an advice
+    // created via the assistant renders exactly like one created in the UI.
+    let content = buildAdviceJustificationDraft();
+    let requirements: string | null = null;
+    if (quote) {
+      const ai = await generateAdviceContent(
+        client as BrokerClientRow,
+        quote as BrokerQuoteRow,
+      );
+      if (ai.success) {
+        if (ai.motifs.trim()) content = ai.motifs;
+        if (ai.requirements.trim()) requirements = ai.requirements;
+      }
+    }
+
     const now = new Date().toISOString();
     const { data: advice, error } = await adminSupabase
       .from("broker_advice")
@@ -1061,31 +1352,32 @@ export async function executeAgentTool(
         created_by: ctx.userId,
         title: "Devoir de conseil",
         content,
+        requirements,
         status: "draft",
         generated_at: now,
       })
       .select("id")
       .single();
-    if (error || !advice) return { error: "Génération impossible." };
+    if (error || !advice) {
+      console.error("[agent] generate_advice failed:", error?.message);
+      return { error: "Génération impossible." };
+    }
     await logBrokerActivity(adminSupabase, {
       organizationId,
       clientId,
       userId: ctx.userId,
       type: "advice_created",
-      description: "Devoir de conseil généré (via assistant).",
+      description: "Devoir de conseil généré (via assistant) — à relire et valider.",
       metadata: { advice_id: advice.id },
     });
-    await advanceClientStatus(
-      adminSupabase,
-      organizationId,
-      clientId,
-      "in_progress",
-    );
     return {
       generated: true,
       advice_id: advice.id,
+      with_quote: Boolean(quote),
       link: `/courtier/clients/${clientId}/advice/${advice.id}`,
-      note: "Brouillon à relire, compléter et valider.",
+      note: quote
+        ? "Brouillon rédigé à partir du devis validé — à relire, compléter et valider."
+        : "Aucun devis validé sur ce dossier : brouillon à compléter manuellement.",
     };
   }
 

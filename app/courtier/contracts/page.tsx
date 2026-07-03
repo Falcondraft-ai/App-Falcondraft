@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { CalendarClock, FileWarning, ShieldCheck } from "lucide-react";
-import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
+import {
+  DashboardStatCard,
+  StatStrip,
+} from "@/components/common/dashboard-stat-card";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
@@ -61,28 +63,28 @@ export default async function BrokerContractsPage() {
           description="Le portefeuille de contrats du cabinet, leurs primes et leurs échéances."
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatStrip className="grid-cols-1 sm:grid-cols-3">
           <DashboardStatCard
+            variant="cell"
             label="Contrats en cours"
             value={String(activeContracts.length)}
             detail="Contrats actifs du portefeuille"
-            icon={<ShieldCheck className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Primes annualisées"
             value={formatCurrency(annualPortfolio)}
             detail="Volume de primes sur 12 mois"
             tone="accent"
-            icon={<CalendarClock className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Renouvellements à suivre"
             value={String(renewalsCount)}
             detail="Échéances dépassées ou sous 60 jours"
             tone="warning"
-            icon={<FileWarning className="size-3.5" strokeWidth={1.75} />}
           />
-        </div>
+        </StatStrip>
 
         <section
           className="overflow-hidden rounded-lg border bg-[var(--bg-surface)]"

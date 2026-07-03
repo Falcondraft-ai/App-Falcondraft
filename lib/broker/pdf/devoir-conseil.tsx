@@ -137,37 +137,38 @@ function Justification({ text }: { text: string }) {
 }
 
 function IdentitySection({ data }: { data: AdviceDocumentData }) {
+  // Only render fields we actually know → the document never shows a blank line.
+  const rows: [string, string | null][] = data.isCompany
+    ? [
+        ["Raison sociale", data.client.companyName],
+        ["Adresse", data.client.address],
+        ["Email", data.client.email],
+        ["Téléphone", data.client.phone],
+      ]
+    : [
+        ["Nom", data.client.lastName],
+        ["Prénom", data.client.firstName],
+        ["Adresse", data.client.address],
+        ["Date de naissance", data.client.birthDate],
+        ["Pays de naissance", data.client.birthCountry],
+        [
+          "Personne politiquement exposée (Oui / Non)",
+          data.client.pep,
+        ],
+        ["Email", data.client.email],
+        ["Téléphone", data.client.phone],
+      ];
+  const filled = rows.filter(
+    ([, value]) => value != null && value.trim().length > 0,
+  );
   return (
     <Section title="I — Identité du client" id="sec-1">
-      {data.isCompany ? (
-        <View>
-          <Text style={styles.subLabel}>Personne morale</Text>
-          <FormLine label="Raison sociale" value={data.client.companyName} />
-          <FormLine label="Adresse" value={data.client.address} />
-          <FormLine label="Code APE (le cas échéant)" value={null} />
-          <FormLine label="Numéro SIRET" value={null} />
-          <FormLine label="Capital social" value={null} />
-          <FormLine label="Représentant(s) légal(aux)" value={null} />
-          <FormLine label="Bénéficiaire(s) effectif(s)" value={null} />
-          <FormLine label="Email" value={data.client.email} />
-          <FormLine label="Téléphone" value={data.client.phone} />
-        </View>
-      ) : (
-        <View>
-          <Text style={styles.subLabel}>Personne physique</Text>
-          <FormLine label="Nom" value={data.client.lastName} />
-          <FormLine label="Prénom" value={data.client.firstName} />
-          <FormLine label="Adresse" value={data.client.address} />
-          <FormLine label="Date de naissance" value={data.client.birthDate} />
-          <FormLine label="Pays de naissance" value={null} />
-          <FormLine
-            label="Personne politiquement exposée (Oui / Non)"
-            value={null}
-          />
-          <FormLine label="Email" value={data.client.email} />
-          <FormLine label="Téléphone" value={data.client.phone} />
-        </View>
-      )}
+      <Text style={styles.subLabel}>
+        {data.isCompany ? "Personne morale" : "Personne physique"}
+      </Text>
+      {filled.map(([label, value]) => (
+        <FormLine key={label} label={label} value={value} />
+      ))}
     </Section>
   );
 }
@@ -183,26 +184,28 @@ function NeedsSection({ data }: { data: AdviceDocumentData }) {
         />
       </View>
 
-      <Text style={styles.subLabel}>Formalisation de la demande du client</Text>
       {data.needsText ? (
-        <Paragraph>{data.needsText}</Paragraph>
-      ) : (
-        <View style={styles.blankBox} />
-      )}
+        <View>
+          <Text style={styles.subLabel}>
+            Formalisation de la demande du client
+          </Text>
+          <Paragraph>{data.needsText}</Paragraph>
+        </View>
+      ) : null}
 
-      <Text style={styles.subLabel}>
-        Formalisation des exigences en termes de garantie
-      </Text>
-      {data.structuredNeeds.length > 0 ? (
-        <Bullets items={data.structuredNeeds} />
-      ) : (
-        <View style={styles.blankBox} />
-      )}
-
-      <Text style={styles.subLabel}>
-        Vos remarques & observations éventuelles (cadre réservé au client)
-      </Text>
-      <View style={styles.blankBox} />
+      <View>
+        <Text style={styles.subLabel}>
+          Formalisation des exigences en termes de garantie
+        </Text>
+        {data.structuredNeeds.length > 0 ? (
+          <Bullets items={data.structuredNeeds} />
+        ) : (
+          <Text style={styles.kvValueMuted}>
+            [Exigences de garantie à compléter — générées à partir du devis dès
+            qu'un devis est disponible.]
+          </Text>
+        )}
+      </View>
     </Section>
   );
 }
@@ -238,9 +241,6 @@ function PropositionSection({ data }: { data: AdviceDocumentData }) {
                 label="Exclusions / points de vigilance"
                 value={proposition.vigilance}
               />
-            ) : null}
-            {proposition.other ? (
-              <KeyValue label="Autres informations" value={proposition.other} />
             ) : null}
           </View>
         ) : (
@@ -396,7 +396,6 @@ export function DevoirConseilDocument({
         <View wrap={false}>
           <Remittance date={data.date} />
           <SignatureRow
-            cabinet={cabinet}
             clientName={data.clientName}
             signatureTag={signatureTag}
           />

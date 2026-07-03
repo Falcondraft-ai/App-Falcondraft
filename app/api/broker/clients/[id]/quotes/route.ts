@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import { runQuoteExtraction } from "@/lib/broker/quote-ingest";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -90,5 +94,21 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     metadata: { quote_id: quote.id },
   });
 
-  return NextResponse.json({ success: true, quoteId: quote.id });
+  // Read the PDF/image right away so the broker stays on the dossier and sees a
+  // pre-filled devis (insurer, prime, garanties) without opening the detail
+  // view. Best-effort: if the read fails, the quote stays "pending" and can be
+  // re-read from its detail page later.
+  let extracted = false;
+  if (values.documentId) {
+    const extraction = await runQuoteExtraction({
+      adminSupabase: auth.adminSupabase,
+      organizationId: auth.organizationId,
+      clientId,
+      quoteId: quote.id,
+      userId: auth.user.id,
+    }).catch(() => null);
+    extracted = Boolean(extraction?.ok && !extraction.skipped);
+  }
+
+  return NextResponse.json({ success: true, quoteId: quote.id, extracted });
 }

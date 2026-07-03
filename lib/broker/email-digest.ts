@@ -4,19 +4,27 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   brokerClientDisplayName,
   brokerInsuranceTypes,
+  insuranceTypeLabel,
 } from "@/lib/broker/clients";
 import {
+  getFileAttachmentBytes,
   getMailboxAddresses,
   getMessageAttachmentsMeta,
   getOutlookAccessForUser,
+  getOutlookMessageBody,
   listRecentInboxMessages,
   resolveMailboxAddress,
   type OutlookMessage,
 } from "@/lib/email/outlook-read";
 import {
+  type AttachmentDocCategory,
   isEmailCategory,
   normalizeAttachmentCategory,
 } from "@/lib/broker/outlook";
+import {
+  isReadableDocument,
+  understandDocument,
+} from "@/lib/broker/document-understanding";
 import type { BrokerClientRow, Database } from "@/types/database";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -25,6 +33,27 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const DIGEST_MODEL = process.env.COURTIER_DIGEST_MODEL || "gpt-5.5";
 const MAX_EMAILS = 40;
 const MAX_WINDOW_DAYS = 7;
+// Reading attachment content (vision) is bounded to keep the daily briefing
+// cheap and fast: only PDFs/images, capped in count and size. Beyond the cap,
+// classification falls back to the file name.
+const MAX_ATTACHMENTS_ANALYZED = 10;
+const MAX_ATTACHMENT_ANALYZE_BYTES = 8 * 1024 * 1024;
+// The classification reasons over what each email actually SAYS (who is the
+// insured, which info to note or update, what changed) — Graph's ~250-char
+// bodyPreview is not enough. Full bodies are fetched, bounded per email.
+const MAX_BODY_CHARS = 2500;
+// Manual "go back over the last N days" backfill: wider window + higher email
+// cap than the daily rolling briefing (already-seen emails are still skipped).
+const BACKFILL_MAX_DAYS = 90;
+const BACKFILL_MAX_EMAILS = 120;
+// Attachment kinds that ARE client documents — a mail carrying one is relevant
+// on its own and its attachment must always be offered for filing.
+const CLIENT_DOC_CATEGORIES = new Set<AttachmentDocCategory>([
+  "company_quote",
+  "contract",
+  "rib",
+  "id_document",
+]);
 
 export type DigestContext = {
   adminSupabase: SupabaseClient<Database>;
@@ -52,6 +81,14 @@ type AttachmentRef = {
   size: number;
 };
 
+/** What an attachment actually is, from reading its content (vision). */
+type AttachmentUnderstanding = {
+  category: AttachmentDocCategory;
+  label: string;
+  summary: string;
+  subject_name: string | null;
+};
+
 type AiAction = {
   type?: string;
   attachment_ref?: string;
@@ -71,6 +108,8 @@ type AiAction = {
   claim_type?: string;
   description?: string;
   note?: string;
+  /** For create_client: whether the email sender is the insured client. */
+  subject_is_sender?: boolean;
 };
 
 type AiEmailResult = {
@@ -80,6 +119,11 @@ type AiEmailResult = {
   category?: string;
   summary?: string;
   urgency?: string;
+  /** How the AI classifies the sender relative to the cabinet. */
+  sender_type?: string;
+  /** Ref (c0, c1…) of the existing dossier this email concerns, or null. */
+  matched_client_ref?: string | null;
+  /** Legacy hint kept as a fallback matcher. */
   client_match_email?: string | null;
   actions?: AiAction[];
 };
@@ -87,6 +131,19 @@ type AiEmailResult = {
 type AiResponse = {
   narrative?: string;
   emails?: AiEmailResult[];
+};
+
+/** One client of the portfolio, exposed to the AI with a stable short ref. */
+type RosterEntry = {
+  ref: string;
+  name: string;
+  type: "particulier" | "entreprise";
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  branch: string | null;
 };
 
 function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string {
@@ -100,7 +157,8 @@ function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string
       : [];
   return [
     `Tu es l'assistant de tri du courrier d'un cabinet de courtage en assurance. Tu travailles pour ${userName}.`,
-    `On te donne les emails reçus récemment dans sa boîte Outlook, et la liste de ses clients existants.`,
+    `On te donne les emails reçus récemment dans sa boîte Outlook, et TOUT son portefeuille clients (known_clients), chaque dossier ayant un identifiant court "ref" (c0, c1, …).`,
+    `Chaque email inclut son CONTENU COMPLET dans "body" (éventuellement tronqué). Lis-le vraiment avant de trier : c'est là que se trouvent l'assuré concerné, les coordonnées transmises, l'objet à assurer et ses caractéristiques.`,
     ...addressBlock,
     ``,
     `TON RÔLE : produire un briefing du jour utile et RÉELLEMENT trié.`,
@@ -114,14 +172,39 @@ function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string
     `- Ne propose des "actions" QUE pour "yes" ou "uncertain" (jamais pour "no").`,
     ``,
     `ACTIONS — ne propose une action QUE si elle a un sens évident après avoir lu le contenu :`,
-    `- attach_document : seulement si une pièce jointe est un vrai document d'assurance (devis, contrat, RIB, pièce d'identité, justificatif). document_category ∈ company_quote|contract|rib|id_document|other.`,
+    `- attach_document : TOUTE pièce jointe qui est un document client DOIT être rangée. Quand une pièce jointe a un "detected_type" (son contenu a été lu), REPRENDS-le comme document_category — il reflète le contenu réel, pas le nom du fichier. Si detected_type ∈ company_quote|contract|rib|id_document, propose TOUJOURS attach_document pour elle, MÊME si le corps de l'email n'en parle pas (ex. un passeport envoyé sans texte = id_document à ranger). Le champ "concerns" de la pièce jointe identifie souvent le client : utilise-le pour matched_client_ref. Si aucun dossier ne correspond, propose quand même attach_document (le courtier choisira le dossier).`,
     `- draft_reply : seulement si l'email appelle clairement une réponse. Rédige un brouillon court, professionnel, en français, prêt à relire (jamais de promesse ferme).`,
-    `- create_client : UNIQUEMENT si l'expéditeur est un vrai prospect/particulier/entreprise qui sollicite le cabinet pour de l'assurance ET qu'il ne correspond à AUCUN client existant. JAMAIS pour un assureur, un fournisseur, une plateforme, une pub. Extrait nom/prénom (ou raison sociale), email, et la branche probable (${brokerInsuranceTypes.join(", ")}).`,
-    `- update_client : si l'expéditeur correspond à un client EXISTANT (voir known_clients) ET que l'email révèle une coordonnée nouvelle ou modifiée (téléphone, adresse, code postal, ville, email). Renseigne UNIQUEMENT les champs qui changent réellement par rapport à known_clients — n'inclus pas un champ identique à l'existant, et n'invente jamais. C'est le cœur du CRM : reconnaître un client revenant et tenir son dossier à jour.`,
+    `- create_client : UNIQUEMENT s'il faut ouvrir un dossier pour un vrai prospect/client ASSURÉ qui ne correspond à AUCUN client existant. JAMAIS pour un assureur, un fournisseur, une plateforme, une pub.`,
+    `  • Le dossier est au nom de la personne/entreprise ASSURÉE, PAS forcément l'expéditeur. Un email peut venir d'un apporteur, d'un collègue, de la boîte du cabinet, ou d'un intermédiaire qui PARLE d'un tiers : dans ce cas le client est ce tiers (nom lu dans le corps du mail ou les pièces jointes) et tu mets subject_is_sender=false.`,
+    `  • Renseigne first_name/last_name (ou company_name) du CLIENT. Pour email, mets l'email DU CLIENT si tu le connais ; si le client n'est pas l'expéditeur et que tu n'as pas son email, laisse email vide — n'utilise JAMAIS l'email de l'expéditeur pour un tiers. Ajoute la branche probable (${brokerInsuranceTypes.join(", ")}).`,
+    `  • NOM EXACT — RÈGLE STRICTE : reprends le nom EXACTEMENT tel qu'il apparaît (nom de l'expéditeur, signature ou corps). N'invente, n'ajoute et ne complète JAMAIS un prénom, un deuxième prénom, une particule ou un nom absent. Ex. « Timeo Marcopoulos » → first_name="Timeo", last_name="Marcopoulos" (JAMAIS « Timeo François Marcopoulos »). Ne déduis pas de prénom à partir d'une adresse email. En cas de doute, mets moins plutôt que d'inventer.`,
+    `  • Renseigne TOUJOURS "needs" avec l'objet à assurer et TOUTES ses caractéristiques utiles + le contexte de la demande (ex. « Scooter 50 cm³ Cibès à assurer », véhicule + marque/modèle/immatriculation, logement + surface + adresse, date d'effet souhaitée). C'est ce qui remplit la NOTE interne du nouveau dossier — sois complet et factuel.`,
+    `  • Si l'expéditeur EST lui-même le client assuré, mets subject_is_sender=true.`,
+    `  • N'ouvre jamais un dossier au nom du courtier (${userName}) ni d'un membre du cabinet.`,
+    `  • DÈS QU'un email décrit une nouvelle demande d'assurance pour une personne/entreprise NOMMÉE qui n'a pas encore de dossier, tu DOIS proposer create_client pour elle — même si l'email vient d'un tiers/apporteur/collègue, et même quand tu proposes aussi un draft_reply pour réclamer les infos manquantes. Ne te contente jamais du seul brouillon de réponse : ouvre le dossier ET rédige la réponse.`,
+    `  • Exemple : email de Jean (apporteur) « nouvelle demande d'assurance habitation pour Mme Cassandra Mitchel, appartement 120 m² ». → actions : create_client { subject_is_sender:false, first_name:"Cassandra", last_name:"Mitchel", insurance_type:"immobilier", needs:"Assurance habitation — appartement 120 m²" } ET draft_reply pour demander les informations nécessaires au devis.`,
+    `- update_client : DÈS QU'un email concerne un dossier EXISTANT (matched_client_ref non nul) et fournit une coordonnée (email, téléphone, adresse, code postal, ville) ABSENTE ou DIFFÉRENTE du dossier connu, tu DOIS proposer update_client sur ce dossier — que l'info vienne du client lui-même OU d'un tiers/apporteur qui la transmet. C'est le cœur du CRM : tenir chaque dossier à jour. Renseigne les champs fournis qui manquent ou diffèrent de known_clients (compare aux valeurs du dossier) ; n'inclus pas un champ identique à l'existant, et n'invente jamais. Cette action s'ajoute à un éventuel accusé de réception (draft_reply).`,
+    `- add_note : DÈS QU'un email concernant un dossier EXISTANT (matched_client_ref non nul) apporte une INFORMATION IMPORTANTE à conserver qui n'est pas une simple coordonnée — l'objet à assurer et ses caractéristiques (ex. « scooter 50 cm³ Cibès », véhicule + marque/modèle/immatriculation, logement + surface + adresse du risque), la situation (composition familiale, profession, antériorité d'assurance, antécédents), une échéance/date d'effet souhaitée, une décision, une préférence ou une demande précise. Résume-la dans "note" de façon COURTE, FACTUELLE et complète (reprends les chiffres et détails utiles). Ces informations doivent atterrir dans la note interne du dossier. N'utilise PAS add_note pour une simple coordonnée (ça, c'est update_client) ni pour un dossier inexistant (mets l'info dans needs de create_client).`,
     `- declare_claim : seulement si l'email évoque un sinistre concret (dégât, accident, vol...). Donne claim_type et une courte description.`,
     `- flag_renewal : seulement si l'email mentionne une échéance/résiliation/renouvellement de contrat.`,
     ``,
-    `RATTACHEMENT & CLIENT REVENANT : compare toujours l'expéditeur à known_clients (par email surtout). Si c'est un client connu, renseigne client_match_email avec son adresse exacte, NE propose PAS create_client, et range plutôt les pièces jointes dans son dossier (attach_document) et propose update_client si des coordonnées ont changé.`,
+    `RAISONNEMENT SUR LE PORTEFEUILLE — fais-le pour CHAQUE email AVANT de décider des actions :`,
+    `1) Qui écrit ? Recoupe l'expéditeur (nom + email + téléphone) avec known_clients. Un client peut écrire depuis une autre adresse : compare aussi le NOM et le contenu, pas seulement l'email. Ne te limite pas à une égalité d'adresse.`,
+    `2) De qui parle l'email ? La personne ASSURÉE concernée n'est pas toujours l'expéditeur (apporteur, collègue, proche, plateforme qui transmet un lead, le cabinet lui-même).`,
+    `3) Classe l'expéditeur dans "sender_type" : existing_client | prospect | insurer | partner | provider | internal | other. (insurer = compagnie/assureur ; partner = apporteur/partenaire ; provider = fournisseur/prestataire/plateforme ; internal = ${userName} ou un membre du cabinet.)`,
+    `4) RATTACHEMENT : si l'email concerne un dossier déjà présent dans known_clients, mets "matched_client_ref" = le ref de CE dossier (ex. "c3"). Sinon "matched_client_ref": null. Attention : un mail d'un client connu QUI PARLE d'un TIERS concerne le tiers, pas l'expéditeur — matched_client_ref = le dossier du tiers s'il existe, sinon null.`,
+    `5) DÉCISION dossier : matched_client_ref null + vrai prospect/demande d'assurance pour une personne nommée → propose create_client pour ELLE. matched_client_ref non nul → PAS de create_client ; propose plutôt update_client / attach_document / draft_reply sur ce dossier. sender_type ∈ insurer|provider|internal|other → en général AUCUN create_client.`,
+    ``,
+    `SCÉNARIOS COURANTS — applique le JEU d'actions correspondant (souvent plusieurs actions pour un même email). Ne te contente jamais d'une seule action si plusieurs sont utiles :`,
+    `- Prospect qui se présente lui-même (aucun dossier) → create_client (subject_is_sender=true) [+ draft_reply si des infos manquent].`,
+    `- Demande transmise par un tiers/apporteur pour une personne SANS dossier → create_client (subject_is_sender=false, infos de l'assuré) [+ draft_reply].`,
+    `- Coordonnées d'un client EXISTANT transmises (par lui-même OU par un tiers) → matched_client_ref = son dossier + update_client (email/téléphone/adresse fournis) [+ draft_reply d'accusé de réception].`,
+    `- Info substantielle sur un client EXISTANT (objet à assurer + caractéristiques, situation, échéance, préférence) → matched_client_ref + add_note (résumé factuel) [+ update_client si une coordonnée change, + draft_reply si une réponse est attendue].`,
+    `- Client existant qui écrit (question, envoi de pièce) → matched_client_ref + attach_document si pièce jointe utile + add_note si l'email contient une info à garder + draft_reply si une réponse est attendue.`,
+    `- Devis/contrat/RIB/pièce d'identité en pièce jointe → attach_document sur le bon dossier (catégorie = detected_type).`,
+    `- Sinistre concret évoqué → declare_claim. Échéance/résiliation/renouvellement → flag_renewal.`,
+    `- Assureur / fournisseur / plateforme / interne (${userName}) → jamais de create_client ; propose seulement une action si elle est vraiment utile.`,
+    `Exemple : « ${userName} transmet les coordonnées de Cécilia Bono (email, téléphone, adresse) », Cécilia a déjà un dossier (c5) → actions : update_client { phone, email, address, postal_code, city } sur c5 (matched_client_ref="c5") + draft_reply d'accusé de réception à l'expéditeur. PAS de create_client.`,
     ``,
     `NARRATIF : rédige "narrative" = 2 à 4 phrases, ton chaleureux et professionnel, qui raconte l'essentiel de la matinée ("Ce matin, ..."), met en avant l'urgent. Pas d'emojis, pas de jargon technique.`,
     ``,
@@ -132,8 +215,10 @@ function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string
 function buildUserPayload(
   messages: OutlookMessage[],
   attachmentsByMessage: Map<string, AttachmentRef[]>,
-  clientRoster: { name: string; email: string; phone: string | null }[],
+  clientRoster: RosterEntry[],
   mailboxByMessage: Map<string, string | null>,
+  understoodByRef: Map<string, AttachmentUnderstanding>,
+  bodyByMessage: Map<string, string>,
 ): string {
   const emails = messages.map((m, i) => ({
     ref: `e${i}`,
@@ -142,12 +227,25 @@ function buildUserPayload(
     subject: m.subject,
     received_at: m.receivedDateTime,
     received_on: mailboxByMessage.get(m.id) ?? null,
-    preview: m.bodyPreview,
-    attachments: (attachmentsByMessage.get(m.id) ?? []).map((a) => ({
-      ref: a.ref,
-      name: a.name,
-      content_type: a.contentType,
-    })),
+    // Full body when it could be fetched (truncated), else the short preview.
+    body: bodyByMessage.get(m.id) ?? m.bodyPreview,
+    attachments: (attachmentsByMessage.get(m.id) ?? []).map((a) => {
+      const u = understoodByRef.get(a.ref);
+      return {
+        ref: a.ref,
+        name: a.name,
+        content_type: a.contentType,
+        // Content read automatically (when readable) → trust over the file name.
+        ...(u
+          ? {
+              detected_type: u.category,
+              content_label: u.label,
+              content_summary: u.summary,
+              concerns: u.subject_name,
+            }
+          : {}),
+      };
+    }),
   }));
 
   return JSON.stringify({
@@ -165,7 +263,9 @@ function buildUserPayload(
             "prospect|client_request|quote|contract|claim|renewal|invoice|other_broker",
           summary: "string",
           urgency: "normal|high",
-          client_match_email: "string|null",
+          sender_type:
+            "existing_client|prospect|insurer|partner|provider|internal|other",
+          matched_client_ref: "c0|null",
           actions: [
             {
               type: "attach_document",
@@ -175,6 +275,7 @@ function buildUserPayload(
             { type: "draft_reply", subject: "string", body: "string" },
             {
               type: "create_client",
+              subject_is_sender: "boolean",
               first_name: "string",
               last_name: "string",
               company_name: "string",
@@ -192,6 +293,7 @@ function buildUserPayload(
             },
             { type: "declare_claim", claim_type: "string", description: "string" },
             { type: "flag_renewal", note: "string" },
+            { type: "add_note", note: "string" },
           ],
         },
       ],
@@ -204,9 +306,11 @@ async function classifyEmails(
   userName: string,
   messages: OutlookMessage[],
   attachmentsByMessage: Map<string, AttachmentRef[]>,
-  clientRoster: { name: string; email: string; phone: string | null }[],
+  clientRoster: RosterEntry[],
   mailboxByMessage: Map<string, string | null>,
   mailboxAddresses: string[],
+  understoodByRef: Map<string, AttachmentUnderstanding>,
+  bodyByMessage: Map<string, string>,
 ): Promise<AiResponse | null> {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -217,7 +321,7 @@ async function classifyEmails(
     body: JSON.stringify({
       model: DIGEST_MODEL,
       response_format: { type: "json_object" },
-      max_completion_tokens: 4000,
+      max_completion_tokens: 6000,
       messages: [
         { role: "system", content: buildSystemPrompt(userName, mailboxAddresses) },
         {
@@ -227,6 +331,8 @@ async function classifyEmails(
             attachmentsByMessage,
             clientRoster,
             mailboxByMessage,
+            understoodByRef,
+            bodyByMessage,
           ),
         },
       ],
@@ -261,6 +367,7 @@ async function classifyEmails(
  */
 export async function generateDigest(
   ctx: DigestContext,
+  options?: { windowDays?: number },
 ): Promise<GenerateDigestResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -280,24 +387,38 @@ export async function generateDigest(
     };
   }
 
-  // Window: since the last digest, capped to MAX_WINDOW_DAYS.
-  const { data: lastDigest } = await ctx.adminSupabase
-    .from("broker_email_digests")
-    .select("window_end")
-    .eq("organization_id", ctx.organizationId)
-    .eq("user_id", ctx.userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   const now = new Date();
-  const floor = new Date(now.getTime() - MAX_WINDOW_DAYS * 86400_000);
-  let since = new Date(now.getTime() - 86400_000);
-  if (lastDigest?.window_end) {
-    const prev = new Date(lastDigest.window_end);
-    if (!Number.isNaN(prev.getTime())) since = prev;
+  const backfillDays =
+    options?.windowDays && options.windowDays > 0
+      ? Math.min(Math.floor(options.windowDays), BACKFILL_MAX_DAYS)
+      : 0;
+  const isBackfill = backfillDays > 0;
+  const maxEmails = isBackfill ? BACKFILL_MAX_EMAILS : MAX_EMAILS;
+
+  let since: Date;
+  if (isBackfill) {
+    // Explicit "go back N days": scan the whole requested window. Already-
+    // processed emails are still skipped below, so this only surfaces what was
+    // missed (e.g. before the mailbox was connected, or emails set aside).
+    since = new Date(now.getTime() - backfillDays * 86400_000);
+  } else {
+    // Rolling window: since the last digest, capped to MAX_WINDOW_DAYS.
+    const { data: lastDigest } = await ctx.adminSupabase
+      .from("broker_email_digests")
+      .select("window_end")
+      .eq("organization_id", ctx.organizationId)
+      .eq("user_id", ctx.userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const floor = new Date(now.getTime() - MAX_WINDOW_DAYS * 86400_000);
+    since = new Date(now.getTime() - 86400_000);
+    if (lastDigest?.window_end) {
+      const prev = new Date(lastDigest.window_end);
+      if (!Number.isNaN(prev.getTime())) since = prev;
+    }
+    if (since < floor) since = floor;
   }
-  if (since < floor) since = floor;
   const sinceIso = since.toISOString();
 
   // Mailbox aliases (primary + SMTP proxies) so we can tag each email with the
@@ -308,7 +429,7 @@ export async function generateDigest(
   const allMessages = await listRecentInboxMessages(
     access.accessToken,
     sinceIso,
-    MAX_EMAILS,
+    maxEmails,
   );
 
   // Skip messages already processed in an earlier digest (idempotency).
@@ -333,8 +454,9 @@ export async function generateDigest(
         organization_id: ctx.organizationId,
         user_id: ctx.userId,
         status: "ready",
-        narrative:
-          "Rien de nouveau depuis votre dernier briefing. Boîte à jour côté courtage.",
+        narrative: isBackfill
+          ? `Rien de non traité sur les ${backfillDays} derniers jours. Boîte à jour côté courtage.`
+          : "Rien de nouveau depuis votre dernier briefing. Boîte à jour côté courtage.",
         window_start: sinceIso,
         window_end: now.toISOString(),
         relevant_count: 0,
@@ -352,12 +474,24 @@ export async function generateDigest(
     };
   }
 
+  // Full email bodies — the AI must read what each email actually says, not a
+  // ~250-char preview. Failures fall back to the preview (never blocking).
+  const bodyByMessage = new Map<string, string>();
+  await Promise.all(
+    messages.map(async (m) => {
+      const full = await getOutlookMessageBody(access.accessToken, m.id);
+      if (full?.body) bodyByMessage.set(m.id, full.body.slice(0, MAX_BODY_CHARS));
+    }),
+  );
+
   // Attachment metadata for messages that have attachments.
   const attachmentsByMessage = new Map<string, AttachmentRef[]>();
   const attachmentByRef = new Map<string, AttachmentRef>();
   await Promise.all(
     messages.map(async (m, i) => {
-      if (!m.hasAttachments) return;
+      // Fetch for EVERY message, not only those with hasAttachments=true: an
+      // inline photo (e.g. sent from a phone / pasted in the body) does NOT set
+      // that flag, yet is a real fileAttachment we must catch and classify.
       const metas = await getMessageAttachmentsMeta(access.accessToken, m.id);
       const refs = metas.map((meta, j) => {
         const ref: AttachmentRef = {
@@ -375,6 +509,59 @@ export async function generateDigest(
     }),
   );
 
+  // Read the content of document-like attachments (PDF/image) so classification
+  // is based on what they ACTUALLY contain, not their file name — bounded in
+  // count and size to keep the daily briefing cheap.
+  const understoodByRef = new Map<string, AttachmentUnderstanding>();
+  const analyzable = [...attachmentByRef.values()]
+    .filter((a) => {
+      if (!isReadableDocument(a.contentType, a.name)) return false;
+      if (a.size <= 0 || a.size > MAX_ATTACHMENT_ANALYZE_BYTES) return false;
+      // Skip tiny images (signature logos, tracking pixels) now that we fetch
+      // attachments for every message.
+      if (a.contentType.toLowerCase().startsWith("image/") && a.size < 15_000) {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, MAX_ATTACHMENTS_ANALYZED);
+  await Promise.all(
+    analyzable.map(async (a) => {
+      const file = await getFileAttachmentBytes(
+        access.accessToken,
+        a.messageId,
+        a.attachmentId,
+      );
+      if (!file) return;
+      const understood = await understandDocument({
+        buffer: Buffer.from(file.contentBase64, "base64"),
+        mimeType: a.contentType,
+        fileName: a.name,
+      });
+      if (understood.ok) understoodByRef.set(a.ref, understood.data);
+    }),
+  );
+
+  // Diagnostic: which attachments were fetched from Graph and how the content
+  // read classified them (helps see if a PJ is missing vs mis-read).
+  if (attachmentByRef.size > 0) {
+    console.log(
+      "[digest] attachments:",
+      [...attachmentByRef.values()].map((a) => ({
+        name: a.name,
+        type: a.contentType,
+        size: a.size,
+        detected: understoodByRef.get(a.ref)?.category ?? "—",
+      })),
+    );
+  } else {
+    console.log(
+      `[digest] no file attachments fetched (messages with hasAttachments=${
+        messages.filter((m) => m.hasAttachments).length
+      })`,
+    );
+  }
+
   // Client roster for matching (email + display name).
   const { data: clientRows } = await ctx.adminSupabase
     .from("broker_clients")
@@ -384,17 +571,31 @@ export async function generateDigest(
     .limit(500);
   const clients = (clientRows ?? []) as BrokerClientRow[];
   const clientByEmail = new Map<string, BrokerClientRow>();
+  const clientById = new Map<string, BrokerClientRow>();
   for (const c of clients) {
+    clientById.set(c.id, c);
     if (c.email) clientByEmail.set(c.email.trim().toLowerCase(), c);
   }
-  const clientRoster = clients
-    .filter((c) => c.email)
-    .slice(0, 200)
-    .map((c) => ({
+  // Expose the whole portfolio to the AI with a stable short ref per dossier, so
+  // it reasons over ALL clients (match by name/phone/content, not just email)
+  // and returns the ref of the dossier an email concerns. We map the ref back
+  // to a real client id ourselves — the AI never sees internal UUIDs.
+  const refToClient = new Map<string, BrokerClientRow>();
+  const clientRoster: RosterEntry[] = clients.slice(0, 200).map((c, i) => {
+    const ref = `c${i}`;
+    refToClient.set(ref, c);
+    return {
+      ref,
       name: brokerClientDisplayName(c),
-      email: c.email!,
+      type: c.client_type === "company" ? "entreprise" : "particulier",
+      email: c.email ?? null,
       phone: c.phone ?? null,
-    }));
+      address: c.address ?? null,
+      postal_code: c.postal_code ?? null,
+      city: c.city ?? null,
+      branch: c.insurance_type ? insuranceTypeLabel(c.insurance_type) : null,
+    };
+  });
 
   // Resolve which mailbox address each message was delivered to.
   const mailboxByMessage = new Map<string, string | null>();
@@ -410,6 +611,8 @@ export async function generateDigest(
     clientRoster,
     mailboxByMessage,
     mailboxAddresses,
+    understoodByRef,
+    bodyByMessage,
   );
 
   if (!ai) {
@@ -458,9 +661,31 @@ export async function generateDigest(
     const r = resultByRef.get(`e${i}`);
     const relevance = r?.relevance;
 
-    // Clearly unrelated (or unanalysed) → store as "excluded" so the broker can
-    // still see what was set aside, with the reason. No actions.
-    if (!r || relevance === "no") {
+    // Attachments read as real client documents (passport, RIB, devis, contrat).
+    // A mail carrying one is relevant on its own: it must never be silently
+    // excluded, and the document must always be offered for filing — even when
+    // the body says nothing about it and the AI set the email aside.
+    const msgAttachments = attachmentsByMessage.get(message.id) ?? [];
+    const docAttachments = msgAttachments.filter((a) => {
+      const u = understoodByRef.get(a.ref);
+      return u ? CLIENT_DOC_CATEGORIES.has(u.category) : false;
+    });
+    const hasClientDoc = docAttachments.length > 0;
+    // Every "real document" attachment on a kept email must be offered for
+    // filing — even if the vision read failed or classified it as "other".
+    // (Tiny images are skipped so email-signature logos don't create noise.)
+    const offerableAttachments = msgAttachments.filter((a) => {
+      const isImage = a.contentType.toLowerCase().startsWith("image/");
+      const isOffice =
+        /(msword|officedocument|ms-excel|spreadsheet)/i.test(a.contentType) ||
+        /\.(docx?|xlsx?)$/i.test(a.name);
+      if (isImage) return a.size >= 15_000;
+      return isReadableDocument(a.contentType, a.name) || isOffice;
+    });
+
+    // Clearly unrelated (or unanalysed) AND no client document → excluded, with
+    // the reason, so the broker still sees what was set aside. No actions.
+    if ((!r || relevance === "no") && !hasClientDoc) {
       await ctx.adminSupabase.from("broker_email_items").insert({
         organization_id: ctx.organizationId,
         digest_id: digest.id,
@@ -480,19 +705,58 @@ export async function generateDigest(
       continue;
     }
 
-    const itemRelevance = relevance === "uncertain" ? "uncertain" : "relevant";
+    // "yes" → relevant ; "uncertain", or a client document on an otherwise
+    // irrelevant/unanalysed mail → uncertain (the broker confirms).
+    const itemRelevance = relevance === "yes" ? "relevant" : "uncertain";
 
-    // Resolve the matched client: exact sender-email match wins, else AI hint.
+    // Resolve which existing dossier this email belongs to. The AI reasoned over
+    // the whole portfolio and returned the ref of the concerned dossier (or
+    // null) — we trust that first, then fall back to legacy email hints. The
+    // sender fallback only applies when the AI is NOT opening a new dossier, so
+    // a mail from a known contact ABOUT a third party never binds to the sender.
+    const wantsNewClient = (r?.actions ?? []).some(
+      (a) => a.type === "create_client",
+    );
     let clientId: string | null = null;
-    const senderMatch = clientByEmail.get(message.fromEmail);
-    if (senderMatch) clientId = senderMatch.id;
-    else if (r.client_match_email) {
+    const matchedRef =
+      typeof r?.matched_client_ref === "string"
+        ? r.matched_client_ref.trim()
+        : "";
+    if (matchedRef) {
+      const matched = refToClient.get(matchedRef);
+      if (matched) clientId = matched.id;
+    }
+    if (!clientId && r?.client_match_email) {
       const m = clientByEmail.get(r.client_match_email.trim().toLowerCase());
       if (m) clientId = m.id;
     }
+    if (!clientId && !wantsNewClient) {
+      const senderMatch = clientByEmail.get(message.fromEmail);
+      if (senderMatch) clientId = senderMatch.id;
+    }
 
+    // Category & summary: the AI's when present, else derived from the document
+    // that made this mail relevant (so a bare passport still reads clearly).
+    const docCategory = docAttachments.some(
+      (a) => understoodByRef.get(a.ref)?.category === "company_quote",
+    )
+      ? "quote"
+      : docAttachments.some(
+            (a) => understoodByRef.get(a.ref)?.category === "contract",
+          )
+        ? "contract"
+        : "client_request";
     const category =
-      r.category && isEmailCategory(r.category) ? r.category : "other_broker";
+      r?.category && isEmailCategory(r.category)
+        ? r.category
+        : hasClientDoc
+          ? docCategory
+          : "other_broker";
+    const docSummary = hasClientDoc
+      ? `Pièce jointe reçue : ${docAttachments
+          .map((a) => understoodByRef.get(a.ref)?.label || a.name)
+          .join(", ")}.`
+      : null;
 
     const { data: item } = await ctx.adminSupabase
       .from("broker_email_items")
@@ -508,11 +772,14 @@ export async function generateDigest(
         web_link: message.webLink || null,
         mailbox_address: mailboxByMessage.get(message.id) ?? null,
         category,
-        summary: r.summary?.trim() || null,
-        urgency: r.urgency === "high" ? "high" : "normal",
+        summary: r?.summary?.trim() || docSummary,
+        urgency: r?.urgency === "high" ? "high" : "normal",
         relevance: itemRelevance,
         exclusion_reason:
-          itemRelevance === "uncertain" ? r.reason?.trim() || null : null,
+          itemRelevance === "uncertain"
+            ? r?.reason?.trim() ||
+              (hasClientDoc ? "Pièce jointe à classer dans un dossier." : null)
+            : null,
         suggested_client_id: clientId,
         has_attachments: message.hasAttachments,
       })
@@ -526,12 +793,21 @@ export async function generateDigest(
     // Build the suggestion rows from the AI actions.
     const suggestionRows: Database["public"]["Tables"]["broker_email_suggestions"]["Insert"][] =
       [];
-    for (const action of r.actions ?? []) {
+    // Track attachments already filed so the safety-net backfill below doesn't
+    // duplicate them.
+    const handledAttachmentRefs = new Set<string>();
+    for (const action of r?.actions ?? []) {
       if (action.type === "attach_document") {
         const att = action.attachment_ref
           ? attachmentByRef.get(action.attachment_ref)
           : undefined;
         if (!att) continue;
+        handledAttachmentRefs.add(att.ref);
+        // Prefer the category read from the content over the AI's/file-name guess.
+        const understood = understoodByRef.get(att.ref);
+        const documentCategory =
+          understood?.category ??
+          normalizeAttachmentCategory(action.document_category);
         suggestionRows.push({
           organization_id: ctx.organizationId,
           item_id: item.id,
@@ -543,9 +819,7 @@ export async function generateDigest(
             file_name: att.name,
             content_type: att.contentType,
             size: att.size,
-            document_category: normalizeAttachmentCategory(
-              action.document_category,
-            ),
+            document_category: documentCategory,
             client_id: clientId,
           },
         });
@@ -573,6 +847,21 @@ export async function generateDigest(
           )
             ? action.insurance_type
             : null;
+        // The dossier is the INSURED client's, not the sender's. Only borrow the
+        // sender's email when the sender is confirmed to be that client — so an
+        // email written by an intermediary about a third party never files the
+        // sender's address (or name) onto the new dossier.
+        const senderIsClient = action.subject_is_sender !== false;
+        const clientEmail =
+          action.email?.trim() || (senderIsClient ? message.fromEmail : null) || null;
+        // Need at least a name/company (or, for the sender themselves, an email)
+        // to open a meaningful dossier — otherwise skip rather than create a blank.
+        const hasIdentity =
+          Boolean(action.first_name?.trim()) ||
+          Boolean(action.last_name?.trim()) ||
+          Boolean(action.company_name?.trim()) ||
+          (senderIsClient && Boolean(clientEmail));
+        if (!hasIdentity) continue;
         suggestionRows.push({
           organization_id: ctx.organizationId,
           item_id: item.id,
@@ -582,21 +871,39 @@ export async function generateDigest(
             first_name: action.first_name?.trim() || null,
             last_name: action.last_name?.trim() || null,
             company_name: action.company_name?.trim() || null,
-            email: action.email?.trim() || message.fromEmail || null,
+            email: clientEmail,
             insurance_type: insuranceType,
-            needs: action.needs?.trim() || null,
+            // Captured info goes into the dossier's visible internal notes.
+            notes: action.needs?.trim() || null,
           },
         });
       } else if (action.type === "update_client") {
         // Only meaningful for a returning (matched) client.
         if (!clientId) continue;
+        // Keep only fields that are actually new/different from the stored
+        // dossier — so we never surface a no-op "update" to the broker.
+        const current = clientById.get(clientId);
+        const changed = (value: string | undefined, existing: string | null) => {
+          const v = value?.trim();
+          if (!v) return null;
+          return (existing ?? "").trim().toLowerCase() === v.toLowerCase()
+            ? null
+            : v;
+        };
         const fields: Record<string, string> = {};
-        if (action.phone?.trim()) fields.phone = action.phone.trim();
-        if (action.address?.trim()) fields.address = action.address.trim();
-        if (action.postal_code?.trim())
-          fields.postal_code = action.postal_code.trim();
-        if (action.city?.trim()) fields.city = action.city.trim();
-        if (action.email?.trim()) fields.email = action.email.trim();
+        const phone = changed(action.phone, current?.phone ?? null);
+        if (phone) fields.phone = phone;
+        const address = changed(action.address, current?.address ?? null);
+        if (address) fields.address = address;
+        const postalCode = changed(
+          action.postal_code,
+          current?.postal_code ?? null,
+        );
+        if (postalCode) fields.postal_code = postalCode;
+        const city = changed(action.city, current?.city ?? null);
+        if (city) fields.city = city;
+        const email = changed(action.email, current?.email ?? null);
+        if (email) fields.email = email;
         if (Object.keys(fields).length === 0) continue;
         suggestionRows.push({
           organization_id: ctx.organizationId,
@@ -604,6 +911,18 @@ export async function generateDigest(
           user_id: ctx.userId,
           type: "update_client",
           payload: { client_id: clientId, ...fields },
+        });
+      } else if (action.type === "add_note") {
+        // Record important email info into the existing dossier's notes.
+        if (!clientId) continue;
+        const note = action.note?.trim();
+        if (!note) continue;
+        suggestionRows.push({
+          organization_id: ctx.organizationId,
+          item_id: item.id,
+          user_id: ctx.userId,
+          type: "add_note",
+          payload: { client_id: clientId, note },
         });
       } else if (action.type === "declare_claim") {
         suggestionRows.push({
@@ -631,10 +950,57 @@ export async function generateDigest(
       }
     }
 
+    // Safety net: EVERY document-like attachment on this kept email gets an
+    // attach_document suggestion, even if the AI didn't emit one and even if the
+    // vision read failed (e.g. a bare passport with no message body). The broker
+    // picks the dossier if none was matched. Guarantees no document is dropped.
+    for (const att of offerableAttachments) {
+      if (handledAttachmentRefs.has(att.ref)) continue;
+      handledAttachmentRefs.add(att.ref);
+      const understood = understoodByRef.get(att.ref);
+      suggestionRows.push({
+        organization_id: ctx.organizationId,
+        item_id: item.id,
+        user_id: ctx.userId,
+        type: "attach_document",
+        payload: {
+          graph_message_id: att.messageId,
+          graph_attachment_id: att.attachmentId,
+          file_name: att.name,
+          content_type: att.contentType,
+          size: att.size,
+          document_category:
+            understood?.category ?? normalizeAttachmentCategory(null),
+          client_id: clientId,
+        },
+      });
+    }
+
     if (suggestionRows.length > 0) {
-      await ctx.adminSupabase
+      const { error: insertError } = await ctx.adminSupabase
         .from("broker_email_suggestions")
         .insert(suggestionRows);
+      if (insertError) {
+        // A single rejected row (e.g. a suggestion type not yet allowed by the
+        // DB CHECK constraint before its migration is applied) must NOT drop the
+        // other suggestions. Retry row by row so the valid ones still land, and
+        // log which type failed so the cause is visible.
+        console.error(
+          "[digest] batch suggestion insert failed, retrying individually:",
+          insertError.message,
+        );
+        for (const row of suggestionRows) {
+          const { error: rowError } = await ctx.adminSupabase
+            .from("broker_email_suggestions")
+            .insert(row);
+          if (rowError) {
+            console.error(
+              `[digest] suggestion insert failed (type=${row.type}):`,
+              rowError.message,
+            );
+          }
+        }
+      }
     }
   }
 

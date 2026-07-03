@@ -10,6 +10,7 @@ import {
   Loader2,
   Mail,
   RefreshCw,
+  Sparkles,
   Trash2,
   Upload,
   X,
@@ -28,7 +29,6 @@ import {
   importGroupDisplayName,
   readExtraction,
 } from "@/lib/broker/imports";
-import { formatBytes } from "@/lib/broker/storage";
 import type {
   BrokerImportBatchRow,
   BrokerImportFileRow,
@@ -69,6 +69,57 @@ function isSupported(name: string): boolean {
 }
 
 type StagedEntry = { blob: Blob; path: string; name: string };
+
+// --- File System Access API (Chromium) --------------------------------------
+// Reads a picked folder's tree directly — including EMPTY sub-folders that a
+// classic <input webkitdirectory> silently drops (the browser only hands over
+// files). Falls back to the input when the API is unavailable.
+interface FsFileHandle {
+  kind: "file";
+  getFile(): Promise<File>;
+}
+interface FsDirHandle {
+  kind: "directory";
+  entries(): AsyncIterableIterator<[string, FsFileHandle | FsDirHandle]>;
+}
+
+function getDirectoryPicker(): (() => Promise<FsDirHandle>) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    showDirectoryPicker?: () => Promise<FsDirHandle>;
+  };
+  return typeof w.showDirectoryPicker === "function"
+    ? w.showDirectoryPicker.bind(w)
+    : null;
+}
+
+/** Walks a directory handle into staged files + the list of empty top folders. */
+async function readDirectoryTree(
+  root: FsDirHandle,
+): Promise<{ entries: StagedEntry[]; emptyFolders: string[] }> {
+  const entries: StagedEntry[] = [];
+  const dirTops = new Set<string>();
+  const fileTops = new Set<string>();
+
+  async function walk(dir: FsDirHandle, prefix: string, top: string) {
+    for await (const [name, handle] of dir.entries()) {
+      const path = prefix ? `${prefix}/${name}` : name;
+      const topSeg = top || name;
+      if (handle.kind === "directory") {
+        dirTops.add(topSeg);
+        await walk(handle, path, topSeg);
+      } else if (!name.startsWith(".") && isSupported(name)) {
+        const file = await handle.getFile();
+        if (top) fileTops.add(top); // only files that live under a folder
+        entries.push({ blob: file, name, path });
+      }
+    }
+  }
+
+  await walk(root, "", "");
+  const emptyFolders = [...dirTops].filter((f) => !fileTops.has(f));
+  return { entries, emptyFolders };
+}
 
 /** Builds a File with a correct MIME type (zip blobs & some folder files lack one). */
 function toUploadFile(entry: StagedEntry): File {
@@ -153,11 +204,11 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
     filed: number;
   } | null>(null);
 
-  const [emailScan, setEmailScan] = React.useState<ScanClient[] | null>(null);
-  const [emailBusy, setEmailBusy] = React.useState(false);
-  const [selectedAttachments, setSelectedAttachments] = React.useState<
-    Set<string>
-  >(new Set());
+  // Post-import email attachment retrieval runs automatically (no manual step).
+  const [emailPhase, setEmailPhase] = React.useState<
+    "idle" | "running" | "done" | "unavailable"
+  >("idle");
+  const [emailFiled, setEmailFiled] = React.useState(0);
 
   const folderInputRef = React.useRef<HTMLInputElement>(null);
   const zipInputRef = React.useRef<HTMLInputElement>(null);
@@ -191,9 +242,13 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
   }
 
   // --- Pick + upload --------------------------------------------------------
-  async function startImport(entries: StagedEntry[], sourceType: "folder" | "zip") {
+  async function startImport(
+    entries: StagedEntry[],
+    sourceType: "folder" | "zip",
+    emptyFolders: string[] = [],
+  ) {
     const supported = entries.filter((e) => isSupported(e.name));
-    if (supported.length === 0) {
+    if (supported.length === 0 && emptyFolders.length === 0) {
       toast.error("Aucun fichier exploitable", {
         description: "Formats acceptés : PDF, images, Word, Excel.",
       });
@@ -245,11 +300,15 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
       toast.warning(`${failures} fichier(s) n’ont pas pu être envoyés.`);
     }
 
-    await runAnalyze(id, supported.length);
+    await runAnalyze(id, supported.length, emptyFolders);
   }
 
   // --- Analyze loop ---------------------------------------------------------
-  async function runAnalyze(id: string, total: number) {
+  async function runAnalyze(
+    id: string,
+    total: number,
+    emptyFolders: string[] = [],
+  ) {
     setAnalyzeTotal(total);
     setAnalyzeDone(0);
     setPhase("analyzing");
@@ -276,9 +335,12 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
       done = data.done;
     }
 
-    // Group, then load the review.
+    // Group, then load the review. Empty folders (from a .zip tree) are passed
+    // so they become document-less dossiers.
     const groupRes = await fetch(`/api/broker/imports/${id}/group`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emptyFolders }),
     }).catch(() => null);
     if (!groupRes || !groupRes.ok) {
       toast.error("Le regroupement a échoué.");
@@ -306,6 +368,39 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
     void startImport(entries, "folder");
   }
 
+  /**
+   * Folder button. On Chromium we read the tree via the File System Access API
+   * so EMPTY sub-folders are captured too; elsewhere we fall back to the classic
+   * <input webkitdirectory> (which drops empty folders — the .zip covers that).
+   */
+  async function chooseFolder() {
+    if (busy || storageFull) return;
+    const picker = getDirectoryPicker();
+    if (!picker) {
+      folderInputRef.current?.click();
+      return;
+    }
+    let root: FsDirHandle;
+    try {
+      root = await picker();
+    } catch {
+      return; // user cancelled the native picker
+    }
+    setBusy(true);
+    try {
+      const { entries, emptyFolders } = await readDirectoryTree(root);
+      if (entries.length === 0 && emptyFolders.length === 0) {
+        toast.error("Ce dossier ne contient aucun fichier exploitable.");
+        setBusy(false);
+        return;
+      }
+      await startImport(entries, "folder", emptyFolders);
+    } catch {
+      toast.error("Lecture du dossier impossible.");
+      setBusy(false);
+    }
+  }
+
   async function handleZip(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -316,10 +411,17 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
       const zip = await JSZip.loadAsync(file);
       const entries: StagedEntry[] = [];
       const tasks: Promise<void>[] = [];
+      const dirTops = new Set<string>();
+      const fileTops = new Set<string>();
       zip.forEach((path, entry) => {
-        if (entry.dir) return;
+        const top = path.split("/").filter(Boolean)[0] ?? "";
+        if (entry.dir) {
+          if (top) dirTops.add(top);
+          return;
+        }
         const name = path.split("/").pop() || path;
         if (name.startsWith(".") || !isSupported(name)) return;
+        if (top) fileTops.add(top);
         tasks.push(
           entry.async("blob").then((blob) => {
             entries.push({ blob, name, path });
@@ -327,12 +429,15 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
         );
       });
       await Promise.all(tasks);
-      if (entries.length === 0) {
+      // Top-level folders present in the archive but with no usable file inside
+      // → empty client folders. We still open a (document-less) dossier for each.
+      const emptyFolders = [...dirTops].filter((f) => !fileTops.has(f));
+      if (entries.length === 0 && emptyFolders.length === 0) {
         toast.error("L’archive ne contient aucun fichier exploitable.");
         setBusy(false);
         return;
       }
-      await startImport(entries, "zip");
+      await startImport(entries, "zip", emptyFolders);
     } catch {
       toast.error("Lecture du .zip impossible.");
       setBusy(false);
@@ -435,42 +540,34 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
     }
     setCommitResult({ created, matched, filed });
     setPhase("done");
+    // Retrieve & file email attachments automatically — no manual step.
+    void autoAttachEmails(batchId);
   }
 
-  // --- Emails ---------------------------------------------------------------
-  async function scanEmails() {
-    if (!batchId) return;
-    setEmailBusy(true);
-    const res = await fetch(`/api/broker/imports/${batchId}/emails`, {
+  // --- Emails (automatic after import) --------------------------------------
+  /**
+   * Scans the connected Outlook for the just-imported clients and files every
+   * relevant attachment into their dossier, directly. Tiny images (signature
+   * logos) are skipped. Runs silently if Outlook isn't connected.
+   */
+  async function autoAttachEmails(id: string) {
+    setEmailPhase("running");
+    setEmailFiled(0);
+    const scanRes = await fetch(`/api/broker/imports/${id}/emails`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "scan" }),
     }).catch(() => null);
-    const data = (await res?.json().catch(() => null)) as
+    const scan = (await scanRes?.json().catch(() => null)) as
       | { clients: ScanClient[]; mailbox: string }
       | { success: false; message?: string }
       | null;
-    setEmailBusy(false);
-    if (!data || "success" in data) {
-      toast.error(
-        (data && "message" in data && data.message) ||
-          "Connexion Outlook indisponible.",
-      );
+    if (!scan || "success" in scan) {
+      // Outlook not connected / unavailable → nothing to do, stay silent.
+      setEmailPhase("unavailable");
       return;
     }
-    setEmailScan(data.clients);
-    // Pre-select everything — the broker unchecks what they don't want.
-    const preset = new Set<string>();
-    for (const c of data.clients)
-      for (const a of c.attachments) preset.add(`${c.clientId}|${a.ref}`);
-    setSelectedAttachments(preset);
-    if (data.clients.length === 0) {
-      toast.info("Aucune pièce jointe trouvée dans les emails de ces clients.");
-    }
-  }
 
-  async function attachSelected() {
-    if (!batchId || !emailScan) return;
     const items: {
       clientId: string;
       messageId: string;
@@ -479,9 +576,10 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
       contentType: string;
       category: string;
     }[] = [];
-    for (const c of emailScan) {
+    for (const c of scan.clients) {
       for (const a of c.attachments) {
-        if (!selectedAttachments.has(`${c.clientId}|${a.ref}`)) continue;
+        // Skip email-signature logos / tiny images.
+        if (a.contentType?.startsWith("image/") && a.size < 15_000) continue;
         items.push({
           clientId: c.clientId,
           messageId: a.messageId,
@@ -493,14 +591,14 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
       }
     }
     if (items.length === 0) {
-      toast.error("Sélectionnez au moins une pièce jointe.");
+      setEmailFiled(0);
+      setEmailPhase("done");
       return;
     }
-    setEmailBusy(true);
-    // Chunk to stay under the per-request cap (50).
+
     let filed = 0;
     for (let i = 0; i < items.length; i += 40) {
-      const res = await fetch(`/api/broker/imports/${batchId}/emails`, {
+      const res = await fetch(`/api/broker/imports/${id}/emails`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "attach", items: items.slice(i, i + 40) }),
@@ -511,10 +609,13 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
         | null;
       if (data && "success" in data && data.success) filed += data.filed;
     }
-    setEmailBusy(false);
-    toast.success(`${filed} pièce(s) rangée(s) dans les dossiers.`);
-    setEmailScan(null);
-    setSelectedAttachments(new Set());
+    setEmailFiled(filed);
+    setEmailPhase("done");
+    if (filed > 0) {
+      toast.success(
+        `${filed} pièce(s) jointe(s) d'emails rangée(s) automatiquement.`,
+      );
+    }
   }
 
   async function discardBatch(id: string) {
@@ -527,8 +628,8 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
     setGroups([]);
     setFiles([]);
     setCommitResult(null);
-    setEmailScan(null);
-    setSelectedAttachments(new Set());
+    setEmailPhase("idle");
+    setEmailFiled(0);
     setPhase("home");
     void loadBatches();
   }
@@ -545,6 +646,7 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
         batches={batches}
         folderInputRef={folderInputRef}
         zipInputRef={zipInputRef}
+        onPickFolder={() => void chooseFolder()}
         onFolder={handleFolder}
         onZip={handleZip}
         onResume={async (b) => {
@@ -593,19 +695,8 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
     return (
       <DoneScreen
         result={commitResult}
-        emailScan={emailScan}
-        emailBusy={emailBusy}
-        selected={selectedAttachments}
-        onToggle={(key) =>
-          setSelectedAttachments((s) => {
-            const next = new Set(s);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-          })
-        }
-        onScan={scanEmails}
-        onAttach={attachSelected}
+        emailPhase={emailPhase}
+        emailFiled={emailFiled}
         onDone={reset}
       />
     );
@@ -709,6 +800,7 @@ function HomeScreen({
   batches,
   folderInputRef,
   zipInputRef,
+  onPickFolder,
   onFolder,
   onZip,
   onResume,
@@ -720,6 +812,7 @@ function HomeScreen({
   batches: BrokerImportBatchRow[];
   folderInputRef: React.RefObject<HTMLInputElement | null>;
   zipInputRef: React.RefObject<HTMLInputElement | null>;
+  onPickFolder: () => void;
   onFolder: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onZip: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onResume: (b: BrokerImportBatchRow) => void;
@@ -756,32 +849,57 @@ function HomeScreen({
             Déposez vos dossiers clients
           </h2>
           <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-6 text-[var(--fg-3)]">
-            Un dossier entier (avec ses sous-dossiers) ou une archive .zip. Peu
-            importe l’organisation : l’assistant s’occupe du classement.
+            Déposez une archive{" "}
+            <strong className="font-semibold text-[var(--fg-2)]">.zip</strong> de
+            vos dossiers clients — ou un dossier entier. Peu importe
+            l’organisation : l’assistant lit chaque pièce, regroupe par client et{" "}
+            <strong className="font-semibold text-[var(--fg-2)]">
+              reprend le nom de chaque sous-dossier comme nom du dossier client
+            </strong>
+            .
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
-          <PrimaryButton
-            onClick={() => folderInputRef.current?.click()}
-            disabled={busy || storageFull}
-          >
-            {busy ? (
-              <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
-            ) : (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            <PrimaryButton
+              onClick={() => zipInputRef.current?.click()}
+              disabled={busy || storageFull}
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <Upload className="size-3.5" strokeWidth={2} />
+              )}
+              Importer un .zip
+            </PrimaryButton>
+            <GhostButton
+              onClick={onPickFolder}
+              disabled={busy || storageFull}
+            >
               <FolderInput className="size-3.5" strokeWidth={2} />
-            )}
-            Choisir un dossier
-          </PrimaryButton>
-          <GhostButton
-            onClick={() => zipInputRef.current?.click()}
-            disabled={busy || storageFull}
+              Choisir un dossier
+            </GhostButton>
+          </div>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+            style={{
+              background: "var(--accent-soft)",
+              color: "var(--accent-foreground)",
+              border: "1px solid var(--brand-amber-200, rgba(184,146,42,0.25))",
+            }}
           >
-            <Upload className="size-3.5" strokeWidth={2} />
-            Importer un .zip
-          </GhostButton>
+            <Sparkles className="size-3" strokeWidth={2} />
+            .zip recommandé — reprise complète, rien n’est perdu
+          </span>
         </div>
         <p className="text-[11px] text-[var(--fg-4)]">
           PDF, images, Word, Excel — jusqu’à {MAX_IMPORT_FILES} fichiers par import.
+        </p>
+        <p className="mx-auto max-w-md text-[11.5px] leading-5 text-[var(--fg-4)]">
+          Les <strong className="font-medium">sous-dossiers vides</strong> nommés
+          au nom d’un client créent quand même leur dossier — rien n’est perdu. Le{" "}
+          <strong className="font-medium">.zip</strong> marche partout ;
+          « Choisir un dossier » les récupère aussi sur Chrome et Edge.
         </p>
         <input
           ref={folderInputRef}
@@ -1252,26 +1370,16 @@ function TextField({
 
 function DoneScreen({
   result,
-  emailScan,
-  emailBusy,
-  selected,
-  onToggle,
-  onScan,
-  onAttach,
+  emailPhase,
+  emailFiled,
   onDone,
 }: {
   result: { created: number; matched: number; filed: number } | null;
-  emailScan: ScanClient[] | null;
-  emailBusy: boolean;
-  selected: Set<string>;
-  onToggle: (key: string) => void;
-  onScan: () => void;
-  onAttach: () => void;
+  emailPhase: "idle" | "running" | "done" | "unavailable";
+  emailFiled: number;
   onDone: () => void;
 }) {
-  const totalAttachments = emailScan
-    ? emailScan.reduce((n, c) => n + c.attachments.length, 0)
-    : 0;
+  const running = emailPhase === "running";
 
   return (
     <div className="space-y-5">
@@ -1300,81 +1408,42 @@ function DoneScreen({
           <Mail className="mt-0.5 size-5 shrink-0 text-[var(--accent)]" strokeWidth={2} />
           <div className="min-w-0 flex-1">
             <h3 className="text-[14px] font-semibold text-[var(--fg-1)]">
-              Récupérer les pièces jointes des emails
+              Pièces jointes des emails
             </h3>
-            <p className="mt-1 text-[13px] leading-6 text-[var(--fg-3)]">
-              L’assistant recherche dans votre boîte Outlook les emails de ces
-              clients et vous propose de ranger leurs pièces jointes dans les bons
-              dossiers. Les emails, eux, apparaissent déjà automatiquement dans
-              chaque dossier.
-            </p>
-
-            {emailScan === null ? (
-              <div className="mt-4 flex items-center gap-2">
-                <PrimaryButton onClick={onScan} disabled={emailBusy}>
-                  {emailBusy ? (
-                    <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
-                  ) : (
-                    <Mail className="size-3.5" strokeWidth={2} />
-                  )}
-                  Rechercher les emails
-                </PrimaryButton>
-                <GhostButton onClick={onDone}>Terminer</GhostButton>
-              </div>
-            ) : totalAttachments === 0 ? (
-              <div className="mt-4">
-                <GhostButton onClick={onDone}>Terminer</GhostButton>
-              </div>
+            {running ? (
+              <p className="mt-1 flex items-center gap-2 text-[13px] leading-6 text-[var(--fg-3)]">
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+                Recherche dans votre boîte Outlook et rangement automatique des
+                pièces jointes dans les bons dossiers…
+              </p>
+            ) : emailPhase === "unavailable" ? (
+              <p className="mt-1 text-[13px] leading-6 text-[var(--fg-3)]">
+                Connectez votre boîte Outlook pour que les pièces jointes des
+                emails de ces clients soient rangées automatiquement.
+              </p>
+            ) : emailPhase === "done" ? (
+              <p className="mt-1 text-[13px] leading-6 text-[var(--fg-3)]">
+                {emailFiled > 0
+                  ? `${emailFiled} pièce(s) jointe(s) récupérée(s) dans les emails et rangée(s) automatiquement dans les dossiers.`
+                  : "Aucune pièce jointe à récupérer dans les emails. Les emails, eux, apparaissent déjà dans chaque dossier."}
+              </p>
             ) : (
-              <div className="mt-4 space-y-4">
-                {emailScan.map((client) => (
-                  <div key={client.clientId}>
-                    <p className="mb-1.5 text-[12px] font-semibold text-[var(--fg-1)]">
-                      {client.clientName}{" "}
-                      <span className="font-normal text-[var(--fg-4)]">
-                        · {client.email}
-                      </span>
-                    </p>
-                    <div className="space-y-1.5">
-                      {client.attachments.map((a) => {
-                        const key = `${client.clientId}|${a.ref}`;
-                        const checked = selected.has(key);
-                        return (
-                          <label
-                            key={key}
-                            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px]"
-                            style={{ background: "var(--bg-canvas)", color: "var(--fg-2)" }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => onToggle(key)}
-                              className="size-3.5"
-                            />
-                            <FileText className="size-3.5 shrink-0 text-[var(--fg-3)]" strokeWidth={2} />
-                            <span className="min-w-0 flex-1 truncate">{a.fileName}</span>
-                            <span className="shrink-0 text-[11px] text-[var(--fg-4)]">
-                              {formatBytes(a.size)}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 pt-1">
-                  <PrimaryButton onClick={onAttach} disabled={emailBusy}>
-                    {emailBusy ? (
-                      <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
-                    ) : (
-                      <Check className="size-3.5" strokeWidth={2} />
-                    )}
-                    Ranger les pièces sélectionnées
-                  </PrimaryButton>
-                  <GhostButton onClick={onDone}>Terminer</GhostButton>
-                </div>
-              </div>
+              <p className="mt-1 text-[13px] leading-6 text-[var(--fg-3)]">
+                Les pièces jointes des emails de ces clients sont rangées
+                automatiquement dans les bons dossiers.
+              </p>
             )}
+
+            <div className="mt-4">
+              <PrimaryButton onClick={onDone} disabled={running}>
+                {running ? (
+                  <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+                ) : (
+                  <Check className="size-3.5" strokeWidth={2} />
+                )}
+                Terminer
+              </PrimaryButton>
+            </div>
           </div>
         </div>
       </div>

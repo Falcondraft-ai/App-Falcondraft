@@ -78,7 +78,7 @@ export default async function QuoteValidationPage({
           <div>
             <p className="fd-eyebrow mb-2">Devis compagnie</p>
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[28px]">
-              Vérifier & valider le devis
+              Détail du devis
             </h1>
           </div>
           <QuoteStatusBadge status={quote.extraction_status} />
@@ -100,12 +100,12 @@ export default async function QuoteValidationPage({
             />
             <div>
               <p className="text-[13px] font-semibold text-[var(--brand-amber-900)]">
-                À vérifier et valider
+                À compléter
               </p>
               <p className="mt-0.5 text-[12.5px] leading-5 text-[var(--brand-amber-800)]">
-                Les informations sont lues automatiquement depuis le devis.
-                Vérifiez-les, complétez si besoin, puis validez. Vous restez seul
-                responsable des informations retenues.
+                La lecture automatique du devis n’a pas abouti. Complétez les
+                informations puis enregistrez — le devis sera aussitôt utilisable
+                pour le devoir de conseil.
               </p>
             </div>
           </div>
@@ -118,8 +118,9 @@ export default async function QuoteValidationPage({
             }}
           >
             <p className="text-[13px] leading-5 text-[var(--status-signed-fg)]">
-              Ce devis a été vérifié et validé. Il peut servir de base au devoir
-              de conseil.
+              Ce devis a été lu automatiquement et sert déjà de base au devoir de
+              conseil. Ajustez-le si besoin — aucune validation supplémentaire
+              n’est requise.
             </p>
           </div>
         )}

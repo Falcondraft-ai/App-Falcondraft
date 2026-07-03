@@ -16,6 +16,7 @@ type RouteContext = { params: Promise<{ id: string; adviceId: string }> };
 const schema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
   content: z.string().max(50000).optional(),
+  requirements: z.string().max(50000).optional().nullable(),
   validate: z.boolean().optional(),
 });
 
@@ -59,6 +60,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   const update: BrokerAdviceUpdate = { updated_at: new Date().toISOString() };
   if (values.title !== undefined) update.title = values.title;
   if (values.content !== undefined) update.content = values.content;
+  if (values.requirements !== undefined)
+    update.requirements = values.requirements?.trim() || null;
 
   if (values.validate) {
     update.status = "validated";

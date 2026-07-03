@@ -36,7 +36,6 @@ export function AdviceSignaturePanel({
     "none" | "draft" | "link" | "signed" | "docuseal" | "refresh"
   >("none");
 
-  const isDraft = status === "draft";
   const isSigned = status === "signed";
 
   async function createDraft() {
@@ -166,15 +165,6 @@ export function AdviceSignaturePanel({
     } finally {
       setBusy("none");
     }
-  }
-
-  if (isDraft) {
-    return (
-      <p className="text-[12.5px] leading-5 text-[var(--fg-3)]">
-        Validez le devoir de conseil pour préparer la signature et le brouillon
-        Outlook.
-      </p>
-    );
   }
 
   if (isSigned) {
@@ -307,55 +297,60 @@ export function AdviceSignaturePanel({
         </details>
       </div>
 
-      {/* 2 — Brouillon d’envoi */}
-      <div
-        className="flex flex-col rounded-lg border p-4"
-        style={{ borderColor: "var(--border-1)", background: "var(--bg-surface)" }}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="flex size-7 items-center justify-center rounded-md"
-            style={{
-              background: "var(--accent-soft)",
-              color: "var(--accent-foreground)",
-              border: "1px solid var(--accent-soft)",
-            }}
-          >
-            <Mail className="size-4" strokeWidth={1.75} />
-          </span>
-          <p className="text-[13px] font-semibold text-[var(--fg-1)]">
-            Brouillon d’envoi
-          </p>
-        </div>
-        <p className="mt-2 flex-1 text-[12px] leading-5 text-[var(--fg-3)]">
-          Un brouillon Outlook prêt à relire, avec le devoir de conseil et le lien
-          de signature. Vous l’envoyez vous-même.
-        </p>
-        <Button
-          type="button"
-          onClick={createDraft}
-          disabled={!canEdit || busy !== "none" || !outlookConnected}
-          className="mt-3 inline-flex items-center gap-2 self-start"
+      {/* 2 — Brouillon d’envoi : seulement une fois le lien de signature créé */}
+      {hasLink ? (
+        <div
+          className="flex flex-col rounded-lg border p-4"
+          style={{
+            borderColor: "var(--border-1)",
+            background: "var(--bg-surface)",
+          }}
         >
-          {busy === "draft" ? (
-            <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
-          ) : (
-            <Mail className="size-3.5" strokeWidth={2} />
-          )}
-          Préparer le brouillon
-        </Button>
-        {!outlookConnected ? (
-          <p className="mt-2 text-[11.5px] text-[var(--fg-3)]">
-            <Link
-              href="/courtier/settings/integrations"
-              className="font-medium text-[var(--brand-navy-700)] hover:underline"
+          <div className="flex items-center gap-2">
+            <span
+              className="flex size-7 items-center justify-center rounded-md"
+              style={{
+                background: "var(--accent-soft)",
+                color: "var(--accent-foreground)",
+                border: "1px solid var(--accent-soft)",
+              }}
             >
-              Connecter Outlook
-            </Link>{" "}
-            pour préparer le brouillon.
+              <Mail className="size-4" strokeWidth={1.75} />
+            </span>
+            <p className="text-[13px] font-semibold text-[var(--fg-1)]">
+              Brouillon d’envoi
+            </p>
+          </div>
+          <p className="mt-2 flex-1 text-[12px] leading-5 text-[var(--fg-3)]">
+            Un brouillon Outlook prêt à relire, avec le devoir de conseil et le
+            lien de signature. Vous l’envoyez vous-même.
           </p>
-        ) : null}
-      </div>
+          <Button
+            type="button"
+            onClick={createDraft}
+            disabled={!canEdit || busy !== "none" || !outlookConnected}
+            className="mt-3 inline-flex items-center gap-2 self-start"
+          >
+            {busy === "draft" ? (
+              <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <Mail className="size-3.5" strokeWidth={2} />
+            )}
+            Préparer le brouillon
+          </Button>
+          {!outlookConnected ? (
+            <p className="mt-2 text-[11.5px] text-[var(--fg-3)]">
+              <Link
+                href="/courtier/settings/integrations"
+                className="font-medium text-[var(--brand-navy-700)] hover:underline"
+              >
+                Connecter Outlook
+              </Link>{" "}
+              pour préparer le brouillon.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

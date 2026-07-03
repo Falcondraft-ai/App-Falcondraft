@@ -1,16 +1,13 @@
 import Link from "next/link";
-import {
-  CheckCircle2,
-  Euro,
-  Files,
-  Plus,
-  Signature,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
+import {
+  DashboardStatCard,
+  StatStrip,
+} from "@/components/common/dashboard-stat-card";
 import { DealStatusBadge } from "@/components/common/deal-status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
@@ -158,40 +155,36 @@ export default async function DashboardPage() {
           }
         />
 
-        <section className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+        <StatStrip className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardStatCard
+            variant="cell"
             label={<T tx="dashboard.stats.pipelineOpen" />}
             value={formatCurrency(dashboard.pipelineValue)}
             detail={
               <T tx="dashboard.stats.pipelineValueDetail" />
             }
             tone="accent"
-            icon={<Euro className="size-3.5" strokeWidth={1.75} />}
-            deltaTone="neutral"
           />
           <DashboardStatCard
+            variant="cell"
             label={<T tx="dashboard.stats.activeProposals" />}
             value={String(dashboard.activeDeals.length)}
             detail={<T tx="dashboard.stats.activeDealsDetail" />}
-            icon={<Files className="size-3.5" strokeWidth={1.75} />}
-            deltaTone="neutral"
           />
           <DashboardStatCard
+            variant="cell"
             label={<T tx="dashboard.stats.signatureRate" />}
             value={signatureRate === null ? "—" : `${signatureRate} %`}
             detail={<T tx="dashboard.stats.signatureRateDetail" />}
-            icon={<Signature className="size-3.5" strokeWidth={1.75} />}
-            deltaTone="neutral"
           />
           <DashboardStatCard
+            variant="cell"
             label={<T tx="dashboard.stats.readyToSend" />}
             value={String(dashboard.readyDocumentCount)}
             detail={<T tx="dashboard.stats.readyDocumentsDetail" />}
             tone="success"
-            icon={<CheckCircle2 className="size-3.5" strokeWidth={1.75} />}
-            deltaTone="neutral"
           />
-        </section>
+        </StatStrip>
 
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
           <PipelineStagePanel stages={stages} />

@@ -1,17 +1,12 @@
 import Link from "next/link";
+import { CalendarClock, Plus } from "lucide-react";
 import {
-  CalendarClock,
-  CheckCircle2,
-  FileSignature,
-  FolderClock,
-  Plus,
-  Users,
-} from "lucide-react";
-import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
+  DashboardStatCard,
+  StatStrip,
+} from "@/components/common/dashboard-stat-card";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
-import { Stagger } from "@/components/common/stagger";
 import { ActivityFeed } from "@/components/broker/activity-feed";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
 import {
@@ -178,35 +173,35 @@ export default async function CourtierDashboardPage() {
           }
         />
 
-        <Stagger className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatStrip className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardStatCard
+            variant="cell"
             label="Dossiers actifs"
             value={String(stats.total)}
             detail="Dossiers clients en cours de gestion"
-            icon={<Users className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Devoirs de conseil à valider"
             value={String(stats.adviceReady)}
             detail="Prêts pour votre relecture"
             tone="accent"
-            icon={<FolderClock className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Signatures en attente"
             value={String(stats.awaitingSignature)}
             detail="En attente de signature client"
             tone="warning"
-            icon={<FileSignature className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Dossiers signés"
             value={String(stats.signed)}
             detail="Contrats finalisés"
             tone="success"
-            icon={<CheckCircle2 className="size-3.5" strokeWidth={1.75} />}
           />
-        </Stagger>
+        </StatStrip>
 
         <div className="grid items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
           {/* Main column: AI briefing + recent dossiers */}

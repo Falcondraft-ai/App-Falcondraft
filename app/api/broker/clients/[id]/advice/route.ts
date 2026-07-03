@@ -1,13 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import { generateAdviceContent } from "@/lib/broker/advice-ai";
 import { buildAdviceJustificationDraft } from "@/lib/broker/advice-document";
 import {
-  advanceClientStatus,
   logBrokerActivity,
   requireBrokerApiContext,
 } from "@/lib/broker/server";
-import type { BrokerQuoteRow } from "@/types/database";
+import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -52,6 +55,28 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     return jsonError("Dossier introuvable.", 404, "client_not_found");
   }
 
+  // A dossier holds a single devoir de conseil. To redo one, the broker must
+  // delete the existing document first (avoids duplicates / ambiguity).
+  const { data: existingAdvice } = await auth.adminSupabase
+    .from("broker_advice")
+    .select("id")
+    .eq("organization_id", auth.organizationId)
+    .eq("client_id", clientId)
+    .limit(1)
+    .maybeSingle();
+  if (existingAdvice) {
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Un devoir de conseil existe déjà pour ce dossier. Supprimez-le pour en générer un nouveau.",
+        reason: "advice_exists",
+        adviceId: existingAdvice.id,
+      },
+      { status: 409 },
+    );
+  }
+
   // Resolve the quote to base the template on: the requested one, else the most
   // recent validated quote for this client.
   let quote: BrokerQuoteRow | null = null;
@@ -79,10 +104,21 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     }
   }
 
-  const content =
-    values.mode === "template"
-      ? buildAdviceJustificationDraft()
-      : "";
+  // Template mode: let the AI write the justification from ALL the recorded info
+  // (client notes + the validated quote), keeping only what's pertinent. Falls
+  // back to the editable scaffold if the AI is unavailable or there's no quote.
+  let content = "";
+  let requirements: string | null = null;
+  if (values.mode === "template") {
+    content = buildAdviceJustificationDraft();
+    if (quote) {
+      const ai = await generateAdviceContent(client as BrokerClientRow, quote);
+      if (ai.success) {
+        if (ai.motifs.trim()) content = ai.motifs;
+        if (ai.requirements.trim()) requirements = ai.requirements;
+      }
+    }
+  }
 
   const now = new Date().toISOString();
   const { data: advice, error } = await auth.adminSupabase
@@ -94,8 +130,11 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       created_by: auth.user.id,
       title: "Devoir de conseil",
       content,
+      requirements,
+      // Draft first: the broker reviews and adjusts the AI-written content,
+      // validates it, and only then can produce the PDF and the signature link.
       status: "draft",
-      generated_at: values.mode === "template" ? now : null,
+      generated_at: now,
     })
     .select("id")
     .single();
@@ -113,20 +152,12 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     clientId,
     userId: auth.user.id,
     type: "advice_created",
-    description:
-      values.mode === "template"
-        ? "Devoir de conseil généré (brouillon à compléter)."
-        : "Devoir de conseil créé (vierge).",
+    description: "Devoir de conseil généré — contenu à relire et valider.",
     metadata: { advice_id: advice.id },
   });
 
-  // A devoir de conseil exists → the dossier is actively being worked on.
-  await advanceClientStatus(
-    auth.adminSupabase,
-    auth.organizationId,
-    clientId,
-    "in_progress",
-  );
+  // The dossier only becomes "advice_ready" once the broker validates the
+  // content (PATCH with validate: true) — not at generation time.
 
   return NextResponse.json({ success: true, adviceId: advice.id });
 }

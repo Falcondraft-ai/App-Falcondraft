@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { CheckCircle2, FolderOpen, ShieldAlert } from "lucide-react";
-import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
+import {
+  DashboardStatCard,
+  StatStrip,
+} from "@/components/common/dashboard-stat-card";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
@@ -51,29 +53,29 @@ export default async function BrokerClaimsPage() {
           description="Tous les sinistres de vos clients, leur instruction et leur indemnisation."
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatStrip className="grid-cols-1 sm:grid-cols-3">
           <DashboardStatCard
+            variant="cell"
             label="Sinistres en cours"
             value={String(openClaims.length)}
             detail="Déclarés, en instruction ou en attente de pièces"
             tone="warning"
-            icon={<ShieldAlert className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Montant estimé en cours"
             value={formatEuro(openEstimate)}
             detail="Estimation des sinistres ouverts"
             tone="accent"
-            icon={<FolderOpen className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Indemnisés"
             value={String(settledClaims.length)}
             detail="Sinistres réglés"
             tone="success"
-            icon={<CheckCircle2 className="size-3.5" strokeWidth={1.75} />}
           />
-        </div>
+        </StatStrip>
 
         <section
           className="overflow-hidden rounded-lg border bg-[var(--bg-surface)]"

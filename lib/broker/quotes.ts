@@ -30,16 +30,17 @@ export function isBrokerQuoteStatus(value: string): value is BrokerQuoteStatus {
 
 export function formatPremium(
   amount: number | null | undefined,
-  currency = "EUR",
+  currency?: string | null,
 ): string {
   if (amount === null || amount === undefined) return "—";
+  const code = currency?.trim() || "EUR";
   try {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
-      currency,
+      currency: code,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {
-    return `${amount} ${currency}`;
+    return `${amount} ${code}`;
   }
 }

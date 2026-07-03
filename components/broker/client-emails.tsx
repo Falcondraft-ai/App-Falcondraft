@@ -47,14 +47,21 @@ export function ClientEmails({ clientId }: { clientId: string }) {
   }, [query, load]);
 
   const groups = React.useMemo(() => {
-    if (state.kind !== "ready") return { direct: [], mention: [] };
+    if (state.kind !== "ready") return { linked: [], direct: [], mention: [] };
+    const linked: ClientEmail[] = [];
     const direct: ClientEmail[] = [];
     const mention: ClientEmail[] = [];
     for (const e of state.emails) {
-      (e.matchType === "mention" ? mention : direct).push(e);
+      if (e.matchType === "linked") linked.push(e);
+      else if (e.matchType === "mention") mention.push(e);
+      else direct.push(e);
     }
-    return { direct, mention };
+    return { linked, direct, mention };
   }, [state]);
+
+  const multiGroup =
+    [groups.linked, groups.direct, groups.mention].filter((g) => g.length > 0)
+      .length > 1;
 
   return (
     <section
@@ -124,16 +131,22 @@ export function ClientEmails({ clientId }: { clientId: string }) {
         ) : (
           <div className="space-y-5">
             <EmailGroup
+              label="Rattachés à ce dossier"
+              hint="Emails à l’origine ou liés à ce dossier (création, mise à jour, pièce classée, note) — quel que soit l’expéditeur."
+              emails={groups.linked}
+              showHeader={multiGroup}
+            />
+            <EmailGroup
               label="Échangés avec le client"
               hint="Messages où le client est expéditeur ou destinataire."
               emails={groups.direct}
-              showHeader={groups.mention.length > 0}
+              showHeader={multiGroup}
             />
             <EmailGroup
               label="Concernent ce dossier"
               hint="Emails qui citent le client, son entreprise ou une de ses références (devis d’assureur, échanges internes…)."
               emails={groups.mention}
-              showHeader={groups.direct.length > 0}
+              showHeader={multiGroup}
               muted
             />
           </div>

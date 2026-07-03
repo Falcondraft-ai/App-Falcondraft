@@ -4,7 +4,7 @@ import { ChevronRight, FileText, ScrollText } from "lucide-react";
 import type { ReactNode } from "react";
 import { PageTransition } from "@/components/common/page-transition";
 import { AdviceCreator } from "@/components/broker/advice-creator";
-import { AdviceStatusBadge } from "@/components/broker/advice-status-badge";
+import { AdviceCard } from "@/components/broker/advice-workspace";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
 import { ClaimManager } from "@/components/broker/claim-manager";
 import { ClientDeleteButton } from "@/components/broker/client-delete-button";
@@ -12,6 +12,7 @@ import { ClientDocuments } from "@/components/broker/client-documents";
 import { ClientEmails } from "@/components/broker/client-emails";
 import { ClientHistory } from "@/components/broker/client-history";
 import { ClientInfoEditor } from "@/components/broker/client-info-editor";
+import { ClientRenameDialog } from "@/components/broker/client-rename-dialog";
 import { ClientStatusControl } from "@/components/broker/client-status-control";
 import { CommissionStatusBadge } from "@/components/broker/commission-status-badge";
 import { ContractManager } from "@/components/broker/contract-manager";
@@ -35,6 +36,7 @@ import {
   getBrokerClientAdvice,
   getBrokerClientClaims,
   getBrokerClientCommissions,
+  getBrokerClientCompliance,
   getBrokerClientContracts,
   getBrokerClientDocuments,
   getBrokerClientQuotes,
@@ -43,7 +45,6 @@ import { formatEuro, netCommission } from "@/lib/broker/commissions";
 import { parseBrokerSettings } from "@/lib/broker/settings";
 import { formatPremium } from "@/lib/broker/quotes";
 import { computeStorageUsage } from "@/lib/broker/storage";
-import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -99,13 +100,20 @@ export default async function BrokerClientDetailPage({
 
   const saasModules = hasProposalAutomation(organization);
 
-  const [activity, documents, quotes, advice, contracts] = await Promise.all([
-    getBrokerClientActivity(organizationId, id),
-    getBrokerClientDocuments(organizationId, id),
-    getBrokerClientQuotes(organizationId, id),
-    getBrokerClientAdvice(organizationId, id),
-    getBrokerClientContracts(organizationId, id),
-  ]);
+  const [activity, documents, quotes, advice, contracts, compliance] =
+    await Promise.all([
+      getBrokerClientActivity(organizationId, id),
+      getBrokerClientDocuments(organizationId, id),
+      getBrokerClientQuotes(organizationId, id),
+      getBrokerClientAdvice(organizationId, id),
+      getBrokerClientContracts(organizationId, id),
+      getBrokerClientCompliance(organizationId, id),
+    ]);
+  const pep: "Oui" | "Non" | null = compliance
+    ? compliance.is_pep
+      ? "Oui"
+      : "Non"
+    : null;
 
   // Commissions & sinistres only exist in the SaaS broker offering.
   const [commissions, claims] = saasModules
@@ -166,9 +174,22 @@ export default async function BrokerClientDetailPage({
                   </>
                 ) : null}
               </p>
-              <h1 className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[30px]">
-                {displayName}
-              </h1>
+              <div className="mt-2 flex items-center gap-2.5">
+                <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[30px]">
+                  {displayName}
+                </h1>
+                {canEdit ? (
+                  <ClientRenameDialog
+                    clientId={client.id}
+                    clientType={
+                      client.client_type === "company" ? "company" : "individual"
+                    }
+                    firstName={client.first_name}
+                    lastName={client.last_name}
+                    companyName={client.company_name}
+                  />
+                ) : null}
+              </div>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span
                   className="rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium text-[var(--fg-2)]"
@@ -294,67 +315,57 @@ export default async function BrokerClientDetailPage({
               style={{
                 borderColor: "var(--border-1)",
                 boxShadow: "var(--shadow-sm)",
-                borderTop: "2px solid var(--accent)",
               }}
             >
               <div
                 className="flex items-center gap-2.5 border-b px-5 py-3.5"
                 style={{ borderColor: "var(--border-1)" }}
               >
-                <FileText
-                  className="size-[18px] text-[var(--accent-foreground)]"
-                  strokeWidth={1.75}
-                />
-                <h2 className="text-[14px] font-semibold tracking-[-0.005em] text-[var(--fg-1)]">
-                  Devoir de conseil
-                </h2>
+                <span
+                  className="flex size-7 items-center justify-center rounded-md"
+                  style={{
+                    background: "var(--accent-soft)",
+                    border: "1px solid rgba(184,146,42,0.25)",
+                    color: "var(--accent-foreground)",
+                  }}
+                >
+                  <FileText className="size-4" strokeWidth={1.75} />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-[14px] font-semibold tracking-[-0.005em] text-[var(--fg-1)]">
+                    Devoir de conseil
+                  </h2>
+                  <p className="text-[11.5px] text-[var(--fg-3)]">
+                    Relisez le contenu, validez-le, puis générez le PDF et le
+                    lien de signature.
+                  </p>
+                </div>
               </div>
               <div className="space-y-4 p-5">
                 <AdviceCreator
-                  clientId={client.id}
+                  client={client}
+                  pep={pep}
                   hasValidatedQuote={hasValidatedQuote}
                   canEdit={canEdit}
+                  alreadyExists={advice.length > 0}
                 />
 
                 {advice.length > 0 ? (
-                  <ul
-                    className="divide-y overflow-hidden rounded-lg border"
-                    style={{ borderColor: "var(--border-1)" }}
-                  >
+                  <div className="space-y-2">
                     {advice.map((doc) => (
-                      <li key={doc.id}>
-                        <Link
-                          href={`/courtier/clients/${client.id}/advice/${doc.id}`}
-                          className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[var(--bg-sunken)]"
-                          style={{ background: "var(--bg-surface)" }}
-                        >
-                          <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-                            style={{
-                              background: "var(--brand-navy-50)",
-                              border: "1px solid var(--border-1)",
-                              color: "var(--brand-navy-700)",
-                            }}
-                          >
-                            <FileText className="size-4" strokeWidth={1.75} />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
-                              {doc.title}
-                            </p>
-                            <p className="truncate text-[11.5px] text-[var(--fg-3)]">
-                              Mis à jour le {formatDate(doc.updated_at)}
-                            </p>
-                          </div>
-                          <AdviceStatusBadge status={doc.status} />
-                          <ChevronRight
-                            className="size-4 shrink-0 text-[var(--fg-4)]"
-                            strokeWidth={1.75}
-                          />
-                        </Link>
-                      </li>
+                      <AdviceCard
+                        key={doc.id}
+                        advice={doc}
+                        clientId={client.id}
+                        hasPdf={documents.some((d) =>
+                          d.storage_path.endsWith(
+                            `devoir-de-conseil-${doc.id}.pdf`,
+                          ),
+                        )}
+                        canDelete={canDelete}
+                      />
                     ))}
-                  </ul>
+                  </div>
                 ) : null}
               </div>
             </section>

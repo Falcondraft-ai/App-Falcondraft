@@ -59,6 +59,7 @@ export type BrokerClientRow = {
   postal_code: string | null;
   city: string | null;
   date_of_birth: string | null;
+  birth_country: string | null;
   insurance_type: string | null;
   status:
     | "new"
@@ -129,6 +130,7 @@ export type BrokerAdviceRow = {
   created_by: string;
   title: string;
   content: string;
+  requirements: string | null;
   status: "draft" | "validated" | "sent_for_signature" | "signed" | string;
   docuseal_submission_id: string | null;
   signature_status: string | null;
@@ -1378,6 +1380,7 @@ export type Database = {
           postal_code?: string | null;
           city?: string | null;
           date_of_birth?: string | null;
+          birth_country?: string | null;
           insurance_type?: string | null;
           status?: string;
           needs?: string | null;
@@ -1400,6 +1403,7 @@ export type Database = {
           postal_code?: string | null;
           city?: string | null;
           date_of_birth?: string | null;
+          birth_country?: string | null;
           insurance_type?: string | null;
           status?: string;
           needs?: string | null;
@@ -1966,6 +1970,7 @@ export type Database = {
           created_by: string;
           title?: string;
           content?: string;
+          requirements?: string | null;
           status?: string;
           docuseal_submission_id?: string | null;
           signature_status?: string | null;
@@ -1982,6 +1987,7 @@ export type Database = {
           quote_id?: string | null;
           title?: string;
           content?: string;
+          requirements?: string | null;
           status?: string;
           docuseal_submission_id?: string | null;
           signature_status?: string | null;

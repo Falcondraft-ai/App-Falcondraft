@@ -185,7 +185,7 @@ export function QuoteValidationForm({
         );
         return;
       }
-      toast.success(validate ? "Devis validé." : "Modifications enregistrées.");
+      toast.success("Devis enregistré.");
       if (validate) {
         router.push(`/courtier/clients/${clientId}`);
       }
@@ -201,7 +201,7 @@ export function QuoteValidationForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        void submit(false);
+        void submit(true);
       }}
       className="space-y-5"
     >
@@ -356,24 +356,14 @@ export function QuoteValidationForm({
             <span />
           )}
           {canEdit ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="submit"
-                variant="ghost"
-                disabled={saving !== "none"}
-              >
-                {saving === "save" ? "Enregistrement…" : "Enregistrer"}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void submit(true)}
-                disabled={saving !== "none"}
-                className="inline-flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="size-3.5" strokeWidth={2} />
-                {saving === "validate" ? "Validation…" : "Valider le devis"}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              disabled={saving !== "none"}
+              className="inline-flex items-center gap-1.5"
+            >
+              <CheckCircle2 className="size-3.5" strokeWidth={2} />
+              {saving !== "none" ? "Enregistrement…" : "Enregistrer"}
+            </Button>
           ) : null}
         </div>
       ) : null}

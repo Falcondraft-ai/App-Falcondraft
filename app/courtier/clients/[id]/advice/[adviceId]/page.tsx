@@ -1,95 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check, ChevronRight, FileText, PenLine, Send } from "lucide-react";
-import type { ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 import { PageTransition } from "@/components/common/page-transition";
-import { AdviceEditor } from "@/components/broker/advice-editor";
-import { AdvicePdfPanel } from "@/components/broker/advice-pdf-panel";
-import { AdviceSignaturePanel } from "@/components/broker/advice-signature-panel";
+import { AdviceDeleteButton } from "@/components/broker/advice-delete-button";
+import { AdviceFlow } from "@/components/broker/advice-flow";
 import { AdviceStatusBadge } from "@/components/broker/advice-status-badge";
-import { BrokerAvatar } from "@/components/broker/broker-avatar";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import {
   canCreateWorkspaceRecords,
   isWorkspaceManager,
 } from "@/lib/auth/workspace-permissions";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
-import { getBrokerAdvice, getBrokerClient } from "@/lib/broker/data";
+import {
+  getBrokerAdvice,
+  getBrokerAdvicePdfDocument,
+  getBrokerClient,
+  getBrokerQuote,
+} from "@/lib/broker/data";
 import { getOutlookConnectionForUser } from "@/lib/email/connections";
+import { formatLongDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Workflow progress derived from the advice status.
-const statusProgress: Record<string, number> = {
-  draft: 0,
-  validated: 1,
-  sent_for_signature: 2,
-  signed: 3,
-};
-
-function Stepper({ progress }: { progress: number }) {
-  const steps: { label: string; icon: ReactNode }[] = [
-    { label: "Rédiger & valider", icon: <PenLine className="size-3.5" strokeWidth={2} /> },
-    { label: "Signature électronique", icon: <FileText className="size-3.5" strokeWidth={2} /> },
-    { label: "Brouillon d’envoi", icon: <Send className="size-3.5" strokeWidth={2} /> },
-  ];
-  return (
-    <ol className="flex items-center gap-1.5">
-      {steps.map((step, i) => {
-        const done = progress > i;
-        const active = progress === i;
-        return (
-          <li key={step.label} className="flex flex-1 items-center gap-1.5">
-            <div
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2"
-              style={{
-                borderColor: done
-                  ? "var(--accent-soft)"
-                  : active
-                    ? "var(--brand-navy-300)"
-                    : "var(--border-1)",
-                background: done
-                  ? "var(--accent-soft)"
-                  : active
-                    ? "var(--brand-navy-50)"
-                    : "var(--bg-surface)",
-              }}
-            >
-              <span
-                className="flex size-6 shrink-0 items-center justify-center rounded-full"
-                style={{
-                  background: done
-                    ? "var(--accent)"
-                    : active
-                      ? "var(--brand-navy-800)"
-                      : "var(--bg-sunken)",
-                  color: done || active ? "#fff" : "var(--fg-4)",
-                }}
-              >
-                {done ? <Check className="size-3.5" strokeWidth={2.5} /> : step.icon}
-              </span>
-              <span
-                className="truncate text-[12px] font-medium"
-                style={{
-                  color: done
-                    ? "var(--accent-foreground)"
-                    : active
-                      ? "var(--fg-1)"
-                      : "var(--fg-3)",
-                }}
-              >
-                {step.label}
-              </span>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-export default async function AdviceEditorPage({
+export default async function AdviceWorkspacePage({
   params,
 }: {
   params: Promise<{ id: string; adviceId: string }>;
@@ -108,15 +42,30 @@ export default async function AdviceEditorPage({
     notFound();
   }
 
+  const [pdfDocument, quote] = await Promise.all([
+    getBrokerAdvicePdfDocument(organizationId, clientId, adviceId),
+    advice.quote_id
+      ? getBrokerQuote(organizationId, advice.quote_id)
+      : Promise.resolve(null),
+  ]);
+
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
   const canDelete = isWorkspaceManager(context.membership?.role);
   const clientName = brokerClientDisplayName(client);
   const outlookConnected = outlook?.status === "connected";
-  const progress = statusProgress[advice.status] ?? 0;
+
+  const metaParts = [
+    `Généré le ${formatLongDate(new Date(advice.generated_at ?? advice.created_at))}`,
+    quote
+      ? `basé sur le devis ${[quote.insurer_name, quote.product_name]
+          .filter(Boolean)
+          .join(" — ")}`
+      : null,
+  ].filter(Boolean);
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="mx-auto max-w-3xl space-y-6">
         <nav
           className="flex flex-wrap items-center gap-1.5 text-[12px]"
           style={{ color: "var(--fg-3)" }}
@@ -138,103 +87,61 @@ export default async function AdviceEditorPage({
           </span>
         </nav>
 
-        {/* Hero */}
+        {/* Document header — quiet, ledger-like, no gradient */}
         <header
-          className="overflow-hidden rounded-2xl border px-5 py-6 sm:px-6"
-          style={{
-            borderColor: "var(--border-1)",
-            background:
-              "linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-surface) 60%)",
-            boxShadow: "var(--shadow-sm)",
-          }}
+          className="relative border-b pb-5"
+          style={{ borderColor: "var(--border-1)" }}
         >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3.5">
-              <BrokerAvatar name={clientName} size={48} />
-              <div className="min-w-0">
-                <p className="fd-eyebrow text-[var(--accent-foreground)]">
-                  Devoir de conseil
-                </p>
-                <h1 className="mt-1.5 text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[28px]">
-                  {client.client_type === "company"
-                    ? clientName
-                    : `Conseil pour ${clientName}`}
-                </h1>
-              </div>
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0">
+              <p className="fd-eyebrow text-[var(--accent-foreground)]">
+                Devoir de conseil
+              </p>
+              <h1 className="mt-1.5 text-[24px] font-semibold leading-tight tracking-[-0.02em] text-[var(--fg-1)] sm:text-[28px]">
+                {client.client_type === "company"
+                  ? clientName
+                  : `Conseil pour ${clientName}`}
+              </h1>
+              <p className="fd-meta mt-2">{metaParts.join(" · ")}</p>
             </div>
-            <AdviceStatusBadge status={advice.status} />
+            <div className="flex shrink-0 items-center gap-1.5">
+              <AdviceStatusBadge status={advice.status} />
+              {canDelete ? (
+                <AdviceDeleteButton
+                  clientId={clientId}
+                  adviceId={advice.id}
+                  redirectTo={`/courtier/clients/${clientId}`}
+                />
+              ) : null}
+            </div>
           </div>
-
-          <div className="mt-5">
-            <Stepper progress={progress} />
-          </div>
+          <span
+            aria-hidden
+            className="absolute -bottom-px left-0 h-[2px] w-10"
+            style={{ background: "var(--accent)" }}
+          />
         </header>
 
-        <p className="px-1 text-[12px] leading-5 text-[var(--fg-3)]">
+        <AdviceFlow
+          clientId={clientId}
+          advice={advice}
+          pdf={
+            pdfDocument
+              ? {
+                  documentId: pdfDocument.id,
+                  generatedAt: pdfDocument.created_at,
+                }
+              : null
+          }
+          outlookConnected={outlookConnected}
+          canEdit={canEdit}
+        />
+
+        <p className="text-[12px] leading-5 text-[var(--fg-4)]">
           FalconDraft vous assiste, mais ne se substitue pas à votre
           responsabilité professionnelle : relisez, complétez et validez ce
           document avant toute transmission au client.
         </p>
-
-        <section
-          className="rounded-xl border bg-[var(--bg-surface)] p-5 sm:p-6"
-          style={{
-            borderColor: "var(--border-1)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <AdviceEditor
-            clientId={clientId}
-            advice={advice}
-            canEdit={canEdit}
-            canDelete={canDelete}
-          />
-        </section>
-
-        <section
-          className="rounded-xl border bg-[var(--bg-surface)] p-5"
-          style={{
-            borderColor: "var(--border-1)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <h2 className="text-[14px] font-semibold text-[var(--fg-1)]">
-            Document PDF
-          </h2>
-          <p className="mb-4 mt-1 text-[12.5px] leading-5 text-[var(--fg-3)]">
-            Générez la fiche d’information et de conseil au format PDF, prête à
-            relire, télécharger et faire signer.
-          </p>
-          <AdvicePdfPanel
-            clientId={clientId}
-            adviceId={advice.id}
-            canEdit={canEdit}
-          />
-        </section>
-
-        <section
-          className="rounded-xl border bg-[var(--bg-surface)] p-5"
-          style={{
-            borderColor: "var(--border-1)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <h2 className="text-[14px] font-semibold text-[var(--fg-1)]">
-            Signature & envoi
-          </h2>
-          <p className="mb-4 mt-1 text-[12.5px] leading-5 text-[var(--fg-3)]">
-            Préparez la signature électronique et un brouillon Outlook prêt à
-            relire. Aucun email n’est jamais envoyé automatiquement.
-          </p>
-          <AdviceSignaturePanel
-            clientId={clientId}
-            adviceId={advice.id}
-            status={advice.status}
-            signatureUrl={advice.signature_url}
-            outlookConnected={outlookConnected}
-            canEdit={canEdit}
-          />
-        </section>
       </div>
     </PageTransition>
   );

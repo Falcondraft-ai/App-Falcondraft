@@ -37,6 +37,7 @@ const updateClientSchema = z.object({
     .optional()
     .or(z.literal(""))
     .nullable(),
+  birthCountry: z.string().trim().max(120).optional().nullable(),
   insuranceType: z.string().trim().max(40).optional().nullable(),
   introducerId: z.string().uuid().optional().nullable(),
   needs: z.string().trim().max(5000).optional().nullable(),
@@ -127,6 +128,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   if (values.city !== undefined) update.city = trimmedOrNull(values.city);
   if (values.dateOfBirth !== undefined)
     update.date_of_birth = trimmedOrNull(values.dateOfBirth);
+  if (values.birthCountry !== undefined)
+    update.birth_country = trimmedOrNull(values.birthCountry);
   if (values.insuranceType !== undefined)
     update.insurance_type = trimmedOrNull(values.insuranceType);
   if (values.introducerId !== undefined)

@@ -283,6 +283,38 @@ export async function getBrokerAdvice(
   return (data as BrokerAdviceRow | null) ?? null;
 }
 
+/**
+ * The stored PDF of a devoir de conseil, if it was generated. Matches the
+ * deterministic storage path used by the PDF generation route (one GED entry
+ * per advice, regenerating overwrites it).
+ */
+export async function getBrokerAdvicePdfDocument(
+  organizationId: string,
+  clientId: string,
+  adviceId: string,
+): Promise<BrokerDocumentRow | null> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("broker_documents")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("client_id", clientId)
+    .eq(
+      "storage_path",
+      `${organizationId}/${clientId}/devoir-de-conseil-${adviceId}.pdf`,
+    )
+    .maybeSingle();
+
+  if (error) {
+    console.error("[broker] Failed to fetch advice PDF doc:", error.message);
+    return null;
+  }
+
+  return (data as BrokerDocumentRow | null) ?? null;
+}
+
 export async function getBrokerRecentActivity(
   organizationId: string,
   limit = 8,

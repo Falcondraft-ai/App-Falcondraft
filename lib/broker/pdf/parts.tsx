@@ -140,11 +140,9 @@ export function Bullets({ items }: { items: string[] }) {
 }
 
 export function SignatureRow({
-  cabinet,
   clientName,
   signatureTag,
 }: {
-  cabinet: CabinetInfo;
   clientName: string;
   /** DocuSeal field tag, placed (invisibly) in the client box for e-signature. */
   signatureTag?: string | null;
@@ -160,14 +158,6 @@ export function SignatureRow({
         <Text style={styles.signatureLabel}>Le Client</Text>
         <Text style={styles.signatureHint}>
           {clientName || "Nom du client / Raison sociale"}
-        </Text>
-      </View>
-      <View style={styles.signatureBox}>
-        <View style={styles.signatureLine} />
-        <Text style={styles.signatureLabel}>Le Courtier</Text>
-        <Text style={styles.signatureHint}>
-          {cabinet.legalName}
-          {cabinet.manager ? ` — représenté par ${cabinet.manager}` : ""}
         </Text>
       </View>
     </View>

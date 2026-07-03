@@ -8,9 +8,35 @@ import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
 // (deliberate exception to the module's OpenAI default). Override via env.
 const ADVICE_MODEL = process.env.COURTIER_ADVICE_MODEL || "claude-opus-4-8";
 
-export type AdviceMotifsResult =
-  | { success: true; motifs: string }
+export type AdviceContentResult =
+  | { success: true; requirements: string; motifs: string }
   | { success: false; reason: string; message: string };
+
+/** Splits the model output into its "EXIGENCES:" and "MOTIFS:" bullet blocks. */
+function splitRequirementsAndMotifs(raw: string): {
+  requirements: string;
+  motifs: string;
+} {
+  const lines = raw
+    .trim()
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  const motifsIdx = lines.findIndex((l) => /^motifs\s*:?/i.test(l));
+  const bulletize = (arr: string[]) =>
+    arr
+      .filter((l) => !/^(exigences|motifs)\s*:?/i.test(l))
+      .map((l) => (/^[-•]/.test(l) ? l.replace(/^•/, "-") : `- ${l}`))
+      .join("\n");
+  if (motifsIdx === -1) {
+    // No explicit split → treat everything as motifs (backward-compatible).
+    return { requirements: "", motifs: bulletize(lines) };
+  }
+  return {
+    requirements: bulletize(lines.slice(0, motifsIdx)),
+    motifs: bulletize(lines.slice(motifsIdx)),
+  };
+}
 
 function quoteCotisation(quote: BrokerQuoteRow): string | null {
   if (quote.premium_monthly != null) {
@@ -23,15 +49,17 @@ function quoteCotisation(quote: BrokerQuoteRow): string | null {
 }
 
 /**
- * Generates the "raisons qui motivent le conseil" bullets for a devoir de
- * conseil with Claude Opus 4.8. Strictly grounded: the model receives only the
- * client's recorded needs and the chosen quote, and is forbidden from inventing
- * any fact. Output is a draft — always reviewed by the broker before validation.
+ * Generates, with Claude Opus 4.8, both sections a devoir de conseil needs:
+ *  - "exigences en termes de garantie" — the client's coverage requirements,
+ *    formalised FROM the quote's guarantees (what the contract must cover);
+ *  - "motifs" — why the proposed contract meets those requirements.
+ * Strictly grounded in the client's recorded needs and the chosen quote; the
+ * model never invents. Output is a draft, always reviewed before validation.
  */
-export async function generateAdviceMotifs(
+export async function generateAdviceContent(
   client: BrokerClientRow,
   quote: BrokerQuoteRow | null,
-): Promise<AdviceMotifsResult> {
+): Promise<AdviceContentResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
@@ -51,7 +79,8 @@ export async function generateAdviceMotifs(
   const branch = insuranceTypeLabel(client.insurance_type);
   const facts = {
     branche: branch !== "—" ? branch : null,
-    besoins_exprimes_par_le_client: client.needs?.trim() || null,
+    besoins_exprimes_par_le_client:
+      client.notes?.trim() || client.needs?.trim() || null,
     elements_recueillis: summarizeStructuredNeeds(
       client.insurance_type,
       client.structured_needs,
@@ -68,14 +97,22 @@ export async function generateAdviceMotifs(
   };
 
   const system = [
-    "Tu rédiges la rubrique « raisons qui motivent le conseil » d'un devoir de conseil d'assurance français (IARD).",
+    "Tu rédiges deux rubriques d'un devoir de conseil d'assurance français (IARD).",
+    "1) EXIGENCES EN TERMES DE GARANTIE : formalise, à partir des GARANTIES du contrat proposé (contrat_propose.garanties_principales) et des besoins du client, les exigences de couverture du client — c.-à-d. ce que le contrat doit couvrir (ex. responsabilité civile, dommages, vol, assistance, protection juridique…). Reformule-les comme des exigences du client, pas comme une simple recopie du devis.",
+    "2) MOTIFS : explique en quoi le contrat proposé répond à ces exigences.",
+    "FORMAT DE SORTIE EXACT (rien d'autre) :",
+    "EXIGENCES:",
+    "- …",
+    "- …",
+    "MOTIFS:",
+    "- …",
+    "- …",
     "RÈGLES STRICTES :",
-    "- Produis 2 à 4 puces maximum, chacune commençant par « - ».",
-    "- Chaque puce relie une garantie ou caractéristique du contrat proposé à un besoin réellement exprimé par le client.",
+    "- 2 à 5 puces par rubrique, chacune commençant par « - ».",
     "- Utilise UNIQUEMENT les faits fournis. N'invente JAMAIS une garantie, un montant, une franchise, une option ou une donnée absente.",
     "- Si une information manque, ne la mentionne pas et ne comble aucun vide.",
     "- Style sobre, factuel et professionnel ; aucun superlatif commercial.",
-    "- Réponds uniquement avec les puces, sans introduction, sans conclusion et sans raisonnement.",
+    "- N'écris ni introduction, ni conclusion, ni raisonnement : seulement les deux en-têtes et leurs puces.",
   ].join("\n");
 
   const user = `Faits disponibles (ne rien ajouter au-delà) :\n${JSON.stringify(facts, null, 2)}`;
@@ -118,14 +155,6 @@ export async function generateAdviceMotifs(
     };
   }
 
-  // Normalise every non-empty line to a "- " bullet.
-  const motifs = raw
-    .trim()
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-    .map((l) => (/^[-•]/.test(l) ? l.replace(/^•/, "-") : `- ${l}`))
-    .join("\n");
-
-  return { success: true, motifs };
+  const { requirements, motifs } = splitRequirementsAndMotifs(raw);
+  return { success: true, requirements, motifs };
 }

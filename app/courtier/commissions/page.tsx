@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { Coins, HandCoins, Sparkles, Wallet } from "lucide-react";
-import { DashboardStatCard } from "@/components/common/dashboard-stat-card";
+import { Sparkles } from "lucide-react";
+import {
+  DashboardStatCard,
+  StatStrip,
+} from "@/components/common/dashboard-stat-card";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
@@ -97,28 +100,28 @@ export default async function BrokerCommissionsPage() {
           description="Vos bordereaux compagnies, le pointage des commissions et les rétrocessions."
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatStrip className="grid-cols-1 sm:grid-cols-3">
           <DashboardStatCard
+            variant="cell"
             label="Commissions perçues"
             value={formatEuro(totals.gross)}
             detail="Total des commissions enregistrées"
-            icon={<Coins className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Rétrocessions versées"
             value={formatEuro(totals.retrocession)}
             detail="Reversées aux apporteurs"
             tone="accent"
-            icon={<HandCoins className="size-3.5" strokeWidth={1.75} />}
           />
           <DashboardStatCard
+            variant="cell"
             label="Net conservé"
             value={formatEuro(totals.net)}
             detail="Après rétrocessions"
             tone="success"
-            icon={<Wallet className="size-3.5" strokeWidth={1.75} />}
           />
-        </div>
+        </StatStrip>
 
         <CommissionInsights
           forecast={insights.forecast}

@@ -4,6 +4,7 @@ import { brokerClientDisplayName } from "@/lib/broker/clients";
 import {
   clusterImportFiles,
   importGroupDisplayName,
+  parseFolderIdentity,
   readExtraction,
   topLevelFolder,
   type ClusterInputFile,
@@ -39,12 +40,23 @@ function normalizeName(v: string | null | undefined): string {
  * → name), dedups each against existing clients, and persists the groups for
  * review. Idempotent — re-running rebuilds the groups from scratch.
  */
-export async function POST(_request: Request, ctx: RouteContext) {
+export async function POST(request: Request, ctx: RouteContext) {
   const auth = await requireBrokerApiContext();
   if (!auth.success) return jsonError(auth.message, auth.status, auth.reason);
   if (!canCreateWorkspaceRecords(auth.context.membership?.role)) {
     return jsonError("Action non autorisée pour votre rôle.", 403, "insufficient_role");
   }
+
+  // Empty client folders (a .zip that kept the tree can carry folders with no
+  // file inside) — we still create a document-less dossier for each.
+  const body = (await request.json().catch(() => ({}))) as {
+    emptyFolders?: unknown;
+  };
+  const emptyFolders = Array.isArray(body.emptyFolders)
+    ? body.emptyFolders
+        .filter((f): f is string => typeof f === "string" && f.trim().length > 0)
+        .slice(0, 500)
+    : [];
 
   const { batchId } = await ctx.params;
   const admin = auth.adminSupabase;
@@ -116,6 +128,7 @@ export async function POST(_request: Request, ctx: RouteContext) {
   }
 
   let groupCount = 0;
+  const createdKeys = new Set<string>();
   for (const cluster of clusters) {
     const identity = cluster.identity;
     const email = identity.email?.trim().toLowerCase() || null;
@@ -158,12 +171,54 @@ export async function POST(_request: Request, ctx: RouteContext) {
       .single();
     if (!group) continue;
     groupCount += 1;
+    if (nameKey) createdKeys.add(nameKey);
 
     await admin
       .from("broker_import_files")
       .update({ group_id: group.id, updated_at: new Date().toISOString() })
       .eq("organization_id", orgId)
       .in("id", cluster.fileIds);
+  }
+
+  // Empty folders → document-less dossiers (deduped against file groups & clients).
+  const seenEmpty = new Set<string>();
+  for (const folder of emptyFolders) {
+    const identity = parseFolderIdentity(folder);
+    if (!identity) continue; // generic / unusable folder name
+    const nameKey = normalizeName(
+      importGroupDisplayName({
+        client_type: identity.client_type,
+        first_name: identity.first_name,
+        last_name: identity.last_name,
+        company_name: identity.company_name,
+        email: null,
+      }),
+    );
+    if (!nameKey || createdKeys.has(nameKey) || seenEmpty.has(nameKey)) continue;
+    seenEmpty.add(nameKey);
+
+    const { data: group } = await admin
+      .from("broker_import_groups")
+      .insert({
+        organization_id: orgId,
+        batch_id: batchId,
+        match_client_id: byName.get(nameKey) ?? null,
+        client_type: identity.client_type,
+        first_name: identity.first_name,
+        last_name: identity.last_name,
+        company_name: identity.company_name,
+        email: null,
+        phone: null,
+        address: null,
+        postal_code: null,
+        city: null,
+        insurance_type: null,
+        confidence: null,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (group) groupCount += 1;
   }
 
   await admin

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { FolderInput, Plus, Search } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
@@ -16,7 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
-import { isWorkspaceManager } from "@/lib/auth/workspace-permissions";
+import {
+  canCreateWorkspaceRecords,
+  isWorkspaceManager,
+} from "@/lib/auth/workspace-permissions";
 import {
   brokerClientDisplayName,
   brokerClientStatusLabels,
@@ -52,6 +55,7 @@ export default async function CourtierClientsPage({
   const context = await requireActiveWorkspaceContext();
   const organizationId = context.organization!.id;
   const canManage = isWorkspaceManager(context.membership?.role);
+  const canEdit = canCreateWorkspaceRecords(context.membership?.role);
 
   const { status: statusParam, q } = await searchParams;
   const activeStatus =
@@ -81,6 +85,17 @@ export default async function CourtierClientsPage({
             <div className="flex items-center gap-2">
               {canManage && clients.length > 0 ? (
                 <ClientsExportButton />
+              ) : null}
+              {canEdit ? (
+                <Button asChild variant="ghost">
+                  <Link
+                    href="/courtier/import"
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <FolderInput className="size-3.5" strokeWidth={2} />
+                    Importer des clients
+                  </Link>
+                </Button>
               ) : null}
               <Button asChild>
                 <Link

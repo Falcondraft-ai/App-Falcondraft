@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
-import { generateAdviceMotifs } from "@/lib/broker/advice-ai";
+import { generateAdviceContent } from "@/lib/broker/advice-ai";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
 
@@ -65,7 +65,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     quote = (data as BrokerQuoteRow | null) ?? null;
   }
 
-  const result = await generateAdviceMotifs(client as BrokerClientRow, quote);
+  const result = await generateAdviceContent(client as BrokerClientRow, quote);
   if (!result.success) {
     const status =
       result.reason === "ai_unconfigured"
@@ -76,5 +76,9 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     return jsonError(result.message, status, result.reason);
   }
 
-  return NextResponse.json({ success: true, motifs: result.motifs });
+  return NextResponse.json({
+    success: true,
+    motifs: result.motifs,
+    requirements: result.requirements,
+  });
 }
