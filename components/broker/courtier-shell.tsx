@@ -1179,7 +1179,7 @@ export function CourtierShell({
         </main>
       </div>
 
-      <AgentChat />
+      <AgentChat userName={user.name} />
     </div>
   );
 }
