@@ -10,6 +10,7 @@ import {
   canCreateWorkspaceRecords,
   isWorkspaceManager,
 } from "@/lib/auth/workspace-permissions";
+import { hasProposalAutomation } from "@/lib/billing/entitlements";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import {
   getBrokerAdvice,
@@ -29,7 +30,8 @@ export default async function AdviceWorkspacePage({
   params: Promise<{ id: string; adviceId: string }>;
 }) {
   const context = await requireActiveWorkspaceContext();
-  const organizationId = context.organization!.id;
+  const organization = context.organization!;
+  const organizationId = organization.id;
   const { id: clientId, adviceId } = await params;
 
   const [client, advice, outlook] = await Promise.all([
@@ -135,6 +137,7 @@ export default async function AdviceWorkspacePage({
           }
           outlookConnected={outlookConnected}
           canEdit={canEdit}
+          electronicSignature={hasProposalAutomation(organization)}
         />
 
         <p className="text-[12px] leading-5 text-[var(--fg-4)]">

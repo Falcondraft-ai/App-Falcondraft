@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, ChevronRight, FileText } from "lucide-react";
 import { AdviceDeleteButton } from "@/components/broker/advice-delete-button";
 import { AdviceStatusBadge } from "@/components/broker/advice-status-badge";
+import { DocumentDownloadButton } from "@/components/broker/document-download-button";
 import { formatDate } from "@/lib/format";
 import type { BrokerAdviceRow } from "@/types/database";
 
@@ -33,16 +34,18 @@ function ProgressToken({ done, label }: { done: boolean; label: string }) {
 export function AdviceCard({
   advice,
   clientId,
-  hasPdf,
+  pdfDocumentId,
   canDelete,
 }: {
   advice: BrokerAdviceRow;
   clientId: string;
-  hasPdf: boolean;
+  /** GED entry of the generated PDF — enables direct download from the dossier. */
+  pdfDocumentId: string | null;
   canDelete: boolean;
 }) {
   const reviewed = advice.status !== "draft";
   const signed = advice.status === "signed";
+  const hasPdf = Boolean(pdfDocumentId);
 
   return (
     <div
@@ -85,6 +88,14 @@ export function AdviceCard({
           aria-hidden
         />
       </Link>
+      {pdfDocumentId ? (
+        <div className="mr-1" title="Télécharger le PDF">
+          <DocumentDownloadButton
+            clientId={clientId}
+            documentId={pdfDocumentId}
+          />
+        </div>
+      ) : null}
       {canDelete ? (
         <AdviceDeleteButton clientId={clientId} adviceId={advice.id} />
       ) : null}

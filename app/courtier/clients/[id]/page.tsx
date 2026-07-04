@@ -336,8 +336,9 @@ export default async function BrokerClientDetailPage({
                     Devoir de conseil
                   </h2>
                   <p className="text-[11.5px] text-[var(--fg-3)]">
-                    Relisez le contenu, validez-le, puis générez le PDF et le
-                    lien de signature.
+                    {saasModules
+                      ? "Relisez le contenu, validez-le, puis générez le PDF et le lien de signature."
+                      : "Relisez le contenu, validez-le, puis générez le PDF — téléchargeable directement ici."}
                   </p>
                 </div>
               </div>
@@ -357,11 +358,13 @@ export default async function BrokerClientDetailPage({
                         key={doc.id}
                         advice={doc}
                         clientId={client.id}
-                        hasPdf={documents.some((d) =>
-                          d.storage_path.endsWith(
-                            `devoir-de-conseil-${doc.id}.pdf`,
-                          ),
-                        )}
+                        pdfDocumentId={
+                          documents.find((d) =>
+                            d.storage_path.endsWith(
+                              `devoir-de-conseil-${doc.id}.pdf`,
+                            ),
+                          )?.id ?? null
+                        }
                         canDelete={canDelete}
                       />
                     ))}

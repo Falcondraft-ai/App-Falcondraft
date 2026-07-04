@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import { hasProposalAutomation } from "@/lib/billing/entitlements";
 import {
   buildAdviceDocumentData,
   type CabinetInfo,
@@ -45,6 +46,14 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
   const organization = auth.context.organization;
   if (!organization) {
     return jsonError("Organisation introuvable.", 400, "no_organization");
+  }
+  // E-signature is a SaaS-offering feature — the bespoke broker signs off-platform.
+  if (!hasProposalAutomation(organization)) {
+    return jsonError(
+      "La signature électronique n'est pas disponible sur votre offre.",
+      403,
+      "feature_not_available",
+    );
   }
 
   const { id: clientId, adviceId } = await ctx.params;

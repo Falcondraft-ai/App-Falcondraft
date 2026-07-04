@@ -142,12 +142,15 @@ export function AdviceFlow({
   pdf,
   outlookConnected,
   canEdit,
+  electronicSignature,
 }: {
   clientId: string;
   advice: BrokerAdviceRow;
   pdf: AdvicePdfInfo | null;
   outlookConnected: boolean;
   canEdit: boolean;
+  /** SaaS offering only — the bespoke broker has no e-signature (DocuSeal). */
+  electronicSignature: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const reviewed = advice.status !== "draft";
@@ -287,8 +290,14 @@ export function AdviceFlow({
       {/* 3 — Signature & envoi */}
       <Step
         index={3}
-        title="Faire signer & envoyer"
-        hint="Créez le lien de signature électronique, puis préparez un brouillon Outlook prêt à relire — rien ne part sans vous."
+        title={
+          electronicSignature ? "Faire signer & envoyer" : "Envoyer & faire signer"
+        }
+        hint={
+          electronicSignature
+            ? "Créez le lien de signature électronique, puis préparez un brouillon Outlook prêt à relire — rien ne part sans vous."
+            : "Préparez un brouillon Outlook prêt à relire — rien ne part sans vous — puis marquez le document signé une fois retourné."
+        }
         state={!reviewed ? "locked" : signed ? "done" : "active"}
         last
       >
@@ -304,6 +313,7 @@ export function AdviceFlow({
             signatureUrl={advice.signature_url}
             outlookConnected={outlookConnected}
             canEdit={canEdit}
+            electronicSignature={electronicSignature}
           />
         )}
       </Step>
