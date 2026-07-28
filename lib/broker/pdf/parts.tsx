@@ -101,7 +101,11 @@ export function Section({
   );
 }
 
-/** Key/value row. Empty values render a muted "[à compléter]" placeholder. */
+/**
+ * Key/value row. A row with no value is NOT rendered: a document handed to a
+ * client must never carry "[à compléter]" markers. Missing information is
+ * either filled in beforehand or absent from the document.
+ */
 export function KeyValue({
   label,
   value,
@@ -109,13 +113,11 @@ export function KeyValue({
   label: string;
   value?: string | null;
 }) {
-  const filled = value != null && value.trim().length > 0;
+  if (value == null || value.trim().length === 0) return null;
   return (
     <View style={styles.kvRow}>
       <Text style={styles.kvLabel}>{label}</Text>
-      <Text style={filled ? styles.kvValue : styles.kvValueMuted}>
-        {filled ? value : "[à compléter]"}
-      </Text>
+      <Text style={styles.kvValue}>{value}</Text>
     </View>
   );
 }
@@ -139,28 +141,27 @@ export function Bullets({ items }: { items: string[] }) {
   );
 }
 
-export function SignatureRow({
-  clientName,
-  signatureTag,
-}: {
-  clientName: string;
-  /** DocuSeal field tag, placed (invisibly) in the client box for e-signature. */
-  signatureTag?: string | null;
-}) {
+/**
+ * Client signature block, absolutely positioned at coordinates the e-signature
+ * field is placed against (see lib/broker/pdf/signature-area.ts). Rendered on
+ * the document's own final page so its page number is simply the page count —
+ * which is what makes the placement exact rather than guessed.
+ *
+ * Identical whether the document is signed electronically or by hand: the
+ * client signs the same page either way.
+ */
+export function SignatureBlock({ clientName }: { clientName: string }) {
   return (
-    <View style={styles.signatureRow} wrap={false}>
-      <View style={styles.signatureBox}>
-        <View style={styles.signatureLine}>
-          {signatureTag ? (
-            <Text style={styles.signatureTag}>{signatureTag}</Text>
-          ) : null}
-        </View>
-        <Text style={styles.signatureLabel}>Le Client</Text>
-        <Text style={styles.signatureHint}>
-          {clientName || "Nom du client / Raison sociale"}
-        </Text>
-      </View>
-    </View>
+    <>
+      <Text style={styles.signatureLabel}>Le Client</Text>
+      <View style={styles.signatureBox} />
+      <Text style={styles.signatureCaption}>
+        {clientName || "Nom du client / Raison sociale"}
+      </Text>
+      <Text style={styles.signatureHint}>
+        Signature du souscripteur, valant reconnaissance du conseil délivré.
+      </Text>
+    </>
   );
 }
 

@@ -6,6 +6,7 @@ import {
   logBrokerActivity,
   requireBrokerApiContext,
 } from "@/lib/broker/server";
+import { supersedeAdviceSignature } from "@/lib/broker/signature";
 import type { Database } from "@/types/database";
 
 type BrokerAdviceUpdate =
@@ -47,7 +48,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
 
   const { data: existing } = await auth.adminSupabase
     .from("broker_advice")
-    .select("id, status")
+    .select(
+      "id, status, title, content, requirements, signature_status, docuseal_submission_id",
+    )
     .eq("organization_id", auth.organizationId)
     .eq("client_id", clientId)
     .eq("id", adviceId)
@@ -56,6 +59,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
   if (!existing) {
     return jsonError("Document introuvable.", 404, "advice_not_found");
   }
+
+  // Did the substance of the document actually change? Validating or renaming
+  // doesn't invalidate a signature — rewriting the advice does.
+  const substanceChanged =
+    (values.content !== undefined && values.content !== existing.content) ||
+    (values.requirements !== undefined &&
+      (values.requirements?.trim() || null) !== existing.requirements);
 
   const update: BrokerAdviceUpdate = { updated_at: new Date().toISOString() };
   if (values.title !== undefined) update.title = values.title;
@@ -79,6 +89,28 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
     return jsonError("Enregistrement impossible.", 500, error.message);
   }
 
+  // The provider keeps its own copy of the PDF, so an outstanding signature
+  // link would still point at the previous wording. Kill it (or flag an already
+  // signed document as outdated) rather than let a stale version be signed.
+  let signatureCancelled = false;
+  let signatureOutdated = false;
+  if (substanceChanged) {
+    const outcome = await supersedeAdviceSignature({
+      adminSupabase: auth.adminSupabase,
+      organizationId: auth.organizationId,
+      advice: {
+        id: adviceId,
+        client_id: clientId,
+        status: existing.status,
+        signature_status: existing.signature_status,
+        docuseal_submission_id: existing.docuseal_submission_id,
+      },
+      userId: auth.user.id,
+    });
+    signatureCancelled = outcome.cancelledPending;
+    signatureOutdated = outcome.flaggedSigned;
+  }
+
   if (values.validate && existing.status !== "validated") {
     await logBrokerActivity(auth.adminSupabase, {
       organizationId: auth.organizationId,
@@ -97,7 +129,11 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
     );
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    signatureCancelled,
+    signatureOutdated,
+  });
 }
 
 export async function DELETE(_request: NextRequest, ctx: RouteContext) {

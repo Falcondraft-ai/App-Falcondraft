@@ -10,12 +10,14 @@ import {
   canCreateWorkspaceRecords,
   isWorkspaceManager,
 } from "@/lib/auth/workspace-permissions";
-import { hasProposalAutomation } from "@/lib/billing/entitlements";
+import { hasFeature } from "@/lib/billing/entitlements";
+import { listAdviceGaps } from "@/lib/broker/advice-document";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import {
   getBrokerAdvice,
   getBrokerAdvicePdfDocument,
   getBrokerClient,
+  getBrokerClientCompliance,
   getBrokerQuote,
 } from "@/lib/broker/data";
 import { getOutlookConnectionForUser } from "@/lib/email/connections";
@@ -44,12 +46,24 @@ export default async function AdviceWorkspacePage({
     notFound();
   }
 
-  const [pdfDocument, quote] = await Promise.all([
+  const [pdfDocument, quote, compliance] = await Promise.all([
     getBrokerAdvicePdfDocument(organizationId, clientId, adviceId),
     advice.quote_id
       ? getBrokerQuote(organizationId, advice.quote_id)
       : Promise.resolve(null),
+    getBrokerClientCompliance(organizationId, clientId),
   ]);
+
+  // The PDF omits what it doesn't know instead of printing "[à compléter]" —
+  // so the broker is shown here what will be missing, and decides.
+  const gaps = listAdviceGaps({
+    client,
+    quote,
+    justification: advice.content ?? "",
+    requirements: advice.requirements,
+    birthCountry: client.birth_country,
+    pep: compliance ? (compliance.is_pep ? "Oui" : "Non") : null,
+  });
 
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
   const canDelete = isWorkspaceManager(context.membership?.role);
@@ -137,7 +151,9 @@ export default async function AdviceWorkspacePage({
           }
           outlookConnected={outlookConnected}
           canEdit={canEdit}
-          electronicSignature={hasProposalAutomation(organization)}
+          electronicSignature={hasFeature(organization, "esign")}
+          gaps={gaps}
+          quoteId={advice.quote_id ?? null}
         />
 
         <p className="text-[12px] leading-5 text-[var(--fg-4)]">

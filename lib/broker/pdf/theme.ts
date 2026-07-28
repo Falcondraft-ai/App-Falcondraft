@@ -1,4 +1,5 @@
 import { StyleSheet } from "@react-pdf/renderer";
+import { SIGNATURE_BOX } from "./signature-area";
 
 /**
  * Design tokens for the generated legal PDFs (devoir de conseil, entrée en
@@ -165,22 +166,43 @@ export const styles = StyleSheet.create({
   },
 
   // --- Signatures ---
-  signatureRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 28,
+  // --- Signature page ---
+  // The box is absolutely positioned so its coordinates are known exactly:
+  // lib/broker/pdf/signature-area.ts places the e-signature field on top of it.
+  signatureLabel: {
+    position: "absolute",
+    left: SIGNATURE_BOX.left,
+    bottom: SIGNATURE_BOX.bottom + SIGNATURE_BOX.height + 6,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9,
+    color: PDF.ink,
   },
-  signatureBox: { width: "44%" },
-  signatureLine: {
-    borderTopWidth: 0.75,
-    borderTopColor: PDF.ink,
-    marginBottom: 4,
-    height: 36,
+  signatureBox: {
+    position: "absolute",
+    left: SIGNATURE_BOX.left,
+    bottom: SIGNATURE_BOX.bottom,
+    width: SIGNATURE_BOX.width,
+    height: SIGNATURE_BOX.height,
+    borderWidth: 0.75,
+    borderColor: PDF.borderSoft,
+    borderRadius: 2,
   },
-  signatureLabel: { fontFamily: "Helvetica-Bold", fontSize: 9, color: PDF.ink },
-  signatureHint: { fontSize: 7.5, color: PDF.muted },
-  // Invisible (white) on-page text — DocuSeal still reads it to place the field.
-  signatureTag: { fontSize: 6, color: PDF.white },
+  signatureCaption: {
+    position: "absolute",
+    left: SIGNATURE_BOX.left,
+    bottom: SIGNATURE_BOX.bottom - 16,
+    width: SIGNATURE_BOX.width,
+    fontSize: 8,
+    color: PDF.ink,
+  },
+  signatureHint: {
+    position: "absolute",
+    left: SIGNATURE_BOX.left,
+    bottom: SIGNATURE_BOX.bottom - 28,
+    width: SIGNATURE_BOX.width + 120,
+    fontSize: 7.5,
+    color: PDF.muted,
+  },
 
   // --- Footer ---
   footer: {

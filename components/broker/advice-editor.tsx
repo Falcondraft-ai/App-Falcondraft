@@ -80,10 +80,12 @@ export function AdviceEditor({
           body: JSON.stringify({ title, content, requirements, validate }),
         },
       );
+      const data = (await res.json().catch(() => null)) as {
+        message?: string;
+        signatureCancelled?: boolean;
+        signatureOutdated?: boolean;
+      } | null;
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as {
-          message?: string;
-        } | null;
         toast.error(
           validate ? "Validation impossible" : "Enregistrement impossible",
           { description: data?.message },
@@ -97,6 +99,19 @@ export function AdviceEditor({
         onValidated?.();
       } else {
         toast.success("Modifications enregistrées.");
+      }
+      // Changing the wording invalidates whatever signature was in flight —
+      // say so, the broker has an action to take.
+      if (data?.signatureCancelled) {
+        toast.warning("Demande de signature annulée", {
+          description:
+            "Le lien envoyé au client ne fonctionne plus : il portait sur l’ancienne version. Préparez une nouvelle signature.",
+        });
+      } else if (data?.signatureOutdated) {
+        toast.warning("La version signée n’est plus à jour", {
+          description:
+            "Faites signer la nouvelle version — la précédente reste archivée au dossier.",
+        });
       }
       router.refresh();
     } finally {

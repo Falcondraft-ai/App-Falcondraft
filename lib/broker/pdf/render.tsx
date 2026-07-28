@@ -22,21 +22,15 @@ export async function loadCabinetLogo(
   }
 }
 
-/** DocuSeal text tag dropped (invisibly) in the client signature box when
- *  rendering the "for signature" variant. The role MUST match the submitter
- *  role used in lib/broker/docuseal.ts. */
-const CLIENT_SIGNATURE_TAG = "{{Signature;role=Client;type=signature}}";
-
+/**
+ * Renders the devoir de conseil. One single output: the electronic-signature
+ * field is positioned by coordinates (lib/broker/pdf/signature-area.ts), not by
+ * an invisible text tag, so the document the client signs is byte-for-byte the
+ * document that gets emailed and archived.
+ */
 export async function renderDevoirConseilPdf(
   data: AdviceDocumentData,
   logo?: Buffer | null,
-  opts?: { forSignature?: boolean },
 ): Promise<Buffer> {
-  return renderToBuffer(
-    <DevoirConseilDocument
-      data={data}
-      logo={logo}
-      signatureTag={opts?.forSignature ? CLIENT_SIGNATURE_TAG : null}
-    />,
-  );
+  return renderToBuffer(<DevoirConseilDocument data={data} logo={logo} />);
 }

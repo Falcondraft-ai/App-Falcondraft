@@ -545,8 +545,35 @@ export const brokerAdvice = pgTable(
     requirements: text("requirements"),
     status: text("status").default("draft").notNull(),
     docusealSubmissionId: text("docuseal_submission_id"),
+    docusealSubmitterId: text("docuseal_submitter_id"),
     signatureStatus: text("signature_status"),
     signatureUrl: text("signature_url"),
+    signatureSentAt: timestamp("signature_sent_at", { withTimezone: true }),
+    signatureViewedAt: timestamp("signature_viewed_at", { withTimezone: true }),
+    signatureCompletedAt: timestamp("signature_completed_at", {
+      withTimezone: true,
+    }),
+    signatureDeclinedAt: timestamp("signature_declined_at", {
+      withTimezone: true,
+    }),
+    signatureDeclineReason: text("signature_decline_reason"),
+    signatureExpiresAt: timestamp("signature_expires_at", {
+      withTimezone: true,
+    }),
+    signatureLastReminderAt: timestamp("signature_last_reminder_at", {
+      withTimezone: true,
+    }),
+    signatureReminderCount: integer("signature_reminder_count")
+      .default(0)
+      .notNull(),
+    signedDocumentId: uuid("signed_document_id").references(
+      () => brokerDocuments.id,
+      { onDelete: "set null" },
+    ),
+    auditLogDocumentId: uuid("audit_log_document_id").references(
+      () => brokerDocuments.id,
+      { onDelete: "set null" },
+    ),
     outlookDraftId: text("outlook_draft_id"),
     generatedAt: timestamp("generated_at", { withTimezone: true }),
     validatedBy: uuid("validated_by"),
@@ -561,6 +588,12 @@ export const brokerAdvice = pgTable(
     clientIdx: index("broker_advice_client_id_idx").on(table.clientId),
     quoteIdx: index("broker_advice_quote_id_idx").on(table.quoteId),
     statusIdx: index("broker_advice_status_idx").on(table.status),
+    submissionIdx: index("broker_advice_docuseal_submission_id_idx").on(
+      table.docusealSubmissionId,
+    ),
+    signatureStatusIdx: index("broker_advice_signature_status_idx").on(
+      table.signatureStatus,
+    ),
   }),
 );
 

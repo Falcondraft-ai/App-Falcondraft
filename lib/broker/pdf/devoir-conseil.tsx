@@ -11,7 +11,7 @@ import {
   Paragraph,
   Remittance,
   Section,
-  SignatureRow,
+  SignatureBlock,
 } from "./parts";
 import type { AdviceDocumentData } from "@/lib/broker/advice-document";
 
@@ -102,20 +102,17 @@ function Sommaire() {
   );
 }
 
-/** Renders the editable justification text: "- " lines become bullets. */
+/**
+ * Renders the editable justification text: "- " lines become bullets.
+ * Returns null when there is nothing to say — the caller then drops its
+ * lead-in sentence too, rather than printing a placeholder.
+ */
 function Justification({ text }: { text: string }) {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
-  if (lines.length === 0) {
-    return (
-      <Text style={styles.kvValueMuted}>
-        [Justification à compléter : en quoi la solution recommandée répond aux
-        besoins exprimés.]
-      </Text>
-    );
-  }
+  if (lines.length === 0) return null;
   const bullets = lines
     .filter((l) => l.startsWith("-") || l.startsWith("•"))
     .map((l) => l.replace(/^[-•]\s*/, ""));
@@ -193,19 +190,14 @@ function NeedsSection({ data }: { data: AdviceDocumentData }) {
         </View>
       ) : null}
 
-      <View>
-        <Text style={styles.subLabel}>
-          Formalisation des exigences en termes de garantie
-        </Text>
-        {data.structuredNeeds.length > 0 ? (
-          <Bullets items={data.structuredNeeds} />
-        ) : (
-          <Text style={styles.kvValueMuted}>
-            [Exigences de garantie à compléter — générées à partir du devis dès
-            qu'un devis est disponible.]
+      {data.structuredNeeds.length > 0 ? (
+        <View>
+          <Text style={styles.subLabel}>
+            Formalisation des exigences en termes de garantie
           </Text>
-        )}
-      </View>
+          <Bullets items={data.structuredNeeds} />
+        </View>
+      ) : null}
     </Section>
   );
 }
@@ -221,12 +213,14 @@ function PropositionSection({ data }: { data: AdviceDocumentData }) {
       title="III — Proposition(s) du courtier et justifications"
       id="sec-3"
     >
-      <View wrap={false}>
-        <Text style={styles.subLabel}>Description du contrat proposé</Text>
-        <Paragraph>
-          {`En considération des exigences et des besoins que vous avez exprimés, nous vous proposons le(s) contrat(s) suivant(s) :`}
-        </Paragraph>
-        {proposition ? (
+      {/* No proposition yet → the whole block is dropped, lead-in sentence
+          included. A contract description is never announced then left empty. */}
+      {proposition ? (
+        <View wrap={false}>
+          <Text style={styles.subLabel}>Description du contrat proposé</Text>
+          <Paragraph>
+            {`En considération des exigences et des besoins que vous avez exprimés, nous vous proposons le(s) contrat(s) suivant(s) :`}
+          </Paragraph>
           <View style={{ marginTop: 8 }}>
             <KeyValue label="Compagnie" value={proposition.insurer} />
             <KeyValue label="Produit / formule" value={proposition.product} />
@@ -236,24 +230,15 @@ function PropositionSection({ data }: { data: AdviceDocumentData }) {
               value={proposition.coverage}
             />
             <KeyValue label="Franchise" value={proposition.deductible} />
-            {proposition.vigilance ? (
-              <KeyValue
-                label="Exclusions / points de vigilance"
-                value={proposition.vigilance}
-              />
-            ) : null}
+            <KeyValue
+              label="Exclusions / points de vigilance"
+              value={proposition.vigilance}
+            />
           </View>
-        ) : (
-          <View style={{ marginTop: 4 }}>
-            <Text style={styles.kvValueMuted}>
-              [À compléter : compagnie, produit, cotisation et garanties retenues
-              — ou validez un devis pour pré-remplir.]
-            </Text>
-          </View>
-        )}
-      </View>
+        </View>
+      ) : null}
 
-      {proposition ? (
+      {proposition && data.justification.trim().length > 0 ? (
         <View style={{ marginTop: 12 }} wrap={false}>
           {propIntro ? <Paragraph>{propIntro}</Paragraph> : null}
           <View style={{ marginTop: 5 }}>
@@ -333,11 +318,9 @@ function RgpdSection({ data }: { data: AdviceDocumentData }) {
 export function DevoirConseilDocument({
   data,
   logo,
-  signatureTag,
 }: {
   data: AdviceDocumentData;
   logo?: Buffer | null;
-  signatureTag?: string | null;
 }) {
   const { cabinet } = data;
   const courtier = cabinet.legalName || "le cabinet";
@@ -393,13 +376,13 @@ export function DevoirConseilDocument({
         <PropositionSection data={data} />
         <RgpdSection data={data} />
 
-        <View wrap={false}>
+        {/* Page de signature — forcée sur sa propre page : le bloc n'est jamais
+            coupé, et sa position devient déterministe pour la signature
+            électronique (cf. lib/broker/pdf/signature-area.ts). */}
+        <View break>
           <Remittance date={data.date} />
-          <SignatureRow
-            clientName={data.clientName}
-            signatureTag={signatureTag}
-          />
         </View>
+        <SignatureBlock clientName={data.clientName} />
 
         <Footer cabinet={cabinet} />
       </Page>

@@ -72,6 +72,22 @@ function composeAddress(client: BrokerClientRow): string | null {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+/**
+ * Drops the scaffold lines the broker never replaced — « - [Motif 1 : …] ».
+ * The editor may show them as guidance, but a bracketed placeholder must never
+ * reach a document handed to a client.
+ */
+function stripPlaceholderLines(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => {
+      const bare = line.trim().replace(/^[-–•·]\s*/, "");
+      return !(bare.startsWith("[") && bare.endsWith("]"));
+    })
+    .join("\n")
+    .trim();
+}
+
 function quotePremium(quote: BrokerQuoteRow): string | null {
   if (quote.premium_monthly != null) {
     const monthly = `${formatPremium(quote.premium_monthly, quote.currency)} / mois`;
@@ -156,9 +172,101 @@ export function buildAdviceDocumentData(input: {
           );
     })(),
     proposition,
-    justification: input.justification?.trim() ?? "",
+    justification: stripPlaceholderLines(input.justification ?? ""),
     date: frenchDate(input.date ?? undefined),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Missing information — surfaced to the broker BEFORE generating
+// ---------------------------------------------------------------------------
+/** Where the broker has to go to fill a missing piece of information. */
+export type AdviceGapTarget = "client" | "quote" | "justification";
+
+export type AdviceGap = { label: string; target: AdviceGapTarget };
+
+/**
+ * Lists what the devoir de conseil will NOT contain, so the broker can decide
+ * knowingly: fill it in, or hand over a document without that line. The PDF
+ * itself never shows a "[à compléter]" marker — hence this checklist.
+ */
+export function listAdviceGaps(input: {
+  client: BrokerClientRow;
+  quote: BrokerQuoteRow | null;
+  justification: string;
+  requirements?: string | null;
+  birthCountry?: string | null;
+  pep?: string | null;
+}): AdviceGap[] {
+  const { client, quote } = input;
+  const gaps: AdviceGap[] = [];
+  const missing = (value: unknown) =>
+    value == null || String(value).trim().length === 0;
+
+  // I — Identité
+  if (missing(client.address) && missing(client.postal_code) && missing(client.city)) {
+    gaps.push({ label: "Adresse du client", target: "client" });
+  }
+  if (missing(client.email)) gaps.push({ label: "Email", target: "client" });
+  if (missing(client.phone)) gaps.push({ label: "Téléphone", target: "client" });
+  if (client.client_type !== "company") {
+    if (missing(client.date_of_birth)) {
+      gaps.push({ label: "Date de naissance", target: "client" });
+    }
+    if (missing(input.birthCountry)) {
+      gaps.push({ label: "Pays de naissance", target: "client" });
+    }
+    if (missing(input.pep)) {
+      gaps.push({
+        label: "Personne politiquement exposée (conformité)",
+        target: "client",
+      });
+    }
+  }
+
+  // II — Exigences de garantie
+  const hasRequirements =
+    (input.requirements ?? "").trim().length > 0 ||
+    Object.keys(client.structured_needs ?? {}).length > 0;
+  if (!hasRequirements) {
+    gaps.push({ label: "Exigences en termes de garantie", target: "quote" });
+  }
+
+  // III — Proposition
+  if (!quote) {
+    gaps.push({
+      label: "Proposition (aucun devis rattaché)",
+      target: "quote",
+    });
+  } else {
+    if (missing(quote.insurer_name)) {
+      gaps.push({ label: "Compagnie", target: "quote" });
+    }
+    if (missing(quote.product_name)) {
+      gaps.push({ label: "Produit / formule", target: "quote" });
+    }
+    if (quote.premium_monthly == null && quote.premium_annual == null) {
+      gaps.push({ label: "Cotisation", target: "quote" });
+    }
+    if (missing(quote.coverage_summary)) {
+      gaps.push({ label: "Garanties principales", target: "quote" });
+    }
+    if (missing(quote.deductible)) {
+      gaps.push({ label: "Franchise", target: "quote" });
+    }
+    if (missing(quote.vigilance_points)) {
+      gaps.push({ label: "Exclusions / points de vigilance", target: "quote" });
+    }
+  }
+
+  if (stripPlaceholderLines(input.justification ?? "").length === 0) {
+    gaps.push({
+      label: "Motifs du conseil",
+      target: "justification",
+    });
+  }
+
+  return gaps;
 }
 
 /**

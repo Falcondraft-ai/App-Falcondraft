@@ -507,7 +507,7 @@ Réutilise **tel quel** le moteur de propositions du SaaS dossiers (dossiers/dea
 - `broker_activity` (journal d'activité par dossier)
 - `broker_documents` (GED, stockée dans Supabase Storage, quota par organisation)
 - `broker_quotes` (devis compagnies — `extraction_status` : extraction auto **non encore branchée**, saisie manuelle)
-- `broker_advice` (devoir de conseil — `docuseal_submission_id`/`signature_url`/`signature_status` : signature DocuSeal **enregistrée manuellement**)
+- `broker_advice` (devoir de conseil + signature électronique : `docuseal_submission_id`/`docuseal_submitter_id`, `signature_status`/`signature_url`, horodatages `signature_sent_at`/`viewed_at`/`completed_at`/`declined_at`/`expires_at`, relances `signature_reminder_count`/`last_reminder_at`, `signed_document_id`/`audit_log_document_id` → GED)
 - `broker_contracts` (contrats + `renewal_date`/`tacit_renewal` → renouvellements)
 - `broker_compliance` (LCB-FT, PEP, origine des fonds, consentements RGPD, vérification d'identité, fiche d'information — 1 ligne par client)
 - `broker_commission_statements` + `broker_commissions` (bordereaux, pointage/rapprochement, rétrocessions apporteurs)
@@ -527,9 +527,20 @@ Règle : choisir le modèle **le plus adapté par tâche**. À qualité comparab
 
 Ne jamais hardcoder un modèle : passer par variable d'env (pattern ci-dessus).
 
+### Signature électronique (DocuSeal) — intégration complète
+Garde : `hasFeature(org, "esign")` — disponible sur les offres `cabinet`, `performance` **et** `custom` (sur mesure). Ne jamais regater sur `hasProposalAutomation`.
+
+Flux : le PDF du devoir de conseil est rendu avec un tag invisible `{{Signature;role=Client;type=signature}}` ([`lib/broker/pdf/render.tsx`](lib/broker/pdf/render.tsx)) → template one-off + submission `send_email:false` ([`lib/broker/docuseal.ts`](lib/broker/docuseal.ts)) → **le courtier transmet le lien lui-même** via le brouillon Outlook (règle « rien ne part sans vous ») → les relances, elles, partent du fournisseur.
+
+- **Webhook** [`/api/broker/webhooks/docuseal`](app/api/broker/webhooks/docuseal/route.ts) — `form.viewed/started/completed/declined`. Route publique, authentifiée par `DOCUSEAL_WEBHOOK_SECRET` en comparaison constant-time (header `X-Docuseal-Secret` ou `?token=`). Le dossier est résolu par le `docuseal_submission_id` **qu'on a stocké**, jamais par le payload : la tenancy vient de la ligne en base. L'état est re-lu via l'API plutôt que cru sur parole.
+- **Orchestration** [`lib/broker/signature.ts`](lib/broker/signature.ts) — point d'entrée unique partagé par le webhook et le rafraîchissement manuel : idempotent, archive le PDF signé **et** la preuve de signature (audit log) dans la GED, fait avancer le statut du dossier. Volontairement agnostique du type de document (`metadata.kind`) pour brancher la GED plus tard sans réécriture.
+- **Relances** — bouton manuel (throttle 24 h) + cron [`/api/internal/courtier/signature-reminders`](app/api/internal/courtier/signature-reminders/route.ts) (`0 9 * * 1-5`) : J+3 puis tous les 4 j, max 3, et re-synchronise au passage tout webhook manqué.
+- **Expiration** — `DOCUSEAL_SIGNATURE_EXPIRY_DAYS` (défaut 30). Régénérer une demande archive la précédente (l'ancien lien cesse de fonctionner).
+- **UI** [`advice-signature-panel.tsx`](components/broker/advice-signature-panel.tsx) — timeline préparée → ouverte → signée, **copie** du lien (jamais d'ouverture par le courtier : elle serait comptée comme celle du client), relance, annulation, accès au document signé et à la preuve. Le nom « DocuSeal » n'apparaît **jamais** côté client (§2).
+
 ### Manques connus (priorisés)
 1. **Extraction auto des devis** — `extraction_status` existe mais l'analyse PDF n'est pas branchée (saisie 100% manuelle dans `quote-validation-form`).
-2. **Signature DocuSeal automatisée** — aujourd'hui l'URL de signature est enregistrée à la main ; pas de création de submission ni de suivi de statut auto.
+2. **Signature d'autres documents** — seul le devoir de conseil est signable ; brancher la GED (mandat, bulletin d'adhésion, SEPA) est prévu et le moteur est déjà conçu pour.
 3. **Pas de multi-tarificateur / comparateur** — gap structurel vs concurrents (Oggo, Bubble In, Digital Insure).
 
 ### Navigation

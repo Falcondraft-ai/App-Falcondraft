@@ -9,6 +9,7 @@ import {
   type AdvicePdfInfo,
 } from "@/components/broker/advice-pdf-panel";
 import { AdviceSignaturePanel } from "@/components/broker/advice-signature-panel";
+import type { AdviceGap } from "@/lib/broker/advice-document";
 import { formatDate } from "@/lib/format";
 import type { BrokerAdviceRow } from "@/types/database";
 
@@ -143,14 +144,19 @@ export function AdviceFlow({
   outlookConnected,
   canEdit,
   electronicSignature,
+  gaps,
+  quoteId,
 }: {
   clientId: string;
   advice: BrokerAdviceRow;
   pdf: AdvicePdfInfo | null;
   outlookConnected: boolean;
   canEdit: boolean;
-  /** SaaS offering only — the bespoke broker has no e-signature (DocuSeal). */
+  /** Whether the organization's offering includes electronic signature. */
   electronicSignature: boolean;
+  /** Information the PDF will omit rather than mark "[à compléter]". */
+  gaps: AdviceGap[];
+  quoteId: string | null;
 }) {
   const reduceMotion = useReducedMotion();
   const reviewed = advice.status !== "draft";
@@ -281,6 +287,8 @@ export function AdviceFlow({
                 adviceId={advice.id}
                 canEdit={canEdit}
                 pdf={pdf}
+                gaps={gaps}
+                quoteId={quoteId}
               />
             </StepCard>
           )}
@@ -295,7 +303,7 @@ export function AdviceFlow({
         }
         hint={
           electronicSignature
-            ? "Créez le lien de signature électronique, puis préparez un brouillon Outlook prêt à relire — rien ne part sans vous."
+            ? "Préparez la signature électronique, puis le brouillon Outlook qui la transmet — rien ne part sans vous. Le suivi se met à jour tout seul."
             : "Préparez un brouillon Outlook prêt à relire — rien ne part sans vous — puis marquez le document signé une fois retourné."
         }
         state={!reviewed ? "locked" : signed ? "done" : "active"}
@@ -308,9 +316,7 @@ export function AdviceFlow({
         ) : (
           <AdviceSignaturePanel
             clientId={clientId}
-            adviceId={advice.id}
-            status={advice.status}
-            signatureUrl={advice.signature_url}
+            advice={advice}
             outlookConnected={outlookConnected}
             canEdit={canEdit}
             electronicSignature={electronicSignature}
