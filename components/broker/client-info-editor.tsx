@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { Cake, Mail, MapPin, Pencil, Phone, Tag, X } from "lucide-react";
+import { Cake, Globe, Mail, MapPin, Pencil, Phone, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,7 @@ export function ClientInfoEditor({
     postalCode: client.postal_code ?? "",
     city: client.city ?? "",
     dateOfBirth: client.date_of_birth ?? "",
+    birthCountry: client.birth_country ?? "",
     insuranceType: client.insurance_type ?? "",
     notes: client.notes ?? "",
   });
@@ -115,6 +116,7 @@ export function ClientInfoEditor({
       postalCode: client.postal_code ?? "",
       city: client.city ?? "",
       dateOfBirth: client.date_of_birth ?? "",
+      birthCountry: client.birth_country ?? "",
       insuranceType: client.insurance_type ?? "",
       notes: client.notes ?? "",
     });
@@ -137,6 +139,7 @@ export function ClientInfoEditor({
         postalCode: form.postalCode || null,
         city: form.city || null,
         dateOfBirth: form.dateOfBirth || null,
+        birthCountry: form.birthCountry || null,
         insuranceType: form.insuranceType || null,
         notes: form.notes || null,
       }),
@@ -221,6 +224,13 @@ export function ClientInfoEditor({
                 icon={<Cake className="size-3.5" strokeWidth={1.75} />}
                 label="Date de naissance"
                 value={formatBirthDate(client.date_of_birth)}
+              />
+            ) : null}
+            {clientType === "individual" ? (
+              <Row
+                icon={<Globe className="size-3.5" strokeWidth={1.75} />}
+                label="Pays de naissance"
+                value={client.birth_country}
               />
             ) : null}
             <Row
@@ -320,13 +330,26 @@ export function ClientInfoEditor({
             </div>
 
             {clientType === "individual" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="dateOfBirth">Date de naissance</Label>
-                <DateField
-                  id="dateOfBirth"
-                  value={form.dateOfBirth}
-                  onChange={(iso) => update("dateOfBirth", iso)}
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="dateOfBirth">Date de naissance</Label>
+                  <DateField
+                    id="dateOfBirth"
+                    value={form.dateOfBirth}
+                    onChange={(iso) => update("dateOfBirth", iso)}
+                  />
+                </div>
+                {/* Requis par le devoir de conseil — saisissable ici plutôt que
+                    seulement au moment de le générer. */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="birthCountry">Pays de naissance</Label>
+                  <Input
+                    id="birthCountry"
+                    value={form.birthCountry}
+                    onChange={(e) => update("birthCountry", e.target.value)}
+                    placeholder="France"
+                  />
+                </div>
               </div>
             ) : null}
 

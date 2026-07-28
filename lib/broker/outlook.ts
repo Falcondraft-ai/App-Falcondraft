@@ -84,6 +84,28 @@ export const suggestionAcceptLabels: Record<SuggestionType, string> = {
   add_note: "Ajouter la note",
 };
 
+/**
+ * Order in which the proposed actions are listed on an email.
+ * `create_client` comes FIRST: every other action needs a dossier to act on,
+ * and accepting it links the email and its sibling actions to the new dossier.
+ * Showing "ranger la pièce jointe" above "créer le dossier" reads backwards.
+ */
+export const suggestionDisplayOrder: SuggestionType[] = [
+  "create_client",
+  "update_client",
+  "attach_document",
+  "declare_claim",
+  "flag_renewal",
+  "add_note",
+  "draft_reply",
+];
+
+/** Sort key for a suggestion type — unknown types go last. */
+export function suggestionRank(type: string): number {
+  const index = suggestionDisplayOrder.indexOf(type as SuggestionType);
+  return index === -1 ? suggestionDisplayOrder.length : index;
+}
+
 /** Human label for a client field referenced by an update_client suggestion. */
 const updateFieldLabels: Record<string, string> = {
   email: "email",
@@ -92,6 +114,7 @@ const updateFieldLabels: Record<string, string> = {
   postal_code: "code postal",
   city: "ville",
   date_of_birth: "date de naissance",
+  birth_country: "pays de naissance",
 };
 
 export function isSuggestionType(value: string): value is SuggestionType {
@@ -123,6 +146,41 @@ export function normalizeAttachmentCategory(
 ): AttachmentDocCategory {
   if (value && isAttachmentDocCategory(value)) return value;
   return "other";
+}
+
+// ---------------------------------------------------------------------------
+// Dossier matching — pre-select where an attachment should be filed
+// ---------------------------------------------------------------------------
+/**
+ * Accent/case/order-insensitive key for a person or company name, so
+ * « Jean MARTIN » and « martin jean » collapse to the same value.
+ */
+export function clientNameKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 1)
+    .sort()
+    .join(" ");
+}
+
+/**
+ * Finds the dossier a document name refers to. Deliberately strict: only an
+ * exact, unambiguous name match wins. A near-match would silently file a
+ * client's document into someone else's dossier — the broker picks instead.
+ */
+export function findClientIdByName(
+  name: string | null | undefined,
+  clients: { id: string; name: string }[],
+): string | null {
+  if (!name?.trim()) return null;
+  const key = clientNameKey(name);
+  if (!key) return null;
+  const matches = clients.filter((c) => clientNameKey(c.name) === key);
+  return matches.length === 1 ? matches[0]!.id : null;
 }
 
 // ---------------------------------------------------------------------------

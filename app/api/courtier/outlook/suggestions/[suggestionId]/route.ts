@@ -8,6 +8,8 @@ import {
   logBrokerActivity,
   requireBrokerApiContext,
 } from "@/lib/broker/server";
+import { runContractExtraction } from "@/lib/broker/contract-ingest";
+import { runQuoteExtraction } from "@/lib/broker/quote-ingest";
 import { computeStorageUsage } from "@/lib/broker/storage";
 import {
   getFileAttachmentBytes,
@@ -21,9 +23,21 @@ import type {
   Database,
 } from "@/types/database";
 
+// Accepting an action can download an attachment, store it and read a quote.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 type RouteContext = { params: Promise<{ suggestionId: string }> };
 
-const schema = z.object({ action: z.enum(["accept", "reject"]) });
+const schema = z.object({
+  action: z.enum(["accept", "reject"]),
+  /**
+   * Dossier picked by the broker on the action itself (briefing). Overrides the
+   * dossier guessed at digest time — an attachment can always be filed where
+   * the broker says, without having to re-link the whole email first.
+   */
+  clientId: z.string().uuid().optional(),
+});
 
 function jsonError(message: string, status: number, reason: string) {
   return NextResponse.json({ success: false, message, reason }, { status });
@@ -32,6 +46,15 @@ function jsonError(message: string, status: number, reason: string) {
 function str(payload: Record<string, unknown>, key: string): string | null {
   const v = payload[key];
   return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+/** Accepts a date only in strict ISO day form — never stores a guessed date. */
+function isoDate(payload: Record<string, unknown>, key: string): string | null {
+  const raw = str(payload, key);
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const date = new Date(`${raw}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10) === raw ? raw : null;
 }
 
 export async function POST(request: NextRequest, ctx: RouteContext) {
@@ -84,8 +107,22 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
   if (!item) return jsonError("Email introuvable.", 404, "item_not_found");
 
   const payload = suggestion.payload ?? {};
+
+  // A dossier explicitly picked in the briefing wins over the one guessed at
+  // digest time — but only after checking it belongs to this organisation.
+  const overrideClientId = parsed.data.clientId ?? null;
+  if (overrideClientId) {
+    const { data: target } = await admin
+      .from("broker_clients")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("id", overrideClientId)
+      .maybeSingle();
+    if (!target) return jsonError("Dossier introuvable.", 404, "client_not_found");
+  }
+
   const resolvedClientId =
-    str(payload, "client_id") ?? item.suggested_client_id ?? null;
+    overrideClientId ?? str(payload, "client_id") ?? item.suggested_client_id ?? null;
 
   async function markDone(result: Record<string, unknown>) {
     await admin
@@ -129,6 +166,14 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
           last_name: str(payload, "last_name"),
           company_name: str(payload, "company_name"),
           email: str(payload, "email"),
+          // Identity read from the email goes to its own column, so the dossier
+          // is usable straight away instead of hiding everything in a note.
+          phone: str(payload, "phone"),
+          address: str(payload, "address"),
+          postal_code: str(payload, "postal_code"),
+          city: str(payload, "city"),
+          date_of_birth: isoDate(payload, "date_of_birth"),
+          birth_country: str(payload, "birth_country"),
           insurance_type: str(payload, "insurance_type"),
           notes: str(payload, "notes"),
           status: "new",
@@ -181,6 +226,9 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
         success: true,
         status: "done",
         clientId: newClient.id,
+        // Returned so the briefing can list the new dossier immediately,
+        // without a page reload.
+        clientName: brokerClientDisplayName(newClient),
       });
     }
 
@@ -268,8 +316,105 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
         description: `Pièce jointe rangée depuis un email : ${fileName}.`,
         metadata: { category, size_bytes: buffer.byteLength },
       });
-      await markDone({ broker_document_id: document.id });
-      return NextResponse.json({ success: true, status: "done" });
+
+      // A company quote is not just a file in the GED: it must appear under
+      // « Devis compagnie », so it can be compared, validated and used for the
+      // devoir de conseil. Same path as a quote imported by hand.
+      let quoteId: string | null = null;
+      if (category === "company_quote") {
+        const { data: quote, error: quoteError } = await admin
+          .from("broker_quotes")
+          .insert({
+            organization_id: orgId,
+            client_id: resolvedClientId,
+            created_by: userId,
+            document_id: document.id,
+            extraction_status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (quoteError || !quote) {
+          // The document is safely filed — surface the miss instead of losing
+          // the whole action.
+          console.error(
+            "[outlook] quote creation from attachment failed:",
+            quoteError?.message,
+          );
+        } else {
+          quoteId = quote.id;
+          await logBrokerActivity(admin, {
+            organizationId: orgId,
+            clientId: resolvedClientId,
+            userId,
+            type: "quote_imported",
+            description: "Devis compagnie reçu par email — à vérifier.",
+            metadata: { quote_id: quote.id },
+          });
+          // Best effort: pre-fill insurer, premium and guarantees. If the read
+          // fails the quote simply stays « à compléter ».
+          await runQuoteExtraction({
+            adminSupabase: admin,
+            organizationId: orgId,
+            clientId: resolvedClientId,
+            quoteId: quote.id,
+            userId,
+          }).catch(() => null);
+        }
+      }
+
+      // Same for a contract: it belongs in « Contrats », where its renewal date
+      // is tracked — not as a loose file in the GED.
+      let contractId: string | null = null;
+      if (category === "contract") {
+        const { data: contract, error: contractError } = await admin
+          .from("broker_contracts")
+          .insert({
+            organization_id: orgId,
+            client_id: resolvedClientId,
+            created_by: userId,
+            document_id: document.id,
+            status: "active",
+          })
+          .select("id")
+          .single();
+
+        if (contractError || !contract) {
+          console.error(
+            "[outlook] contract creation from attachment failed:",
+            contractError?.message,
+          );
+        } else {
+          contractId = contract.id;
+          await logBrokerActivity(admin, {
+            organizationId: orgId,
+            clientId: resolvedClientId,
+            userId,
+            type: "contract_created",
+            description: "Contrat reçu par email — à vérifier.",
+            metadata: { contract_id: contract.id },
+          });
+          await runContractExtraction({
+            adminSupabase: admin,
+            organizationId: orgId,
+            clientId: resolvedClientId,
+            contractId: contract.id,
+            userId,
+          }).catch(() => null);
+        }
+      }
+
+      await markDone({
+        broker_document_id: document.id,
+        ...(quoteId ? { broker_quote_id: quoteId } : {}),
+        ...(contractId ? { broker_contract_id: contractId } : {}),
+      });
+      return NextResponse.json({
+        success: true,
+        status: "done",
+        quoteId,
+        contractId,
+      });
     }
 
     if (suggestion.type === "update_client") {
@@ -293,6 +438,10 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       if (city) update.city = city;
       const email = str(payload, "email");
       if (email) update.email = email;
+      const dateOfBirth = isoDate(payload, "date_of_birth");
+      if (dateOfBirth) update.date_of_birth = dateOfBirth;
+      const birthCountry = str(payload, "birth_country");
+      if (birthCountry) update.birth_country = birthCountry;
       if (Object.keys(update).length === 1) {
         return jsonError("Rien à mettre à jour.", 400, "nothing_to_update");
       }

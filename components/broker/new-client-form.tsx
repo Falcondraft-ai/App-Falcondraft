@@ -73,6 +73,7 @@ export function NewClientForm({
     postalCode: "",
     city: "",
     dateOfBirth: "",
+    birthCountry: "",
     insuranceType: "",
     notes: "",
   });
@@ -114,6 +115,7 @@ export function NewClientForm({
         postalCode: form.postalCode || null,
         city: form.city || null,
         dateOfBirth: form.dateOfBirth || null,
+        birthCountry: form.birthCountry || null,
         insuranceType: form.insuranceType || null,
         notes: form.notes || null,
       }),
@@ -219,6 +221,16 @@ export function NewClientForm({
                 id="dateOfBirth"
                 value={form.dateOfBirth}
                 onChange={(iso) => update("dateOfBirth", iso)}
+              />
+            </div>
+            {/* Repris tel quel sur le devoir de conseil. */}
+            <div className="space-y-1.5">
+              <Label htmlFor="birthCountry">Pays de naissance</Label>
+              <Input
+                id="birthCountry"
+                value={form.birthCountry}
+                onChange={(event) => update("birthCountry", event.target.value)}
+                placeholder="France"
               />
             </div>
           </div>

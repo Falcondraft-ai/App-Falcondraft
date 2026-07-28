@@ -103,6 +103,8 @@ type AiAction = {
   address?: string;
   postal_code?: string;
   city?: string;
+  date_of_birth?: string;
+  birth_country?: string;
   insurance_type?: string;
   needs?: string;
   claim_type?: string;
@@ -146,6 +148,19 @@ type RosterEntry = {
   branch: string | null;
 };
 
+/**
+ * Keeps a birth date only when it is a real ISO day. Anything else the model
+ * may return ("né en 1980", "12/03/1980") is dropped rather than stored wrong —
+ * a false date of birth on a dossier is worse than an empty field.
+ */
+function normalizeBirthDate(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const date = new Date(`${raw}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10) === raw ? raw : null;
+}
+
 function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string {
   const addressBlock =
     mailboxAddresses.length > 1
@@ -178,12 +193,13 @@ function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string
     `  • Le dossier est au nom de la personne/entreprise ASSURÉE, PAS forcément l'expéditeur. Un email peut venir d'un apporteur, d'un collègue, de la boîte du cabinet, ou d'un intermédiaire qui PARLE d'un tiers : dans ce cas le client est ce tiers (nom lu dans le corps du mail ou les pièces jointes) et tu mets subject_is_sender=false.`,
     `  • Renseigne first_name/last_name (ou company_name) du CLIENT. Pour email, mets l'email DU CLIENT si tu le connais ; si le client n'est pas l'expéditeur et que tu n'as pas son email, laisse email vide — n'utilise JAMAIS l'email de l'expéditeur pour un tiers. Ajoute la branche probable (${brokerInsuranceTypes.join(", ")}).`,
     `  • NOM EXACT — RÈGLE STRICTE : reprends le nom EXACTEMENT tel qu'il apparaît (nom de l'expéditeur, signature ou corps). N'invente, n'ajoute et ne complète JAMAIS un prénom, un deuxième prénom, une particule ou un nom absent. Ex. « Timeo Marcopoulos » → first_name="Timeo", last_name="Marcopoulos" (JAMAIS « Timeo François Marcopoulos »). Ne déduis pas de prénom à partir d'une adresse email. En cas de doute, mets moins plutôt que d'inventer.`,
-    `  • Renseigne TOUJOURS "needs" avec l'objet à assurer et TOUTES ses caractéristiques utiles + le contexte de la demande (ex. « Scooter 50 cm³ Cibès à assurer », véhicule + marque/modèle/immatriculation, logement + surface + adresse, date d'effet souhaitée). C'est ce qui remplit la NOTE interne du nouveau dossier — sois complet et factuel.`,
+    `  • COORDONNÉES — chaque information d'identité présente dans l'email va dans SON champ, jamais dans le texte libre : phone, address, postal_code, city, date_of_birth (format strict AAAA-MM-JJ), birth_country. Ce sont les champs du dossier ; ne les recopie pas dans "needs".`,
+    `  • Renseigne TOUJOURS "needs" avec l'objet à assurer et TOUTES ses caractéristiques utiles + le contexte de la demande (ex. « Scooter 50 cm³ Cibès à assurer », véhicule + marque/modèle/immatriculation, logement + surface + adresse DU RISQUE, date d'effet souhaitée). C'est ce qui remplit la NOTE interne du nouveau dossier — sois complet et factuel, mais SANS les coordonnées ci-dessus.`,
     `  • Si l'expéditeur EST lui-même le client assuré, mets subject_is_sender=true.`,
     `  • N'ouvre jamais un dossier au nom du courtier (${userName}) ni d'un membre du cabinet.`,
     `  • DÈS QU'un email décrit une nouvelle demande d'assurance pour une personne/entreprise NOMMÉE qui n'a pas encore de dossier, tu DOIS proposer create_client pour elle — même si l'email vient d'un tiers/apporteur/collègue, et même quand tu proposes aussi un draft_reply pour réclamer les infos manquantes. Ne te contente jamais du seul brouillon de réponse : ouvre le dossier ET rédige la réponse.`,
     `  • Exemple : email de Jean (apporteur) « nouvelle demande d'assurance habitation pour Mme Cassandra Mitchel, appartement 120 m² ». → actions : create_client { subject_is_sender:false, first_name:"Cassandra", last_name:"Mitchel", insurance_type:"immobilier", needs:"Assurance habitation — appartement 120 m²" } ET draft_reply pour demander les informations nécessaires au devis.`,
-    `- update_client : DÈS QU'un email concerne un dossier EXISTANT (matched_client_ref non nul) et fournit une coordonnée (email, téléphone, adresse, code postal, ville) ABSENTE ou DIFFÉRENTE du dossier connu, tu DOIS proposer update_client sur ce dossier — que l'info vienne du client lui-même OU d'un tiers/apporteur qui la transmet. C'est le cœur du CRM : tenir chaque dossier à jour. Renseigne les champs fournis qui manquent ou diffèrent de known_clients (compare aux valeurs du dossier) ; n'inclus pas un champ identique à l'existant, et n'invente jamais. Cette action s'ajoute à un éventuel accusé de réception (draft_reply).`,
+    `- update_client : DÈS QU'un email concerne un dossier EXISTANT (matched_client_ref non nul) et fournit une coordonnée (email, téléphone, adresse, code postal, ville, date de naissance au format AAAA-MM-JJ, pays de naissance) ABSENTE ou DIFFÉRENTE du dossier connu, tu DOIS proposer update_client sur ce dossier — que l'info vienne du client lui-même OU d'un tiers/apporteur qui la transmet. C'est le cœur du CRM : tenir chaque dossier à jour. Renseigne les champs fournis qui manquent ou diffèrent de known_clients (compare aux valeurs du dossier) ; n'inclus pas un champ identique à l'existant, et n'invente jamais. Cette action s'ajoute à un éventuel accusé de réception (draft_reply).`,
     `- add_note : DÈS QU'un email concernant un dossier EXISTANT (matched_client_ref non nul) apporte une INFORMATION IMPORTANTE à conserver qui n'est pas une simple coordonnée — l'objet à assurer et ses caractéristiques (ex. « scooter 50 cm³ Cibès », véhicule + marque/modèle/immatriculation, logement + surface + adresse du risque), la situation (composition familiale, profession, antériorité d'assurance, antécédents), une échéance/date d'effet souhaitée, une décision, une préférence ou une demande précise. Résume-la dans "note" de façon COURTE, FACTUELLE et complète (reprends les chiffres et détails utiles). Ces informations doivent atterrir dans la note interne du dossier. N'utilise PAS add_note pour une simple coordonnée (ça, c'est update_client) ni pour un dossier inexistant (mets l'info dans needs de create_client).`,
     `- declare_claim : seulement si l'email évoque un sinistre concret (dégât, accident, vol...). Donne claim_type et une courte description.`,
     `- flag_renewal : seulement si l'email mentionne une échéance/résiliation/renouvellement de contrat.`,
@@ -280,6 +296,12 @@ function buildUserPayload(
               last_name: "string",
               company_name: "string",
               email: "string",
+              phone: "string",
+              address: "string",
+              postal_code: "string",
+              city: "string",
+              date_of_birth: "AAAA-MM-JJ",
+              birth_country: "string",
               insurance_type: "auto",
               needs: "string",
             },
@@ -290,6 +312,8 @@ function buildUserPayload(
               postal_code: "string",
               city: "string",
               email: "string",
+              date_of_birth: "AAAA-MM-JJ",
+              birth_country: "string",
             },
             { type: "declare_claim", claim_type: "string", description: "string" },
             { type: "flag_renewal", note: "string" },
@@ -821,6 +845,11 @@ export async function generateDigest(
             size: att.size,
             document_category: documentCategory,
             client_id: clientId,
+            // Who the document is about, read from its content. Lets the
+            // briefing pre-select the dossier even when the SENDER didn't
+            // match any client (insurer forwarding a client's quote).
+            detected_subject_name: understood?.subject_name ?? null,
+            detected_label: understood?.label ?? null,
           },
         });
       } else if (action.type === "draft_reply") {
@@ -872,8 +901,16 @@ export async function generateDigest(
             last_name: action.last_name?.trim() || null,
             company_name: action.company_name?.trim() || null,
             email: clientEmail,
+            // Identity fields land in their own dossier columns — a phone
+            // number buried in a free-text note is not a CRM.
+            phone: action.phone?.trim() || null,
+            address: action.address?.trim() || null,
+            postal_code: action.postal_code?.trim() || null,
+            city: action.city?.trim() || null,
+            date_of_birth: normalizeBirthDate(action.date_of_birth),
+            birth_country: action.birth_country?.trim() || null,
             insurance_type: insuranceType,
-            // Captured info goes into the dossier's visible internal notes.
+            // Only what the dossier has no field for: the need itself.
             notes: action.needs?.trim() || null,
           },
         });
@@ -904,6 +941,16 @@ export async function generateDigest(
         if (city) fields.city = city;
         const email = changed(action.email, current?.email ?? null);
         if (email) fields.email = email;
+        const birthDate = changed(
+          normalizeBirthDate(action.date_of_birth) ?? undefined,
+          current?.date_of_birth ?? null,
+        );
+        if (birthDate) fields.date_of_birth = birthDate;
+        const birthCountry = changed(
+          action.birth_country,
+          current?.birth_country ?? null,
+        );
+        if (birthCountry) fields.birth_country = birthCountry;
         if (Object.keys(fields).length === 0) continue;
         suggestionRows.push({
           organization_id: ctx.organizationId,
@@ -972,6 +1019,8 @@ export async function generateDigest(
           document_category:
             understood?.category ?? normalizeAttachmentCategory(null),
           client_id: clientId,
+          detected_subject_name: understood?.subject_name ?? null,
+          detected_label: understood?.label ?? null,
         },
       });
     }

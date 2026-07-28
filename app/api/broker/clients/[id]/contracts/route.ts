@@ -1,11 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import { runContractExtraction } from "@/lib/broker/contract-ingest";
 import {
   brokerContractStatuses,
   brokerPremiumFrequencies,
 } from "@/lib/broker/contracts";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
+
+// Creating a contract from a PDF downloads and reads the document.
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -124,5 +129,24 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     metadata: { contract_id: contract.id },
   });
 
-  return NextResponse.json({ success: true, contractId: contract.id });
+  // Imported from a PDF: read it right away so the broker lands on a contract
+  // that is already filled in. Best effort — on failure the contract simply
+  // stays to be completed by hand.
+  let extracted = false;
+  if (values.documentId) {
+    const extraction = await runContractExtraction({
+      adminSupabase: auth.adminSupabase,
+      organizationId: auth.organizationId,
+      clientId,
+      contractId: contract.id,
+      userId: auth.user.id,
+    }).catch(() => null);
+    extracted = Boolean(extraction?.ok);
+  }
+
+  return NextResponse.json({
+    success: true,
+    contractId: contract.id,
+    extracted,
+  });
 }

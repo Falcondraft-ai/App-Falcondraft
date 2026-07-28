@@ -647,7 +647,16 @@ export async function executeAgentTool(
       str(input, "query"),
       20,
     );
-    const linked = linkedRes.data ?? [];
+    // The briefing is per-broker, so colleagues who received the same email each
+    // hold their own row for it — collapse them or the model sees duplicates.
+    type LinkedRow = NonNullable<typeof linkedRes.data>[number];
+    const linkedByMessage = new Map<string, LinkedRow>();
+    for (const r of linkedRes.data ?? []) {
+      const existing = linkedByMessage.get(r.graph_message_id);
+      if (existing && (existing.summary || !r.summary)) continue;
+      linkedByMessage.set(r.graph_message_id, r);
+    }
+    const linked = [...linkedByMessage.values()];
     const linkedIds = new Set(linked.map((r) => r.graph_message_id));
     return {
       client: displayName,

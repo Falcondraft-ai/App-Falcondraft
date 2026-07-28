@@ -6,10 +6,10 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  Eye,
   ExternalLink,
   EyeOff,
   FileSignature,
-  FolderInput,
   HelpCircle,
   Mail,
   MessageSquare,
@@ -18,7 +18,6 @@ import {
   Receipt,
   RotateCcw,
   ScrollText,
-  Search,
   ShieldAlert,
   StickyNote,
   UserCog,
@@ -30,14 +29,22 @@ import { Button } from "@/components/ui/button";
 import {
   emailCategoryLabel,
   emailCategoryOrder,
+  findClientIdByName,
   mailboxAddressColor,
   suggestionAcceptLabels,
+  suggestionRank,
   suggestionTypeLabels,
   type EmailCategory,
   type SuggestionType,
 } from "@/lib/broker/outlook";
+import { AttachmentPreview } from "@/components/broker/attachment-preview";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
+import {
+  ClientPicker,
+  type ClientOption,
+} from "@/components/broker/client-picker";
 import { DigestBackfillMenu } from "@/components/broker/digest-backfill-menu";
+import { brokerDocumentCategoryLabels } from "@/lib/broker/documents";
 import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -81,12 +88,10 @@ function suggestionDescription(
 ): string {
   const p = suggestion.payload ?? {};
   switch (suggestion.type) {
-    case "attach_document": {
-      const file = pstr(p, "file_name") ?? "pièce jointe";
-      return clientName
-        ? `Ranger « ${file} » dans le dossier ${clientName}`
-        : `Ranger « ${file} » (choisir un dossier)`;
-    }
+    case "attach_document":
+      // The target dossier is shown by the picker on the row itself, so the
+      // sentence stays about the document.
+      return `Ranger « ${pstr(p, "file_name") ?? "pièce jointe"} »`;
     case "draft_reply":
       return pstr(p, "subject")
         ? `Brouillon de réponse — « ${pstr(p, "subject")} »`
@@ -134,18 +139,43 @@ function StatChip({ value, label }: { value: number; label: string }) {
 function SuggestionRow({
   suggestion,
   clientName,
+  clientId,
+  clientOptions,
+  onPickClient,
+  onClientsOpen,
+  onPreview,
   status,
   onAccept,
   onReject,
 }: {
   suggestion: BrokerEmailSuggestionRow;
   clientName: string | null;
+  clientId: string | null;
+  clientOptions: ClientOption[];
+  onPickClient: (clientId: string) => void;
+  onClientsOpen: () => void;
+  onPreview?: () => void;
   status: LocalStatus;
   onAccept: () => void;
   onReject: () => void;
 }) {
   const type = suggestion.type as SuggestionType;
   const resolved = status === "done" || status === "rejected";
+  // Where the attachment gets filed is decided on the row itself: pre-selected
+  // from what the AI matched (or read inside the document), always changeable.
+  const isAttachment = type === "attach_document";
+  const detectedLabel = pstr(suggestion.payload ?? {}, "detected_label");
+  const missingClient = isAttachment && !clientId;
+  // Say where the file actually lands — a devis becomes a « Devis compagnie »
+  // in the dossier, not just a file in the GED.
+  const documentCategory = isAttachment
+    ? pstr(suggestion.payload ?? {}, "document_category")
+    : null;
+  const categoryLabel = documentCategory
+    ? brokerDocumentCategoryLabels[
+        documentCategory as keyof typeof brokerDocumentCategoryLabels
+      ]
+    : null;
 
   return (
     <div
@@ -170,16 +200,46 @@ function SuggestionRow({
       >
         {suggestionIcons[type] ?? <Mail className="size-3.5" />}
       </span>
-      <p
-        className={cn(
-          "min-w-0 flex-1 text-[12.5px]",
-          status === "rejected"
-            ? "text-[var(--fg-4)] line-through"
-            : "text-[var(--fg-2)]",
-        )}
-      >
-        {suggestionDescription(suggestion, clientName)}
-      </p>
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "text-[12.5px]",
+            status === "rejected"
+              ? "text-[var(--fg-4)] line-through"
+              : "text-[var(--fg-2)]",
+          )}
+        >
+          {suggestionDescription(suggestion, clientName)}
+        </p>
+        {isAttachment && (detectedLabel || categoryLabel) ? (
+          <p className="mt-0.5 truncate text-[11.5px] text-[var(--fg-4)]">
+            {[categoryLabel, detectedLabel].filter(Boolean).join(" · ")}
+          </p>
+        ) : null}
+        {isAttachment && !resolved ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <ClientPicker
+              clients={clientOptions}
+              value={clientId}
+              placeholder="Choisir un dossier"
+              tone="attention"
+              onPick={onPickClient}
+              onOpen={onClientsOpen}
+            />
+            {onPreview ? (
+              <button
+                type="button"
+                onClick={onPreview}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--fg-2)]"
+                style={{ color: "var(--fg-4)" }}
+              >
+                <Eye className="size-3.5" strokeWidth={1.75} />
+                Aperçu
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         {resolved ? (
@@ -225,7 +285,12 @@ function SuggestionRow({
               type="button"
               size="sm"
               onClick={onAccept}
-              disabled={status === "loading"}
+              disabled={status === "loading" || missingClient}
+              title={
+                missingClient
+                  ? "Choisissez le dossier où ranger cette pièce jointe."
+                  : undefined
+              }
               className="h-7 gap-1 px-2.5 text-[12px]"
             >
               {status === "loading" ? (
@@ -263,116 +328,13 @@ function MailboxBadge({ address }: { address: string }) {
   );
 }
 
-type ClientOption = { id: string; name: string };
-
-/** Searchable dropdown to attach an unclassified email to a client dossier. */
-function ClientAttachControl({
-  clients,
-  busy,
-  onPick,
-}: {
-  clients: ClientOption[];
-  busy: boolean;
-  onPick: (clientId: string) => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
-
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = q
-      ? clients.filter((c) => c.name.toLowerCase().includes(q))
-      : clients;
-    return list.slice(0, 60);
-  }, [clients, query]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={busy}
-        className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
-        style={{ borderColor: "var(--border-1)", color: "var(--fg-2)" }}
-      >
-        <FolderInput className="size-3.5" strokeWidth={1.75} />
-        {busy ? "Rattachement…" : "Rattacher à un dossier"}
-        <ChevronDown className="size-3" strokeWidth={2} />
-      </button>
-
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 z-20 mt-1.5 w-72 overflow-hidden rounded-lg border bg-[var(--bg-surface)] shadow-[var(--shadow-md)]"
-            style={{ borderColor: "var(--border-1)" }}
-          >
-            <div
-              className="flex items-center gap-2 border-b px-3 py-2"
-              style={{ borderColor: "var(--border-1)" }}
-            >
-              <Search
-                className="size-3.5 shrink-0 text-[var(--fg-4)]"
-                strokeWidth={1.75}
-              />
-              <input
-                autoFocus
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher un dossier…"
-                className="w-full bg-transparent text-[12.5px] outline-none placeholder:text-[var(--fg-4)]"
-                style={{ color: "var(--fg-1)" }}
-              />
-            </div>
-            <ul className="max-h-64 overflow-y-auto py-1">
-              {filtered.length > 0 ? (
-                filtered.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpen(false);
-                        onPick(c.id);
-                      }}
-                      className="flex w-full items-center px-3 py-1.5 text-left text-[12.5px] text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-sunken)]"
-                    >
-                      <span className="truncate">{c.name}</span>
-                    </button>
-                  </li>
-                ))
-              ) : (
-                <li className="px-3 py-2 text-[12px] text-[var(--fg-4)]">
-                  Aucun dossier trouvé.
-                </li>
-              )}
-            </ul>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 function ItemCard({
   item,
   suggestions,
   clientName,
+  clientIdFor,
+  onPickSuggestionClient,
+  onClientsOpen,
   statuses,
   onAccept,
   onReject,
@@ -387,6 +349,12 @@ function ItemCard({
   item: BrokerEmailItemRow;
   suggestions: BrokerEmailSuggestionRow[];
   clientName: string | null;
+  clientIdFor: (s: BrokerEmailSuggestionRow) => string | null;
+  onPickSuggestionClient: (
+    s: BrokerEmailSuggestionRow,
+    clientId: string,
+  ) => void;
+  onClientsOpen: () => void;
   statuses: Record<string, LocalStatus>;
   onAccept: (s: BrokerEmailSuggestionRow) => void;
   onReject: (s: BrokerEmailSuggestionRow) => void;
@@ -398,6 +366,20 @@ function ItemCard({
   onAttachClient?: (clientId: string) => void;
   attachBusy?: boolean;
 }) {
+  // A pending « créer le dossier » makes the manual link redundant: accepting
+  // it creates the dossier and links the email and its sibling actions to it.
+  const creatingClient = suggestions.some(
+    (s) =>
+      s.type === "create_client" && (statuses[s.id] ?? "pending") === "pending",
+  );
+
+  // Attachments of this email, previewable side by side with the email itself.
+  const attachments = React.useMemo(
+    () => suggestions.filter((s) => s.type === "attach_document"),
+    [suggestions],
+  );
+  const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
+
   return (
     <motion.article
       layout
@@ -483,6 +465,21 @@ function ItemCard({
               key={s.id}
               suggestion={s}
               clientName={clientName}
+              clientId={clientIdFor(s)}
+              clientOptions={attachClients ?? []}
+              onPickClient={(clientId) => onPickSuggestionClient(s, clientId)}
+              onClientsOpen={onClientsOpen}
+              onPreview={
+                s.type === "attach_document"
+                  ? () =>
+                      setPreviewIndex(
+                        Math.max(
+                          0,
+                          attachments.findIndex((a) => a.id === s.id),
+                        ),
+                      )
+                  : undefined
+              }
               status={statuses[s.id] ?? "pending"}
               onAccept={() => onAccept(s)}
               onReject={() => onReject(s)}
@@ -492,19 +489,43 @@ function ItemCard({
       ) : null}
 
       {!clientName && onAttachClient && attachClients ? (
-        <div
-          className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed px-3 py-2"
-          style={{ borderColor: "var(--border-1)", background: "var(--bg-sunken)" }}
-        >
-          <p className="text-[12px] text-[var(--fg-3)]">
-            Pas encore rattaché à un dossier.
-          </p>
-          <ClientAttachControl
-            clients={attachClients}
-            busy={Boolean(attachBusy)}
-            onPick={onAttachClient}
-          />
-        </div>
+        creatingClient ? (
+          // The dossier is about to be created by the action above — linking
+          // the email by hand is pointless here. Kept only as a discreet way
+          // out when the contact turns out to already have a dossier.
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-1">
+            <p className="text-[11.5px] text-[var(--fg-4)]">
+              Ce contact a déjà un dossier ?
+            </p>
+            <ClientPicker
+              clients={attachClients}
+              busy={Boolean(attachBusy)}
+              placeholder="Le rattacher"
+              subtle
+              onPick={onAttachClient}
+              onOpen={onClientsOpen}
+            />
+          </div>
+        ) : (
+          <div
+            className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed px-3 py-2"
+            style={{
+              borderColor: "var(--border-1)",
+              background: "var(--bg-sunken)",
+            }}
+          >
+            <p className="text-[12px] text-[var(--fg-3)]">
+              Pas encore rattaché à un dossier.
+            </p>
+            <ClientPicker
+              clients={attachClients}
+              busy={Boolean(attachBusy)}
+              placeholder="Rattacher à un dossier"
+              onPick={onAttachClient}
+              onOpen={onClientsOpen}
+            />
+          </div>
+        )
       ) : null}
 
       {onExclude ? (
@@ -534,6 +555,25 @@ function ItemCard({
             Écarter
           </button>
         </div>
+      ) : null}
+
+      {previewIndex !== null && attachments.length > 0 ? (
+        <AttachmentPreview
+          open
+          onOpenChange={(next) => {
+            if (!next) setPreviewIndex(null);
+          }}
+          item={item}
+          attachments={attachments}
+          index={Math.min(previewIndex, attachments.length - 1)}
+          onIndexChange={setPreviewIndex}
+          statuses={statuses}
+          clientOptions={attachClients ?? []}
+          clientIdFor={clientIdFor}
+          onPickClient={onPickSuggestionClient}
+          onClientsOpen={onClientsOpen}
+          onAccept={onAccept}
+        />
       ) : null}
     </motion.article>
   );
@@ -582,23 +622,79 @@ export function OutlookDigest({
     {},
   );
 
+  // Dossier picked by the broker on a given action (overrides the AI guess).
+  const [pickedClient, setPickedClient] = React.useState<Record<string, string>>(
+    {},
+  );
+
   // Address filter (multi-adresse).
   const [addressFilter, setAddressFilter] = React.useState<string | null>(null);
 
+  // Live dossier directory: seeded from the server, then kept up to date
+  // in place — a dossier created from the briefing (or elsewhere) must show up
+  // in the pickers without reloading the page.
+  const [clientDirectory, setClientDirectory] =
+    React.useState<Record<string, string>>(clientNames);
+  React.useEffect(() => {
+    setClientDirectory((prev) => ({ ...prev, ...clientNames }));
+  }, [clientNames]);
+
+  const lastClientFetch = React.useRef(0);
+  const refreshClients = React.useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastClientFetch.current < 5000) return;
+    lastClientFetch.current = now;
+    const res = await fetch("/api/broker/clients").catch(() => null);
+    if (!res?.ok) return;
+    const data = (await res.json().catch(() => null)) as {
+      clients?: ClientOption[];
+    } | null;
+    if (!data?.clients?.length) return;
+    setClientDirectory((prev) => {
+      const next = { ...prev };
+      for (const c of data.clients!) next[c.id] = c.name;
+      return next;
+    });
+  }, []);
+
   const clientOptions = React.useMemo(
     () =>
-      Object.entries(clientNames)
+      Object.entries(clientDirectory)
         .map(([id, name]) => ({ id, name }))
         .sort((a, b) => a.name.localeCompare(b.name, "fr")),
-    [clientNames],
+    [clientDirectory],
   );
 
   const clientNameFor = React.useCallback(
     (item: BrokerEmailItemRow): string | null => {
       const id = attachedClient[item.id] ?? item.suggested_client_id;
-      return id ? (clientNames[id] ?? null) : null;
+      return id ? (clientDirectory[id] ?? null) : null;
     },
-    [attachedClient, clientNames],
+    [attachedClient, clientDirectory],
+  );
+
+  /**
+   * Dossier an action will run against, most explicit source first:
+   * the broker's pick → the email's dossier → the one matched when the digest
+   * was generated → the name read inside the document itself.
+   */
+  const clientIdFor = React.useCallback(
+    (item: BrokerEmailItemRow, s: BrokerEmailSuggestionRow): string | null => {
+      const payload = s.payload ?? {};
+      return (
+        pickedClient[s.id] ??
+        attachedClient[item.id] ??
+        pstr(payload, "client_id") ??
+        item.suggested_client_id ??
+        (s.type === "attach_document"
+          ? findClientIdByName(
+              pstr(payload, "detected_subject_name"),
+              clientOptions,
+            )
+          : null)
+      );
+    },
+    [pickedClient, attachedClient, clientOptions],
   );
 
   // Distinct mailbox addresses present in this digest.
@@ -623,7 +719,7 @@ export function OutlookDigest({
         return;
       }
       setAttachedClient((m) => ({ ...m, [itemId]: clientId }));
-      toast.success(`Rattaché à ${clientNames[clientId] ?? "ce dossier"}.`);
+      toast.success(`Rattaché à ${clientDirectory[clientId] ?? "ce dossier"}.`);
     } finally {
       setAttachBusy((m) => ({ ...m, [itemId]: false }));
     }
@@ -667,12 +763,21 @@ export function OutlookDigest({
       (itemRelevance[i.id] ?? i.relevance) === "excluded" && matchesAddress(i),
   );
 
+  const itemById = React.useMemo(
+    () => new Map(items.map((i) => [i.id, i])),
+    [items],
+  );
+
   const suggestionsByItem = React.useMemo(() => {
     const map = new Map<string, BrokerEmailSuggestionRow[]>();
     for (const s of suggestions) {
       const list = map.get(s.item_id) ?? [];
       list.push(s);
       map.set(s.item_id, list);
+    }
+    // « Créer le dossier » first, then the actions that need that dossier.
+    for (const list of map.values()) {
+      list.sort((a, b) => suggestionRank(a.type) - suggestionRank(b.type));
     }
     return map;
   }, [suggestions]);
@@ -688,13 +793,29 @@ export function OutlookDigest({
     if ((statuses[s.id] ?? "pending") !== "pending") return;
     setStatuses((m) => ({ ...m, [s.id]: "loading" }));
     try {
+      // Run the action against the dossier shown on the row — never a stale one.
+      const item = itemById.get(s.item_id);
+      const targetClientId =
+        action === "accept" && item && s.type !== "create_client"
+          ? clientIdFor(item, s)
+          : null;
+
       const res = await fetch(`/api/courtier/outlook/suggestions/${s.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          ...(targetClientId ? { clientId: targetClientId } : {}),
+        }),
       }).catch(() => null);
       const result = (await res?.json().catch(() => null)) as
-        | { success?: boolean; message?: string; status?: string }
+        | {
+            success?: boolean;
+            message?: string;
+            status?: string;
+            clientId?: string;
+            clientName?: string;
+          }
         | null;
 
       if (!res?.ok || !result?.success) {
@@ -709,6 +830,17 @@ export function OutlookDigest({
         ...m,
         [s.id]: action === "accept" ? "done" : "rejected",
       }));
+
+      // A dossier was just created: list it right away and point the email (and
+      // its remaining actions) at it — no page reload needed.
+      if (action === "accept" && s.type === "create_client" && result.clientId) {
+        const newId = result.clientId;
+        if (result.clientName) {
+          setClientDirectory((m) => ({ ...m, [newId]: result.clientName! }));
+        }
+        setAttachedClient((m) => ({ ...m, [s.item_id]: newId }));
+        void refreshClients(true);
+      }
     } catch {
       setStatuses((m) => ({ ...m, [s.id]: "pending" }));
     }
@@ -894,6 +1026,11 @@ export function OutlookDigest({
                   item={item}
                   suggestions={suggestionsByItem.get(item.id) ?? []}
                   clientName={clientNameFor(item)}
+                  clientIdFor={(s) => clientIdFor(item, s)}
+                  onPickSuggestionClient={(s, clientId) =>
+                    setPickedClient((m) => ({ ...m, [s.id]: clientId }))
+                  }
+                  onClientsOpen={() => void refreshClients()}
                   statuses={statuses}
                   onAccept={(s) => resolve(s, "accept")}
                   onReject={(s) => resolve(s, "reject")}
@@ -996,6 +1133,11 @@ export function OutlookDigest({
                     item={item}
                     suggestions={suggestionsByItem.get(item.id) ?? []}
                     clientName={clientNameFor(item)}
+                    clientIdFor={(s) => clientIdFor(item, s)}
+                    onPickSuggestionClient={(s, clientId) =>
+                      setPickedClient((m) => ({ ...m, [s.id]: clientId }))
+                    }
+                    onClientsOpen={() => void refreshClients()}
                     statuses={statuses}
                     onAccept={(s) => resolve(s, "accept")}
                     onReject={(s) => resolve(s, "reject")}

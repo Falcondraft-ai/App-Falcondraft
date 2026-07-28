@@ -4,6 +4,7 @@ import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import {
   brokerClientDisplayName,
 } from "@/lib/broker/clients";
+import { getBrokerClients } from "@/lib/broker/data";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
 
 const createClientSchema = z
@@ -23,6 +24,7 @@ const createClientSchema = z
       .optional()
       .or(z.literal(""))
       .nullable(),
+    birthCountry: z.string().trim().max(120).optional().nullable(),
     insuranceType: z.string().trim().max(40).optional().nullable(),
     introducerId: z.string().uuid().optional().nullable(),
     needs: z.string().trim().max(5000).optional().nullable(),
@@ -48,6 +50,30 @@ const createClientSchema = z
 
 function jsonError(message: string, status: number, reason: string) {
   return NextResponse.json({ success: false, message, reason }, { status });
+}
+
+/**
+ * Lightweight dossier directory (id + display name) for the pickers — lets the
+ * Outlook briefing refresh its list of dossiers without reloading the page.
+ */
+export async function GET() {
+  const auth = await requireBrokerApiContext();
+  if (!auth.success) {
+    return jsonError(auth.message, auth.status, auth.reason);
+  }
+
+  const clients = await getBrokerClients(auth.organizationId, {
+    limit: 2000,
+    includeArchived: true,
+  });
+
+  return NextResponse.json({
+    success: true,
+    clients: clients.map((client) => ({
+      id: client.id,
+      name: brokerClientDisplayName(client),
+    })),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -106,6 +132,7 @@ export async function POST(request: NextRequest) {
       postal_code: values.postalCode?.trim() || null,
       city: values.city?.trim() || null,
       date_of_birth: values.dateOfBirth?.trim() || null,
+      birth_country: values.birthCountry?.trim() || null,
       insurance_type: values.insuranceType?.trim() || null,
       introducer_id: values.introducerId ?? null,
       needs: values.needs?.trim() || null,

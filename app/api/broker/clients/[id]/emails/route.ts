@@ -77,17 +77,28 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
     .limit(100);
 
   const needle = q?.toLowerCase();
-  let linkedEmails: ClientEmail[] = (linkedItems ?? []).map((it) => ({
-    id: it.graph_message_id,
-    subject: it.subject || "(sans objet)",
-    from: it.from_name || it.from_email || "Expéditeur",
-    fromEmail: it.from_email || "",
-    receivedAt: it.received_at || "",
-    preview: it.summary || "",
-    hasAttachments: it.has_attachments ?? false,
-    webLink: it.web_link || "",
-    matchType: "linked",
-  }));
+
+  // One row per (user, message): the briefing is per-broker, so two colleagues
+  // who both received the same email each hold their own row for it. We read
+  // across the whole organization here, so the same message can come back
+  // several times — collapse it, keeping whichever row carries a summary.
+  const linkedById = new Map<string, ClientEmail>();
+  for (const it of linkedItems ?? []) {
+    const existing = linkedById.get(it.graph_message_id);
+    if (existing && (existing.preview || !it.summary)) continue;
+    linkedById.set(it.graph_message_id, {
+      id: it.graph_message_id,
+      subject: it.subject || "(sans objet)",
+      from: it.from_name || it.from_email || "Expéditeur",
+      fromEmail: it.from_email || "",
+      receivedAt: it.received_at || "",
+      preview: it.summary || "",
+      hasAttachments: it.has_attachments ?? false,
+      webLink: it.web_link || "",
+      matchType: "linked",
+    });
+  }
+  let linkedEmails: ClientEmail[] = [...linkedById.values()];
   if (needle) {
     linkedEmails = linkedEmails.filter((e) =>
       [e.subject, e.from, e.fromEmail, e.preview].some((f) =>

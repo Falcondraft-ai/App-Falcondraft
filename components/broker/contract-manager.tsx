@@ -4,6 +4,7 @@ import Link from "next/link";
 import * as React from "react";
 import { Plus, ShieldCheck } from "lucide-react";
 import { ContractForm } from "@/components/broker/contract-form";
+import { ContractImporter } from "@/components/broker/contract-importer";
 import { ContractStatusBadge } from "@/components/broker/contract-status-badge";
 import { Button } from "@/components/ui/button";
 import type { BrokerInsuranceType } from "@/lib/broker/clients";
@@ -22,12 +23,14 @@ export function ContractManager({
   branches,
   insurers,
   canEdit,
+  storageFull,
 }: {
   clientId: string;
   contracts: BrokerContractRow[];
   branches: BrokerInsuranceType[];
   insurers: string[];
   canEdit: boolean;
+  storageFull: boolean;
 }) {
   const [adding, setAdding] = React.useState(false);
 
@@ -114,15 +117,22 @@ export function ContractManager({
             />
           </div>
         ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5"
-          >
-            <Plus className="size-3.5" strokeWidth={2} />
-            Ajouter un contrat
-          </Button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <ContractImporter
+              clientId={clientId}
+              canEdit={canEdit}
+              storageFull={storageFull}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Plus className="size-3.5" strokeWidth={2} />
+              Saisir manuellement
+            </Button>
+          </div>
         )
       ) : null}
     </div>

@@ -227,7 +227,7 @@ export default async function BrokerClientDetailPage({
 
             <Card
               title="Contrats"
-              description="Les contrats en cours du client, leurs échéances et leurs renouvellements."
+              description="Importez un contrat au format PDF ou saisissez-le : échéances et renouvellements sont suivis automatiquement."
             >
               <ContractManager
                 clientId={client.id}
@@ -235,6 +235,7 @@ export default async function BrokerClientDetailPage({
                 branches={brokerSettings.enabledBranches}
                 insurers={brokerSettings.partnerInsurers}
                 canEdit={canEdit}
+                storageFull={storageFull}
               />
             </Card>
 
