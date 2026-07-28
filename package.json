@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "guide:pdf": "tsx scripts/build-guide-pdf.tsx",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "test:e2e:install-browser": "npx @puppeteer/browsers@latest install chrome@stable --path .cache/browsers && mkdir -p .cache/debs .cache/browser-libs && cd .cache/debs && apt-get download libnspr4 libnss3 libasound2t64 && for deb in *.deb; do dpkg-deb -x \"$deb\" ../browser-libs; done",
