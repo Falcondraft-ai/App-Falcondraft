@@ -31,12 +31,29 @@ const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 // High-volume email triage (runs daily per broker). Configurable via env so the
 // model/cost can be tuned without a code change.
 const DIGEST_MODEL = process.env.COURTIER_DIGEST_MODEL || "gpt-5.5";
-const MAX_EMAILS = 40;
-const MAX_WINDOW_DAYS = 7;
+// Emails read per run. A busy cabinet takes 100+/day, so the daily briefing has
+// to swallow a full day comfortably, and a catch-up several weeks of backlog.
+// Whatever does not fit is NOT dropped: the run stops on a precise timestamp and
+// the next one resumes there (see `truncated` below).
+const MAX_EMAILS = 200;
+// Absolute safety bound on the rolling window: the briefing always resumes from
+// the last one, however old it is (a broker can be away for weeks), but never
+// asks Graph for a range beyond this.
+const MAX_WINDOW_DAYS = 90;
+// Emails classified in one OpenAI call. Bodies are ~2.5k chars each, so a whole
+// backlog in a single request would blow past the context window and cost far
+// more than several small, parallel calls.
+const CLASSIFY_BATCH_SIZE = 25;
+// Parallelism caps: Graph throttles (429) long before it runs out of breath, and
+// OpenAI is rate-limited per minute.
+const GRAPH_CONCURRENCY = 8;
+const CLASSIFY_CONCURRENCY = 3;
 // Reading attachment content (vision) is bounded to keep the daily briefing
 // cheap and fast: only PDFs/images, capped in count and size. Beyond the cap,
 // classification falls back to the file name.
-const MAX_ATTACHMENTS_ANALYZED = 10;
+const MAX_ATTACHMENTS_ANALYZED = 15;
+/** Wider windows carry more documents; vision stays the costliest step. */
+const BACKFILL_MAX_ATTACHMENTS_ANALYZED = 60;
 const MAX_ATTACHMENT_ANALYZE_BYTES = 8 * 1024 * 1024;
 // The classification reasons over what each email actually SAYS (who is the
 // insured, which info to note or update, what changed) — Graph's ~250-char
@@ -45,9 +62,18 @@ const MAX_BODY_CHARS = 2500;
 // Manual "go back over the last N days" backfill: wider window + higher email
 // cap than the daily rolling briefing (already-seen emails are still skipped).
 const BACKFILL_MAX_DAYS = 90;
-const BACKFILL_MAX_EMAILS = 120;
+const BACKFILL_MAX_EMAILS = 600;
 // Attachment kinds that ARE client documents — a mail carrying one is relevant
 // on its own and its attachment must always be offered for filing.
+/**
+ * Local parts that mark a mailbox nobody reads: automated senders and bulk mail.
+ * Matched on the part before "@", with a trailing separator tolerated
+ * (`noreply-marketing@`, `no.reply+fr@`). Deliberately narrow — "notification",
+ * "service" or "contact" are NOT here: insurers use them for real business mail.
+ */
+const BULK_SENDER_PATTERN =
+  /^(no[-_.]?reply|do[-_.]?not[-_.]?reply|ne[-_.]?pas[-_.]?repondre|nepasrepondre|reply[-_.]?to[-_.]?none|mailer[-_.]?daemon|postmaster|bounces?|newsletters?|mailing|marketing|campaign|unsubscribe)([-_.+][^@]*)?$/i;
+
 const CLIENT_DOC_CATEGORIES = new Set<AttachmentDocCategory>([
   "company_quote",
   "contract",
@@ -69,6 +95,12 @@ export type GenerateDigestResult =
       relevant: number;
       excluded: number;
       uncertain: number;
+      /**
+       * The window was cut short by the email cap: older mail is still waiting
+       * and the next run resumes exactly where this one stopped. The UI invites
+       * the broker to relaunch rather than letting him believe he is up to date.
+       */
+      truncated: boolean;
     }
   | { success: false; reason: string; message: string };
 
@@ -325,7 +357,43 @@ function buildUserPayload(
   });
 }
 
-async function classifyEmails(
+/**
+ * True when an address is an automated / bulk sender no human answers.
+ *
+ * Cheap deterministic triage: these emails are the bulk of a cabinet's inbox and
+ * asking a model to state the obvious about each one costs real money. The
+ * caller still applies safety valves (attachments, client domains) before
+ * setting one aside — see the pre-filter in `generateDigest`.
+ */
+function isBulkSender(email: string): boolean {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return false;
+  return BULK_SENDER_PATTERN.test(email.slice(0, at));
+}
+
+/**
+ * Runs `fn` over `items` with a bounded number of in-flight promises. A mailbox
+ * run touches hundreds of messages: firing every Graph or OpenAI call at once
+ * gets the whole batch throttled.
+ */
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const i = cursor++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function classifyBatch(
   apiKey: string,
   userName: string,
   messages: OutlookMessage[],
@@ -384,6 +452,113 @@ async function classifyEmails(
 }
 
 /**
+ * Classifies every message, in parallel batches.
+ *
+ * One request for the whole mailbox does not scale: a catch-up over several
+ * weeks carries hundreds of emails whose bodies alone would exceed the context
+ * window — and a single oversized call is both slower and more expensive than a
+ * handful of small ones. Batches also degrade gracefully: if one fails, the rest
+ * of the briefing still comes through.
+ */
+async function classifyEmails(
+  apiKey: string,
+  userName: string,
+  messages: OutlookMessage[],
+  attachmentsByMessage: Map<string, AttachmentRef[]>,
+  clientRoster: RosterEntry[],
+  mailboxByMessage: Map<string, string | null>,
+  mailboxAddresses: string[],
+  understoodByRef: Map<string, AttachmentUnderstanding>,
+  bodyByMessage: Map<string, string>,
+): Promise<AiResponse | null> {
+  const batches: OutlookMessage[][] = [];
+  for (let i = 0; i < messages.length; i += CLASSIFY_BATCH_SIZE) {
+    batches.push(messages.slice(i, i + CLASSIFY_BATCH_SIZE));
+  }
+
+  const results = await mapPool(batches, CLASSIFY_CONCURRENCY, (batch) =>
+    classifyBatch(
+      apiKey,
+      userName,
+      batch,
+      attachmentsByMessage,
+      clientRoster,
+      mailboxByMessage,
+      mailboxAddresses,
+      understoodByRef,
+      bodyByMessage,
+    ),
+  );
+
+  const emails: AiEmailResult[] = [];
+  const narratives: string[] = [];
+  let failed = 0;
+  for (const r of results) {
+    if (!r) {
+      failed += 1;
+      continue;
+    }
+    if (r.emails) emails.push(...r.emails);
+    const n = r.narrative?.trim();
+    if (n) narratives.push(n);
+  }
+
+  // Everything failed → the caller must show an error, not an empty briefing.
+  if (failed === results.length) return null;
+  if (failed > 0) {
+    console.error(`[digest] ${failed}/${results.length} classification batches failed`);
+  }
+
+  const narrative =
+    narratives.length > 1
+      ? ((await synthesizeNarrative(apiKey, userName, narratives)) ??
+        narratives[0])
+      : (narratives[0] ?? null);
+
+  return { narrative: narrative ?? undefined, emails };
+}
+
+/**
+ * Merges the per-batch narratives into the single paragraph the briefing shows.
+ * Cheap call (a few hundred tokens) — on failure the caller falls back to the
+ * first batch narrative rather than losing the briefing.
+ */
+async function synthesizeNarrative(
+  apiKey: string,
+  userName: string,
+  narratives: string[],
+): Promise<string | null> {
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: DIGEST_MODEL,
+      max_completion_tokens: 400,
+      messages: [
+        {
+          role: "system",
+          content:
+            `Tu rédiges le résumé d'ouverture du briefing email de ${userName}, courtier en assurance. ` +
+            `On te donne plusieurs résumés partiels du même briefing : fusionne-les en 2 à 4 phrases, ` +
+            `ton chaleureux et professionnel, en mettant l'urgent en avant. Pas de répétition, ` +
+            `pas d'emojis, pas de jargon technique. Réponds uniquement par le texte.`,
+        },
+        { role: "user", content: narratives.join("\n\n") },
+      ],
+    }),
+  }).catch(() => null);
+
+  if (!res || !res.ok) return null;
+  const payload = (await res.json().catch(() => null)) as {
+    choices?: { message?: { content?: string } }[];
+  } | null;
+  return payload?.choices?.[0]?.message?.content?.trim() || null;
+}
+
+/**
  * Generates a fresh email briefing for the user: reads new Outlook messages
  * since the last digest, classifies them (strict brokerage relevance), and
  * persists the digest + relevant items + proposed actions. Nothing is executed
@@ -417,7 +592,6 @@ export async function generateDigest(
       ? Math.min(Math.floor(options.windowDays), BACKFILL_MAX_DAYS)
       : 0;
   const isBackfill = backfillDays > 0;
-  const maxEmails = isBackfill ? BACKFILL_MAX_EMAILS : MAX_EMAILS;
 
   let since: Date;
   if (isBackfill) {
@@ -426,13 +600,18 @@ export async function generateDigest(
     // missed (e.g. before the mailbox was connected, or emails set aside).
     since = new Date(now.getTime() - backfillDays * 86400_000);
   } else {
-    // Rolling window: since the last digest, capped to MAX_WINDOW_DAYS.
+    // Rolling window: strictly since the last briefing — the broker launches it
+    // himself, so a gap of several days (week-end, absence) must be caught up
+    // in full rather than silently truncated to the last 24 h.
+    // The FURTHEST point ever covered, not the most recent digest: a manual
+    // "Remonter 90 jours" writes an older window and must never rewind the
+    // rolling pointer to it.
     const { data: lastDigest } = await ctx.adminSupabase
       .from("broker_email_digests")
       .select("window_end")
       .eq("organization_id", ctx.organizationId)
       .eq("user_id", ctx.userId)
-      .order("created_at", { ascending: false })
+      .order("window_end", { ascending: false })
       .limit(1)
       .maybeSingle();
     const floor = new Date(now.getTime() - MAX_WINDOW_DAYS * 86400_000);
@@ -445,19 +624,39 @@ export async function generateDigest(
   }
   const sinceIso = since.toISOString();
 
+  // A wide window (explicit backfill, or a briefing not run for a couple of
+  // days) needs the higher email cap, otherwise the catch-up gets truncated.
+  const windowSpanDays = (now.getTime() - since.getTime()) / 86400_000;
+  const maxEmails =
+    isBackfill || windowSpanDays > 1.5 ? BACKFILL_MAX_EMAILS : MAX_EMAILS;
+
   // Mailbox aliases (primary + SMTP proxies) so we can tag each email with the
   // address it was delivered to — the bespoke broker aggregates several.
   const mailboxAddresses = await getMailboxAddresses(access.accessToken);
   const mailboxAddressSet = new Set(mailboxAddresses);
 
-  const allMessages = await listRecentInboxMessages(
+  const { messages: allMessages, truncated } = await listRecentInboxMessages(
     access.accessToken,
     sinceIso,
     maxEmails,
   );
 
+  // Messages come back oldest first. When the cap cuts the window short, the
+  // briefing must close on the last email it actually read — that timestamp is
+  // where the next run picks up, so nothing in between is ever skipped.
+  const lastRead = allMessages[allMessages.length - 1]?.receivedDateTime;
+  const windowEnd =
+    truncated && lastRead && !Number.isNaN(new Date(lastRead).getTime())
+      ? new Date(lastRead).toISOString()
+      : now.toISOString();
+  if (truncated) {
+    console.log(
+      `[digest] window truncated at ${windowEnd} (${allMessages.length} emails read) — next run resumes there`,
+    );
+  }
+
   // Skip messages already processed in an earlier digest (idempotency).
-  let messages = allMessages;
+  let candidates = allMessages;
   if (allMessages.length > 0) {
     const ids = allMessages.map((m) => m.id);
     const { data: seen } = await ctx.adminSupabase
@@ -467,11 +666,11 @@ export async function generateDigest(
       .eq("user_id", ctx.userId)
       .in("graph_message_id", ids);
     const seenSet = new Set((seen ?? []).map((r) => r.graph_message_id));
-    messages = allMessages.filter((m) => !seenSet.has(m.id));
+    candidates = allMessages.filter((m) => !seenSet.has(m.id));
   }
 
   // Empty window → still record a digest so the UI shows "nothing new".
-  if (messages.length === 0) {
+  if (candidates.length === 0) {
     const { data: digest } = await ctx.adminSupabase
       .from("broker_email_digests")
       .insert({
@@ -482,7 +681,7 @@ export async function generateDigest(
           ? `Rien de non traité sur les ${backfillDays} derniers jours. Boîte à jour côté courtage.`
           : "Rien de nouveau depuis votre dernier briefing. Boîte à jour côté courtage.",
         window_start: sinceIso,
-        window_end: now.toISOString(),
+        window_end: windowEnd,
         relevant_count: 0,
         excluded_count: 0,
         generated_at: now.toISOString(),
@@ -495,95 +694,8 @@ export async function generateDigest(
       relevant: 0,
       excluded: 0,
       uncertain: 0,
+      truncated,
     };
-  }
-
-  // Full email bodies — the AI must read what each email actually says, not a
-  // ~250-char preview. Failures fall back to the preview (never blocking).
-  const bodyByMessage = new Map<string, string>();
-  await Promise.all(
-    messages.map(async (m) => {
-      const full = await getOutlookMessageBody(access.accessToken, m.id);
-      if (full?.body) bodyByMessage.set(m.id, full.body.slice(0, MAX_BODY_CHARS));
-    }),
-  );
-
-  // Attachment metadata for messages that have attachments.
-  const attachmentsByMessage = new Map<string, AttachmentRef[]>();
-  const attachmentByRef = new Map<string, AttachmentRef>();
-  await Promise.all(
-    messages.map(async (m, i) => {
-      // Fetch for EVERY message, not only those with hasAttachments=true: an
-      // inline photo (e.g. sent from a phone / pasted in the body) does NOT set
-      // that flag, yet is a real fileAttachment we must catch and classify.
-      const metas = await getMessageAttachmentsMeta(access.accessToken, m.id);
-      const refs = metas.map((meta, j) => {
-        const ref: AttachmentRef = {
-          ref: `e${i}a${j}`,
-          messageId: m.id,
-          attachmentId: meta.id,
-          name: meta.name,
-          contentType: meta.contentType,
-          size: meta.size,
-        };
-        attachmentByRef.set(ref.ref, ref);
-        return ref;
-      });
-      if (refs.length > 0) attachmentsByMessage.set(m.id, refs);
-    }),
-  );
-
-  // Read the content of document-like attachments (PDF/image) so classification
-  // is based on what they ACTUALLY contain, not their file name — bounded in
-  // count and size to keep the daily briefing cheap.
-  const understoodByRef = new Map<string, AttachmentUnderstanding>();
-  const analyzable = [...attachmentByRef.values()]
-    .filter((a) => {
-      if (!isReadableDocument(a.contentType, a.name)) return false;
-      if (a.size <= 0 || a.size > MAX_ATTACHMENT_ANALYZE_BYTES) return false;
-      // Skip tiny images (signature logos, tracking pixels) now that we fetch
-      // attachments for every message.
-      if (a.contentType.toLowerCase().startsWith("image/") && a.size < 15_000) {
-        return false;
-      }
-      return true;
-    })
-    .slice(0, MAX_ATTACHMENTS_ANALYZED);
-  await Promise.all(
-    analyzable.map(async (a) => {
-      const file = await getFileAttachmentBytes(
-        access.accessToken,
-        a.messageId,
-        a.attachmentId,
-      );
-      if (!file) return;
-      const understood = await understandDocument({
-        buffer: Buffer.from(file.contentBase64, "base64"),
-        mimeType: a.contentType,
-        fileName: a.name,
-      });
-      if (understood.ok) understoodByRef.set(a.ref, understood.data);
-    }),
-  );
-
-  // Diagnostic: which attachments were fetched from Graph and how the content
-  // read classified them (helps see if a PJ is missing vs mis-read).
-  if (attachmentByRef.size > 0) {
-    console.log(
-      "[digest] attachments:",
-      [...attachmentByRef.values()].map((a) => ({
-        name: a.name,
-        type: a.contentType,
-        size: a.size,
-        detected: understoodByRef.get(a.ref)?.category ?? "—",
-      })),
-    );
-  } else {
-    console.log(
-      `[digest] no file attachments fetched (messages with hasAttachments=${
-        messages.filter((m) => m.hasAttachments).length
-      })`,
-    );
   }
 
   // Client roster for matching (email + display name).
@@ -621,10 +733,177 @@ export async function generateDigest(
     };
   });
 
-  // Resolve which mailbox address each message was delivered to.
+  // Resolve which mailbox address each message was delivered to — including the
+  // ones set aside below, so an excluded email still shows its channel.
   const mailboxByMessage = new Map<string, string | null>();
-  for (const m of messages) {
+  for (const m of candidates) {
     mailboxByMessage.set(m.id, resolveMailboxAddress(m, mailboxAddressSet));
+  }
+
+  // Deterministic pre-filter: automated / bulk senders never reach the model.
+  // On a busy cabinet they are the majority of the inbox, and each one would
+  // otherwise cost a body fetch, an attachment lookup and a slice of an OpenAI
+  // request to be told what a regex already knows. Two safety valves, because a
+  // missed insurer email costs far more than the tokens saved:
+  //   - anything WITH an attachment is kept (insurers do send contracts and
+  //     quotes from a noreply address);
+  //   - anything from a domain that belongs to a client is kept.
+  const clientDomains = new Set<string>();
+  for (const c of clients) {
+    const at = c.email?.lastIndexOf("@") ?? -1;
+    if (c.email && at > 0) clientDomains.add(c.email.slice(at + 1).toLowerCase());
+  }
+  const bulkMessages: OutlookMessage[] = [];
+  const messages = candidates.filter((m) => {
+    if (m.hasAttachments) return true;
+    if (!isBulkSender(m.fromEmail)) return true;
+    const at = m.fromEmail.lastIndexOf("@");
+    if (at > 0 && clientDomains.has(m.fromEmail.slice(at + 1))) return true;
+    bulkMessages.push(m);
+    return false;
+  });
+  if (bulkMessages.length > 0) {
+    console.log(
+      `[digest] ${bulkMessages.length}/${candidates.length} emails set aside as automated senders (no AI call)`,
+    );
+  }
+
+  /** Records a pre-filtered email so the briefing's "écartés" stays exhaustive. */
+  const insertBulkItems = async (digestId: string) => {
+    if (bulkMessages.length === 0) return;
+    await ctx.adminSupabase.from("broker_email_items").insert(
+      bulkMessages.map((m) => ({
+        organization_id: ctx.organizationId,
+        digest_id: digestId,
+        user_id: ctx.userId,
+        graph_message_id: m.id,
+        from_name: m.fromName || null,
+        from_email: m.fromEmail || null,
+        subject: m.subject,
+        received_at: m.receivedDateTime || null,
+        web_link: m.webLink || null,
+        mailbox_address: mailboxByMessage.get(m.id) ?? null,
+        relevance: "excluded",
+        exclusion_reason: "Expéditeur automatique (no-reply, envoi de masse).",
+        has_attachments: m.hasAttachments,
+      })),
+    );
+  };
+
+  // Everything was automated mail: record the briefing without a single AI call.
+  if (messages.length === 0) {
+    const { data: digest } = await ctx.adminSupabase
+      .from("broker_email_digests")
+      .insert({
+        organization_id: ctx.organizationId,
+        user_id: ctx.userId,
+        status: "ready",
+        narrative:
+          "Rien à traiter côté courtage : seuls des emails automatiques sont arrivés.",
+        window_start: sinceIso,
+        window_end: windowEnd,
+        relevant_count: 0,
+        excluded_count: bulkMessages.length,
+        generated_at: now.toISOString(),
+      })
+      .select("id")
+      .single();
+    if (digest) await insertBulkItems(digest.id);
+    return {
+      success: true,
+      digestId: digest?.id ?? "",
+      relevant: 0,
+      excluded: bulkMessages.length,
+      uncertain: 0,
+      truncated,
+    };
+  }
+
+  // Full email bodies — the AI must read what each email actually says, not a
+  // ~250-char preview. Failures fall back to the preview (never blocking).
+  const bodyByMessage = new Map<string, string>();
+  await mapPool(messages, GRAPH_CONCURRENCY, async (m) => {
+    const full = await getOutlookMessageBody(access.accessToken, m.id);
+    if (full?.body) bodyByMessage.set(m.id, full.body.slice(0, MAX_BODY_CHARS));
+  });
+
+  // Attachment metadata for messages that have attachments.
+  const attachmentsByMessage = new Map<string, AttachmentRef[]>();
+  const attachmentByRef = new Map<string, AttachmentRef>();
+  await mapPool(messages, GRAPH_CONCURRENCY, async (m, i) => {
+    // Fetch for EVERY message, not only those with hasAttachments=true: an
+    // inline photo (e.g. sent from a phone / pasted in the body) does NOT set
+    // that flag, yet is a real fileAttachment we must catch and classify.
+    const metas = await getMessageAttachmentsMeta(access.accessToken, m.id);
+    const refs = metas.map((meta, j) => {
+      const ref: AttachmentRef = {
+        ref: `e${i}a${j}`,
+        messageId: m.id,
+        attachmentId: meta.id,
+        name: meta.name,
+        contentType: meta.contentType,
+        size: meta.size,
+      };
+      attachmentByRef.set(ref.ref, ref);
+      return ref;
+    });
+    if (refs.length > 0) attachmentsByMessage.set(m.id, refs);
+  });
+
+  // Read the content of document-like attachments (PDF/image) so classification
+  // is based on what they ACTUALLY contain, not their file name — bounded in
+  // count and size to keep the daily briefing cheap.
+  const understoodByRef = new Map<string, AttachmentUnderstanding>();
+  const analyzable = [...attachmentByRef.values()]
+    .filter((a) => {
+      if (!isReadableDocument(a.contentType, a.name)) return false;
+      if (a.size <= 0 || a.size > MAX_ATTACHMENT_ANALYZE_BYTES) return false;
+      // Skip tiny images (signature logos, tracking pixels) now that we fetch
+      // attachments for every message.
+      if (a.contentType.toLowerCase().startsWith("image/") && a.size < 15_000) {
+        return false;
+      }
+      return true;
+    })
+    .slice(
+      0,
+      maxEmails > MAX_EMAILS
+        ? BACKFILL_MAX_ATTACHMENTS_ANALYZED
+        : MAX_ATTACHMENTS_ANALYZED,
+    );
+  await mapPool(analyzable, GRAPH_CONCURRENCY, async (a) => {
+    const file = await getFileAttachmentBytes(
+      access.accessToken,
+      a.messageId,
+      a.attachmentId,
+    );
+    if (!file) return;
+    const understood = await understandDocument({
+      buffer: Buffer.from(file.contentBase64, "base64"),
+      mimeType: a.contentType,
+      fileName: a.name,
+    });
+    if (understood.ok) understoodByRef.set(a.ref, understood.data);
+  });
+
+  // Diagnostic: which attachments were fetched from Graph and how the content
+  // read classified them (helps see if a PJ is missing vs mis-read).
+  if (attachmentByRef.size > 0) {
+    console.log(
+      "[digest] attachments:",
+      [...attachmentByRef.values()].map((a) => ({
+        name: a.name,
+        type: a.contentType,
+        size: a.size,
+        detected: understoodByRef.get(a.ref)?.category ?? "—",
+      })),
+    );
+  } else {
+    console.log(
+      `[digest] no file attachments fetched (messages with hasAttachments=${
+        messages.filter((m) => m.hasAttachments).length
+      })`,
+    );
   }
 
   const ai = await classifyEmails(
@@ -661,7 +940,7 @@ export async function generateDigest(
       status: "ready",
       narrative: ai.narrative?.trim() || null,
       window_start: sinceIso,
-      window_end: now.toISOString(),
+      window_end: windowEnd,
       generated_at: now.toISOString(),
     })
     .select("id")
@@ -676,8 +955,12 @@ export async function generateDigest(
     };
   }
 
+  // Pre-filtered emails belong to this briefing too: they are listed among the
+  // "écartés" so the broker can always audit what the assistant set aside.
+  await insertBulkItems(digest.id);
+
   let relevant = 0;
-  let excluded = 0;
+  let excluded = bulkMessages.length;
   let uncertain = 0;
 
   for (let i = 0; i < messages.length; i += 1) {
@@ -1062,5 +1345,12 @@ export async function generateDigest(
     })
     .eq("id", digest.id);
 
-  return { success: true, digestId: digest.id, relevant, excluded, uncertain };
+  return {
+    success: true,
+    digestId: digest.id,
+    relevant,
+    excluded,
+    uncertain,
+    truncated,
+  };
 }

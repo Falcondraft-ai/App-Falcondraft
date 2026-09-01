@@ -167,51 +167,103 @@ export function resolveMailboxAddress(
   return null;
 }
 
-/** Lists inbox messages received since `sinceIso`, newest first (capped). */
+/** Page size accepted by Graph on `/messages` — the hard per-request ceiling. */
+const GRAPH_PAGE_SIZE = 100;
+/** Safety bound so a runaway mailbox can't loop forever on `@odata.nextLink`. */
+const MAX_PAGES = 30;
+
+export type InboxPage = {
+  messages: OutlookMessage[];
+  /**
+   * True when the cap was reached and Graph still had more to give. The caller
+   * must then remember where it stopped, otherwise the rest of the window is
+   * lost for good.
+   */
+  truncated: boolean;
+};
+
+/**
+ * Lists inbox messages received since `sinceIso`, **oldest first**, following
+ * Graph's pagination up to `max`.
+ *
+ * Chronological order is the default and is deliberate: a mailbox can receive
+ * far more than one
+ * batch can process (100+/day for a busy broker), so a capped run must keep the
+ * OLDEST unprocessed emails — those are the ones the caller has never seen. It
+ * then resumes from the newest message it did process, and walks forward. The
+ * reverse silently drops the beginning of the window. Pass `order: "desc"` only
+ * when you genuinely want "the N latest" and nothing is resumed afterwards.
+ */
 export async function listRecentInboxMessages(
   accessToken: string,
   sinceIso: string,
   max = 40,
-): Promise<OutlookMessage[]> {
+  options?: { order?: "asc" | "desc" },
+): Promise<InboxPage> {
+  const limit = Math.max(max, 1);
+  const order = options?.order ?? "asc";
   const params = new URLSearchParams({
     $select:
       "id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,webLink,conversationId",
-    $top: String(Math.min(Math.max(max, 1), 100)),
-    $orderby: "receivedDateTime desc",
+    $top: String(Math.min(limit, GRAPH_PAGE_SIZE)),
+    $orderby: `receivedDateTime ${order}`,
     $filter: `receivedDateTime ge ${sinceIso}`,
   });
 
-  const res = await fetch(
-    `${GRAPH}/me/mailFolders/inbox/messages?${params.toString()}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  ).catch(() => null);
+  let url: string | null =
+    `${GRAPH}/me/mailFolders/inbox/messages?${params.toString()}`;
+  const collected: OutlookMessage[] = [];
+  let truncated = false;
 
-  if (!res || !res.ok) {
-    console.error("[outlook] list messages failed:", res?.status);
-    return [];
+  for (let page = 0; page < MAX_PAGES && url; page += 1) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      console.error("[outlook] list messages failed:", res?.status);
+      // Keep what we already have: a partial window the caller can resume from
+      // is far better than losing the whole run.
+      return { messages: collected, truncated: collected.length > 0 };
+    }
+
+    const payload = (await res.json().catch(() => null)) as {
+      value?: GraphMessage[];
+      "@odata.nextLink"?: string;
+    } | null;
+
+    collected.push(...(payload?.value ?? []).flatMap(toOutlookMessage));
+
+    if (collected.length >= limit) {
+      truncated = Boolean(payload?.["@odata.nextLink"]);
+      return { messages: collected.slice(0, limit), truncated };
+    }
+
+    url = payload?.["@odata.nextLink"] ?? null;
+    // Hit the page ceiling with more to come: report it rather than pretend the
+    // window is complete.
+    if (url && page === MAX_PAGES - 1) truncated = true;
   }
 
-  const payload = (await res.json().catch(() => null)) as {
-    value?: GraphMessage[];
-  } | null;
+  return { messages: collected, truncated };
+}
 
-  return (payload?.value ?? []).flatMap((m) => {
-    if (!m.id) return [];
-    return [
-      {
-        id: m.id,
-        subject: m.subject?.trim() || "(sans objet)",
-        fromName: m.from?.emailAddress?.name?.trim() || "",
-        fromEmail: m.from?.emailAddress?.address?.trim().toLowerCase() || "",
-        receivedDateTime: m.receivedDateTime ?? "",
-        bodyPreview: (m.bodyPreview ?? "").slice(0, 800),
-        hasAttachments: Boolean(m.hasAttachments),
-        webLink: m.webLink ?? "",
-        conversationId: m.conversationId ?? "",
-        recipients: recipientAddresses(m),
-      },
-    ];
-  });
+function toOutlookMessage(m: GraphMessage): OutlookMessage[] {
+  if (!m.id) return [];
+  return [
+    {
+      id: m.id,
+      subject: m.subject?.trim() || "(sans objet)",
+      fromName: m.from?.emailAddress?.name?.trim() || "",
+      fromEmail: m.from?.emailAddress?.address?.trim().toLowerCase() || "",
+      receivedDateTime: m.receivedDateTime ?? "",
+      bodyPreview: (m.bodyPreview ?? "").slice(0, 800),
+      hasAttachments: Boolean(m.hasAttachments),
+      webLink: m.webLink ?? "",
+      conversationId: m.conversationId ?? "",
+      recipients: recipientAddresses(m),
+    },
+  ];
 }
 
 /**

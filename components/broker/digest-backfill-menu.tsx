@@ -40,6 +40,7 @@ export function DigestBackfillMenu() {
             message?: string;
             relevant?: number;
             uncertain?: number;
+            truncated?: boolean;
           }
         | null;
 
@@ -54,6 +55,13 @@ export function DigestBackfillMenu() {
         toReview > 0
           ? `${toReview} email${toReview > 1 ? "s" : ""} à traiter sur ${days} jours.`
           : `Rien de non traité sur les ${days} derniers jours.`,
+        result.truncated
+          ? {
+              description:
+                "Le volume dépasse une seule analyse : relancez pour traiter la suite.",
+              duration: 8000,
+            }
+          : undefined,
       );
       router.refresh();
     } finally {

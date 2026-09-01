@@ -5,7 +5,9 @@ import { generateDigest } from "@/lib/broker/email-digest";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// A catch-up run reads hundreds of emails and classifies them in batches; the
+// daily briefing is far quicker but shares this ceiling.
+export const maxDuration = 300;
 
 // Optional "go back over the last N days" backfill window. Absent → rolling
 // daily briefing since the last one.
@@ -57,5 +59,6 @@ export async function POST(request: NextRequest) {
     relevant: result.relevant,
     uncertain: result.uncertain,
     excluded: result.excluded,
+    truncated: result.truncated,
   });
 }

@@ -930,7 +930,14 @@ export async function executeAgentTool(
     }
     const within = Math.min(Math.max(num(input, "within_days") ?? 3, 1), 30);
     const sinceIso = new Date(Date.now() - within * 86400_000).toISOString();
-    const messages = await listRecentInboxMessages(access.accessToken, sinceIso, 25);
+    // "The 25 latest" — a one-shot answer for the copilot, nothing resumes
+    // from it, so newest-first is the right order here.
+    const { messages } = await listRecentInboxMessages(
+      access.accessToken,
+      sinceIso,
+      25,
+      { order: "desc" },
+    );
     return {
       mailbox: access.email,
       count: messages.length,

@@ -6,6 +6,7 @@ import { GenerateDigestButton } from "@/components/broker/generate-digest-button
 import { OutlookConnectionCard } from "@/components/broker/outlook-connection-card";
 import { OutlookDigest } from "@/components/broker/outlook-digest";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
+import { BROKER_OFFERING_CUSTOM, getBrokerOffering } from "@/lib/broker/access";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import {
   getBrokerClients,
@@ -27,6 +28,10 @@ export default async function CourtierInboxPage() {
     userId,
   });
   const connected = connection?.status === "connected";
+  // Sur mesure : pas de briefing automatique le matin — le courtier le lance
+  // lui-même depuis cette page (et « Remonter » rattrape les jours sautés).
+  const autoDaily =
+    getBrokerOffering(context.organization) !== BROKER_OFFERING_CUSTOM;
 
   if (!connected) {
     return (
@@ -34,7 +39,11 @@ export default async function CourtierInboxPage() {
         <div className="space-y-6">
           <PageHeader
             title="Assistant Outlook"
-            description="Connectez votre boîte Outlook pour recevoir, chaque jour, un briefing trié de vos emails de courtage."
+            description={
+              autoDaily
+                ? "Connectez votre boîte Outlook pour recevoir, chaque jour, un briefing trié de vos emails de courtage."
+                : "Connectez votre boîte Outlook pour obtenir, quand vous le lancez, un briefing trié de vos emails de courtage."
+            }
           />
           <div className="max-w-2xl">
             <OutlookConnectionCard initialConnection={connection} />
@@ -110,7 +119,11 @@ export default async function CourtierInboxPage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <PageHeader
             title="Assistant Outlook"
-            description="Votre briefing du jour, trié et prêt à traiter."
+            description={
+              autoDaily
+                ? "Votre briefing du jour, trié et prêt à traiter."
+                : "Votre dernier briefing, trié et prêt à traiter."
+            }
           />
           {connection?.email ? (
             <span

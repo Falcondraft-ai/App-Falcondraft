@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateDigest } from "@/lib/broker/email-digest";
+import { BROKER_OFFERING_CUSTOM, getBrokerOffering } from "@/lib/broker/access";
 import { outlookOAuthProvider } from "@/lib/email/microsoft-oauth";
 import type { OrganizationRow } from "@/types/database";
 
@@ -10,7 +11,15 @@ export const maxDuration = 300;
 
 /**
  * Internal cron endpoint: generates the daily Outlook briefing for every broker
- * who has a connected Outlook mailbox. Driven natively by Vercel Cron (GET) or
+ * who has a connected Outlook mailbox.
+ *
+ * Excluded: "courtier sur mesure" organizations (broker_offering = custom).
+ * There the briefing is launched by the broker himself from /courtier/inbox —
+ * an automatic 6am run is useless on the days he does not work, and it would
+ * consume the recent-emails window before he ever sees it. Missed days are
+ * caught up with the "Remonter" backfill on the same page.
+ *
+ * Driven natively by Vercel Cron (GET) or
  * any scheduler with the shared secret — never from the browser. No user
  * session: it runs with the service-role client.
  *
@@ -60,19 +69,22 @@ async function handle(request: NextRequest) {
     user_id: string;
   }[];
 
-  // Only process insurance-broker workspaces.
+  // Only process insurance-broker workspaces on the self-serve SaaS offering.
   const orgIds = [...new Set(targets.map((t) => t.organization_id))];
   const brokerOrgIds = new Set<string>();
   if (orgIds.length > 0) {
     const { data: orgs } = await adminSupabase
       .from("organizations")
-      .select("id, workspace_type")
+      .select("id, workspace_type, broker_offering")
       .in("id", orgIds);
     for (const org of (orgs ?? []) as Pick<
       OrganizationRow,
-      "id" | "workspace_type"
+      "id" | "workspace_type" | "broker_offering"
     >[]) {
-      if (org.workspace_type === "insurance_broker") brokerOrgIds.add(org.id);
+      if (org.workspace_type !== "insurance_broker") continue;
+      // Sur mesure : briefing manuel uniquement, lancé par le courtier.
+      if (getBrokerOffering(org) === BROKER_OFFERING_CUSTOM) continue;
+      brokerOrgIds.add(org.id);
     }
   }
 

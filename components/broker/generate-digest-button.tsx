@@ -30,6 +30,7 @@ export function GenerateDigestButton({
             message?: string;
             relevant?: number;
             uncertain?: number;
+            truncated?: boolean;
           }
         | null;
 
@@ -40,10 +41,20 @@ export function GenerateDigestButton({
         return;
       }
       const toReview = (result.relevant ?? 0) + (result.uncertain ?? 0);
+      // Truncated: the run stopped on a timestamp and the rest is still queued,
+      // so the broker must know a second pass is needed — otherwise he closes
+      // the page thinking his backlog is done.
       toast.success(
         toReview > 0
           ? `Briefing prêt — ${toReview} email${toReview > 1 ? "s" : ""} à traiter.`
           : "Briefing à jour — rien de neuf côté courtage.",
+        result.truncated
+          ? {
+              description:
+                "Il reste du retard à traiter : relancez pour continuer là où l’analyse s’est arrêtée.",
+              duration: 8000,
+            }
+          : undefined,
       );
       router.refresh();
     } finally {
