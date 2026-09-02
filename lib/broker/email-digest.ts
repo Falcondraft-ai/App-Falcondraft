@@ -1125,6 +1125,9 @@ async function runDigest(
   let relevant = 0;
   let excluded = bulkMessages.length;
   let uncertain = 0;
+  // Emails pour lesquels l'IA n'a rien renvoyé : signal d'un lot en échec ou
+  // d'une réponse tronquée. Silencieux, ce serait invisible en production.
+  let unanalysed = 0;
 
   for (let i = 0; i < messages.length; i += 1) {
     const message = messages[i];
@@ -1153,9 +1156,14 @@ async function runDigest(
       return isReadableDocument(a.contentType, a.name) || isOffice;
     });
 
-    // Clearly unrelated (or unanalysed) AND no client document → excluded, with
-    // the reason, so the broker still sees what was set aside. No actions.
-    if ((!r || relevance === "no") && !hasClientDoc) {
+    // Clairement hors sujet ET sans document client → écarté, avec le motif, si
+    // bien que le courtier voit toujours ce qui a été mis de côté. Aucune action.
+    //
+    // Un email SANS verdict n'entre PAS ici : le silence de l'IA (lot en échec,
+    // réponse tronquée, référence oubliée) n'est pas un rejet. Il passe en
+    // « à vérifier » ci-dessous — perdre un virement de commission ou une
+    // demande d'assureur parce qu'un lot a échoué est inacceptable.
+    if (r && relevance === "no" && !hasClientDoc) {
       await ctx.adminSupabase.from("broker_email_items").insert({
         organization_id: ctx.organizationId,
         digest_id: digest.id,
@@ -1176,9 +1184,10 @@ async function runDigest(
       continue;
     }
 
-    // "yes" → relevant ; "uncertain", or a client document on an otherwise
-    // irrelevant/unanalysed mail → uncertain (the broker confirms).
+    // "yes" → relevant ; "uncertain", email non analysé, ou document client sur
+    // un mail par ailleurs hors sujet → à vérifier (le courtier tranche).
     const itemRelevance = relevance === "yes" ? "relevant" : "uncertain";
+    if (!r) unanalysed += 1;
 
     // Resolve which existing dossier this email belongs to. The AI reasoned over
     // the whole portfolio and returned the ref of the concerned dossier (or
@@ -1250,7 +1259,11 @@ async function runDigest(
         exclusion_reason:
           itemRelevance === "uncertain"
             ? r?.reason?.trim() ||
-              (hasClientDoc ? "Pièce jointe à classer dans un dossier." : null)
+              (hasClientDoc
+                ? "Pièce jointe à classer dans un dossier."
+                : !r
+                  ? "Non analysé automatiquement — à vérifier."
+                  : null)
             : null,
         suggested_client_id: clientId,
         has_attachments: message.hasAttachments,
@@ -1499,6 +1512,12 @@ async function runDigest(
         }
       }
     }
+  }
+
+  if (unanalysed > 0) {
+    console.error(
+      `[digest] ${unanalysed}/${messages.length} email(s) sans verdict de l'IA — passés en « à vérifier » plutôt qu'écartés`,
+    );
   }
 
   await ctx.adminSupabase
