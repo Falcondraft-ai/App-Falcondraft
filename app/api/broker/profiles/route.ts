@@ -4,10 +4,32 @@ import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import type { BrokerProfileRow } from "@/types/database";
 
+/**
+ * Champ facultatif saisi à la main : on ramène « vide », « que des espaces » et
+ * `null` au même sens — non renseigné. Sans ça, une adresse effacée qui laisse
+ * une espace derrière elle fait échouer tout l'enregistrement.
+ */
+const blankToUndefined = (value: unknown) =>
+  typeof value === "string" ? value.trim() || undefined : (value ?? undefined);
+
 const createSchema = z.object({
-  displayName: z.string().trim().min(1).max(80),
-  email: z.string().trim().email().max(200).optional().or(z.literal("")),
-  roleLabel: z.string().trim().max(60).optional().or(z.literal("")),
+  displayName: z
+    .string({ error: "Indiquez le nom du profil." })
+    .trim()
+    .min(1, "Indiquez le nom du profil.")
+    .max(80, "Nom trop long (80 caractères maximum)."),
+  email: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .email("Adresse email invalide.")
+      .max(200, "Adresse email trop longue.")
+      .optional(),
+  ),
+  roleLabel: z.preprocess(
+    blankToUndefined,
+    z.string().max(60, "Fonction trop longue (60 caractères maximum).").optional(),
+  ),
 });
 
 const updateSchema = createSchema.partial().extend({
@@ -18,6 +40,15 @@ const updateSchema = createSchema.partial().extend({
 
 function jsonError(message: string, status: number, reason: string) {
   return NextResponse.json({ success: false, message, reason }, { status });
+}
+
+/**
+ * Reprend le message de la première règle enfreinte plutôt qu'un libellé
+ * générique : « Nom de profil invalide » alors que c'est l'adresse qui coince
+ * envoie le courtier corriger le mauvais champ.
+ */
+function validationMessage(error: z.ZodError): string {
+  return error.issues[0]?.message ?? "Champs du profil invalides.";
 }
 
 /** Profils du cabinet. */
@@ -46,7 +77,7 @@ export async function POST(request: NextRequest) {
   const body: unknown = await request.json().catch(() => ({}));
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return jsonError("Nom de profil invalide.", 400, "invalid_input");
+    return jsonError(validationMessage(parsed.error), 400, "invalid_input");
   }
 
   const email = parsed.data.email?.trim().toLowerCase() || null;
@@ -111,7 +142,9 @@ export async function PATCH(request: NextRequest) {
 
   const body: unknown = await request.json().catch(() => ({}));
   const parsed = updateSchema.safeParse(body);
-  if (!parsed.success) return jsonError("Requête invalide.", 400, "invalid_input");
+  if (!parsed.success) {
+    return jsonError(validationMessage(parsed.error), 400, "invalid_input");
+  }
 
   const { id, displayName, email, roleLabel, isActive, sortOrder } = parsed.data;
   const normalizedEmail =
