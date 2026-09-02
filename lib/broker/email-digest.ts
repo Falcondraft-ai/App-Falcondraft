@@ -19,6 +19,10 @@ import {
   isReadableDocument,
   understandDocument,
 } from "@/lib/broker/document-understanding";
+import {
+  commonInsurerSuggestions,
+  parseBrokerSettings,
+} from "@/lib/broker/settings";
 import { getMailboxClient } from "@/lib/email/mailbox-resolver";
 import type { MailboxClient } from "@/lib/email/mailbox";
 import type { BrokerClientRow, Database } from "@/types/database";
@@ -62,13 +66,26 @@ const BACKFILL_MAX_EMAILS = 600;
 // Attachment kinds that ARE client documents — a mail carrying one is relevant
 // on its own and its attachment must always be offered for filing.
 /**
- * Local parts that mark a mailbox nobody reads: automated senders and bulk mail.
- * Matched on the part before "@", with a trailing separator tolerated
- * (`noreply-marketing@`, `no.reply+fr@`). Deliberately narrow — "notification",
- * "service" or "contact" are NOT here: insurers use them for real business mail.
+ * Marqueurs d'un expéditeur mécanique : une adresse dont personne ne lit les
+ * réponses. Reconnus N'IMPORTE OÙ dans la partie locale, séparés par un tiret,
+ * un point ou un underscore — les plateformes préfixent presque toujours
+ * (`messages-noreply@`, `invitations-noreply@`), et un motif ancré au début les
+ * manquait tous.
+ *
+ * Ne contient VOLONTAIREMENT ni « marketing », ni « newsletter », ni
+ * « campaign » : c'est exactement de ces adresses que les compagnies et les
+ * grossistes envoient leurs nouveautés produit, et une garantie nouvelle en MRH
+ * est une information de métier pour un courtier, pas du bruit.
  */
 const BULK_SENDER_PATTERN =
-  /^(no[-_.]?reply|do[-_.]?not[-_.]?reply|ne[-_.]?pas[-_.]?repondre|nepasrepondre|reply[-_.]?to[-_.]?none|mailer[-_.]?daemon|postmaster|bounces?|newsletters?|mailing|marketing|campaign|unsubscribe)([-_.+][^@]*)?$/i;
+  /(^|[-_.])(no[-_.]?reply|do[-_.]?not[-_.]?reply|donotreply|ne[-_.]?pas[-_.]?repondre|nepasrepondre|mailer[-_.]?daemon|postmaster|bounces?)([-_.+]|$)/i;
+
+/**
+ * Domaines qui s'annoncent eux-mêmes comme métier de l'assurance. Premier
+ * garde-fou, indépendant des données du cabinet.
+ */
+const INSURANCE_DOMAIN_PATTERN =
+  /assur|mutuel|pr[ée]voyance|courtage|courtier|insurance/i;
 
 const CLIENT_DOC_CATEGORIES = new Set<AttachmentDocCategory>([
   "company_quote",
@@ -360,16 +377,41 @@ function buildUserPayload(
 }
 
 /**
+ * Normalise un nom de compagnie en jeton comparable à un domaine :
+ * « Swiss Life » → « swisslife », « AXA France » → « axafrance ».
+ */
+function insurerToken(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/**
  * True when an address is an automated / bulk sender no human answers.
  *
- * Cheap deterministic triage: these emails are the bulk of a cabinet's inbox and
- * asking a model to state the obvious about each one costs real money. The
- * caller still applies safety valves (attachments, client domains) before
- * setting one aside — see the pre-filter in `generateDigest`.
+ * Tri déterministe bon marché : ces emails forment le gros d'une boîte et
+ * demander à un modèle d'énoncer l'évidence sur chacun coûte de l'argent.
+ *
+ * `insurerTokens` est le garde-fou décisif : une compagnie avec laquelle le
+ * cabinet travaille n'est JAMAIS écartée, même depuis une adresse `noreply@`.
+ * Le nom du domaine ne suffit pas — « axa.fr » ne contient aucun mot du secteur
+ * — d'où les jetons tirés des assureurs partenaires et des contrats du
+ * portefeuille.
  */
-function isBulkSender(email: string): boolean {
+function isBulkSender(email: string, insurerTokens: Set<string>): boolean {
   const at = email.lastIndexOf("@");
   if (at <= 0) return false;
+
+  const domain = email.slice(at + 1).toLowerCase();
+  if (INSURANCE_DOMAIN_PATTERN.test(domain)) return false;
+
+  const domainToken = insurerToken(domain);
+  for (const token of insurerTokens) {
+    if (domainToken.includes(token)) return false;
+  }
+
   return BULK_SENDER_PATTERN.test(email.slice(0, at));
 }
 
@@ -788,10 +830,50 @@ async function runDigest(
     const at = c.email?.lastIndexOf("@") ?? -1;
     if (c.email && at > 0) clientDomains.add(c.email.slice(at + 1).toLowerCase());
   }
+
+  // Compagnies avec lesquelles le cabinet travaille : les grands assureurs
+  // français, les partenaires déclarés, et ceux qui figurent sur un contrat ou
+  // un devis du portefeuille. Aucun email venant d'eux n'est écarté sans avoir
+  // été lu — « axa.fr » ne contient aucun mot du secteur, seul son nom le trahit.
+  const insurerTokens = new Set<string>();
+  const addInsurer = (name: string) => {
+    // « Aviva / Abeille » désigne deux marques : chacune doit pouvoir matcher.
+    for (const part of name.split(/[\/,]/)) {
+      const token = insurerToken(part);
+      if (token.length >= 3) insurerTokens.add(token);
+    }
+  };
+  for (const name of commonInsurerSuggestions) addInsurer(name);
+
+  const [{ data: org }, { data: contractInsurers }, { data: quoteInsurers }] =
+    await Promise.all([
+      ctx.adminSupabase
+        .from("organizations")
+        .select("broker_settings")
+        .eq("id", ctx.organizationId)
+        .maybeSingle(),
+      ctx.adminSupabase
+        .from("broker_contracts")
+        .select("insurer_name")
+        .eq("organization_id", ctx.organizationId)
+        .not("insurer_name", "is", null)
+        .limit(500),
+      ctx.adminSupabase
+        .from("broker_quotes")
+        .select("insurer_name")
+        .eq("organization_id", ctx.organizationId)
+        .not("insurer_name", "is", null)
+        .limit(500),
+    ]);
+
+  for (const name of parseBrokerSettings(org).partnerInsurers) addInsurer(name);
+  for (const row of [...(contractInsurers ?? []), ...(quoteInsurers ?? [])]) {
+    addInsurer((row as { insurer_name: string | null }).insurer_name ?? "");
+  }
   const bulkMessages: OutlookMessage[] = [];
   const messages = candidates.filter((m) => {
     if (m.hasAttachments) return true;
-    if (!isBulkSender(m.fromEmail)) return true;
+    if (!isBulkSender(m.fromEmail, insurerTokens)) return true;
     const at = m.fromEmail.lastIndexOf("@");
     if (at > 0 && clientDomains.has(m.fromEmail.slice(at + 1))) return true;
     bulkMessages.push(m);
