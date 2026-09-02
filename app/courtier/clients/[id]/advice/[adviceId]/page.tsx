@@ -20,7 +20,8 @@ import {
   getBrokerClientCompliance,
   getBrokerQuote,
 } from "@/lib/broker/data";
-import { getOutlookConnectionForUser } from "@/lib/email/connections";
+import { getActiveBrokerProfile } from "@/lib/broker/profiles";
+import { hasConnectedMailbox } from "@/lib/email/mailbox-resolver";
 import { formatLongDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,14 @@ export default async function AdviceWorkspacePage({
   const [client, advice, outlook] = await Promise.all([
     getBrokerClient(organizationId, clientId),
     getBrokerAdvice(organizationId, adviceId),
-    getOutlookConnectionForUser({ organizationId, userId: context.user.id }),
+    // Boîte du profil actif, quel que soit l'hébergeur.
+    getActiveBrokerProfile(organizationId).then((profile) =>
+      hasConnectedMailbox({
+        organizationId,
+        userId: context.user.id,
+        profileId: profile?.id ?? null,
+      }),
+    ),
   ]);
 
   if (!client || !advice || advice.client_id !== clientId) {
@@ -68,7 +76,7 @@ export default async function AdviceWorkspacePage({
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
   const canDelete = isWorkspaceManager(context.membership?.role);
   const clientName = brokerClientDisplayName(client);
-  const outlookConnected = outlook?.status === "connected";
+  const outlookConnected = outlook.connected;
 
   const metaParts = [
     `Généré le ${formatLongDate(new Date(advice.generated_at ?? advice.created_at))}`,

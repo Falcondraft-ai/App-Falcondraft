@@ -665,15 +665,21 @@ export async function getBrokerClaims(
 export async function getLatestEmailDigest(
   organizationId: string,
   userId: string,
+  profileId?: string | null,
 ): Promise<BrokerEmailDigestRow | null> {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("broker_email_digests")
     .select("*")
     .eq("organization_id", organizationId)
-    .eq("user_id", userId)
+    .eq("user_id", userId);
+  // Sur un compte partagé, l'utilisateur est le même pour tout le cabinet :
+  // sans le profil, chacun verrait le briefing du dernier qui a lancé le sien.
+  query = profileId ? query.eq("profile_id", profileId) : query.is("profile_id", null);
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

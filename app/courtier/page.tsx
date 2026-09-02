@@ -45,7 +45,8 @@ import {
   getEmailDigestDetail,
   getLatestEmailDigest,
 } from "@/lib/broker/data";
-import { getOutlookConnectionForUser } from "@/lib/email/connections";
+import { getActiveBrokerProfile } from "@/lib/broker/profiles";
+import { hasConnectedMailbox } from "@/lib/email/mailbox-resolver";
 import { formatDate, formatLongDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -66,14 +67,21 @@ export default async function CourtierDashboardPage() {
   );
   const topRenewals = renewals.slice(0, 4);
 
-  // Outlook briefing summary for the dashboard panel.
-  const outlookConnection = await getOutlookConnectionForUser({
+  // Résumé du briefing pour le panneau du tableau de bord — la boîte suit le
+  // profil actif, et n'est pas forcément hébergée chez Microsoft.
+  const activeProfile = await getActiveBrokerProfile(organizationId);
+  const outlookConnection = await hasConnectedMailbox({
     organizationId,
     userId: context.user.id,
+    profileId: activeProfile?.id ?? null,
   });
-  const outlookConnected = outlookConnection?.status === "connected";
+  const outlookConnected = outlookConnection.connected;
   const latestDigest = outlookConnected
-    ? await getLatestEmailDigest(organizationId, context.user.id)
+    ? await getLatestEmailDigest(
+        organizationId,
+        context.user.id,
+        activeProfile?.id ?? null,
+      )
     : null;
   let emailSummary: EmailBriefingSummary = {
     connected: Boolean(outlookConnected),

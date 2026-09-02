@@ -13,11 +13,8 @@ import {
 } from "@/lib/broker/pdf/render";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
 import { parseBrokerSettings } from "@/lib/broker/settings";
-import { getOutlookConnectionForUser } from "@/lib/email/connections";
-import {
-  createOutlookDraft,
-  type OutlookDraftAttachment,
-} from "@/lib/email/outlook-drafts";
+import { getMailboxClient } from "@/lib/email/mailbox-resolver";
+import type { MailDraftAttachment } from "@/lib/email/mailbox";
 import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
 
 // react-pdf renders the devoir de conseil attachment server-side → Node runtime.
@@ -57,19 +54,24 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
       .eq("organization_id", auth.organizationId)
       .eq("id", clientId)
       .maybeSingle(),
-    getOutlookConnectionForUser({
+    // La boîte du profil actif : chacun prépare ses brouillons depuis la sienne,
+    // et le cabinet n'est pas forcément hébergé chez Microsoft.
+    getMailboxClient({
       organizationId: auth.organizationId,
       userId: auth.user.id,
+      profileId: auth.profileId,
+      adminSupabase: auth.adminSupabase,
     }),
   ]);
 
   if (!advice || !client) {
+    await outlook?.close();
     return jsonError("Document introuvable.", 404, "not_found");
   }
 
-  if (!outlook || outlook.status !== "connected") {
+  if (!outlook) {
     return jsonError(
-      "Connectez d’abord votre boîte Outlook dans les paramètres.",
+      "Connectez d’abord votre boîte email dans les paramètres.",
       400,
       "outlook_not_connected",
     );
@@ -78,6 +80,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
   const typedClient = client as BrokerClientRow;
   const clientEmail = typedClient.email?.trim();
   if (!clientEmail) {
+    await outlook.close();
     return jsonError(
       "Le dossier client n’a pas d’adresse email.",
       400,
@@ -113,7 +116,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
    */
   const awaitingSignature = !isSigned && Boolean(advice.signature_url);
 
-  const attachments: OutlookDraftAttachment[] = [];
+  const attachments: MailDraftAttachment[] = [];
   let signedAttached = false;
 
   if (isSigned && advice.signed_document_id) {
@@ -198,29 +201,32 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     `Bien à vous,\n` +
     signOff.join("\n");
 
-  let draft: { draftId: string; email: string };
+  let draft;
   try {
-    draft = await createOutlookDraft({
-      organizationId: auth.organizationId,
-      userId: auth.user.id,
+    draft = await outlook.createDraft({
       to: clientEmail,
       subject: `Votre devoir de conseil — ${name}`,
       body,
       attachments,
     });
-  } catch (error) {
-    console.error("[broker] outlook draft failed:", error);
+  } finally {
+    // Session IMAP refermée même si la préparation échoue.
+    await outlook.close();
+  }
+
+  if (!draft.ok) {
+    console.error("[broker] draft failed:", draft.message);
     return jsonError(
-      "Création du brouillon Outlook impossible.",
+      draft.message ?? "Création du brouillon impossible.",
       502,
-      error instanceof Error ? error.message : "draft_failed",
+      "draft_failed",
     );
   }
 
   await auth.adminSupabase
     .from("broker_advice")
     .update({
-      outlook_draft_id: draft.draftId,
+      outlook_draft_id: draft.draftId ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("organization_id", auth.organizationId)
@@ -231,9 +237,9 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     clientId,
     userId: auth.user.id,
     type: "advice_outlook_draft",
-    description: `Brouillon Outlook préparé pour ${clientEmail} (${attachments.length} pièce(s) jointe(s)).`,
+    description: `Brouillon préparé pour ${clientEmail} (${attachments.length} pièce(s) jointe(s)).`,
     metadata: { advice_id: adviceId },
   });
 
-  return NextResponse.json({ success: true, email: draft.email });
+  return NextResponse.json({ success: true, email: draft.email ?? outlook.address });
 }

@@ -372,6 +372,7 @@ export type BrokerEmailDigestRow = {
 export type BrokerEmailItemRow = {
   id: string;
   organization_id: string;
+  profile_id: string | null;
   digest_id: string;
   user_id: string;
   graph_message_id: string;
@@ -574,12 +575,21 @@ export type EmailConnectionRow = {
   organization_id: string;
   user_id: string;
   profile_id: string | null;
-  provider: "gmail" | string;
+  provider: "gmail" | "outlook" | "imap" | string;
   email: string;
+  /** OAuth : jeton d'accès. IMAP : mot de passe de la boîte, chiffré. */
   access_token: string;
-  refresh_token: string;
-  expires_at: string;
+  refresh_token: string | null;
+  expires_at: string | null;
   status: "connected" | "disconnected" | "error" | string;
+  imap_host: string | null;
+  imap_port: number | null;
+  imap_secure: boolean;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_secure: boolean;
+  username: string | null;
+  last_verified_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -1030,9 +1040,17 @@ export type Database = {
           provider: string;
           email: string;
           access_token: string;
-          refresh_token: string;
-          expires_at: string;
+          refresh_token?: string | null;
+          expires_at?: string | null;
           status?: string;
+          imap_host?: string | null;
+          imap_port?: number | null;
+          imap_secure?: boolean;
+          smtp_host?: string | null;
+          smtp_port?: number | null;
+          smtp_secure?: boolean;
+          username?: string | null;
+          last_verified_at?: string | null;
           created_at?: string;
           updated_at?: string;
         },
@@ -1044,9 +1062,17 @@ export type Database = {
           provider?: string;
           email?: string;
           access_token?: string;
-          refresh_token?: string;
-          expires_at?: string;
+          refresh_token?: string | null;
+          expires_at?: string | null;
           status?: string;
+          imap_host?: string | null;
+          imap_port?: number | null;
+          imap_secure?: boolean;
+          smtp_host?: string | null;
+          smtp_port?: number | null;
+          smtp_secure?: boolean;
+          username?: string | null;
+          last_verified_at?: string | null;
           created_at?: string;
           updated_at?: string;
         }
@@ -1770,6 +1796,7 @@ export type Database = {
         {
           id?: string;
           organization_id: string;
+          profile_id?: string | null;
           digest_id: string;
           user_id: string;
           graph_message_id: string;

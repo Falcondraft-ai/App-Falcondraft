@@ -3,7 +3,7 @@ import { ArrowRight, HardDrive, Mail, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { getTeamMembersForOrganization } from "@/lib/data/supabase-app-data";
-import { getOutlookConnectionForUser } from "@/lib/email/connections";
+import { hasConnectedMailbox } from "@/lib/email/mailbox-resolver";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
 import { ProfilesManager } from "@/components/broker/profiles-manager";
 import { getBrokerProfiles } from "@/lib/broker/profiles";
@@ -60,7 +60,7 @@ export default async function CourtierGeneralSettingsPage() {
   const organization = context.organization!;
   const [members, outlook, profiles] = await Promise.all([
     getTeamMembersForOrganization(organization.id),
-    getOutlookConnectionForUser({
+    hasConnectedMailbox({
       organizationId: organization.id,
       userId: context.user.id,
     }),
@@ -104,9 +104,9 @@ export default async function CourtierGeneralSettingsPage() {
         <ShortcutCard
           href="/courtier/settings/integrations"
           icon={<Mail className="size-5" strokeWidth={1.75} />}
-          title="Outlook"
-          value={outlook?.status === "connected" ? "Connecté" : "Non connecté"}
-          hint="Suivi des emails et brouillons"
+          title="Boîtes email"
+          value={outlook.connected ? "Connectée" : "Non connectée"}
+          hint="Briefing, suivi des emails et brouillons"
         />
       </div>
     </div>

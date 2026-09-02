@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateDigest } from "@/lib/broker/email-digest";
 import { BROKER_OFFERING_CUSTOM, getBrokerOffering } from "@/lib/broker/access";
 import { outlookOAuthProvider } from "@/lib/email/microsoft-oauth";
+import { IMAP_PROVIDER } from "@/lib/email/mailbox-resolver";
 import type { OrganizationRow } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -56,17 +57,21 @@ async function handle(request: NextRequest) {
     );
   }
 
-  // All connected Outlook mailboxes, capped per run.
+  // Toutes les boîtes connectées, quel que soit le fournisseur : un cabinet
+  // hébergé chez IONOS ou OVH n'a aucune connexion Microsoft, seulement de
+  // l'IMAP. Le briefing porte sur une BOÎTE, pas sur un compte : un cabinet
+  // partagé a une boîte par profil, donc un briefing par personne.
   const { data: connections } = await adminSupabase
     .from("email_connections")
-    .select("organization_id, user_id")
-    .eq("provider", outlookOAuthProvider)
+    .select("organization_id, user_id, profile_id")
+    .in("provider", [IMAP_PROVIDER, outlookOAuthProvider])
     .eq("status", "connected")
     .limit(500);
 
   const targets = (connections ?? []) as {
     organization_id: string;
     user_id: string;
+    profile_id: string | null;
   }[];
 
   // Only process insurance-broker workspaces on the self-serve SaaS offering.
@@ -94,17 +99,32 @@ async function handle(request: NextRequest) {
   for (const target of targets) {
     if (!brokerOrgIds.has(target.organization_id)) continue;
 
-    const { data: profile } = await adminSupabase
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", target.user_id)
-      .maybeSingle();
+    // Le briefing s'adresse à une personne : on prend le prénom du profil quand
+    // la boîte en a un, sinon celui du compte.
+    let userName: string | null = null;
+    if (target.profile_id) {
+      const { data: profile } = await adminSupabase
+        .from("broker_profiles")
+        .select("display_name")
+        .eq("id", target.profile_id)
+        .maybeSingle();
+      userName = profile?.display_name?.trim().split(" ")[0] ?? null;
+    }
+    if (!userName) {
+      const { data: profile } = await adminSupabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", target.user_id)
+        .maybeSingle();
+      userName = profile?.full_name?.split(" ")[0] ?? null;
+    }
 
     const result = await generateDigest({
       adminSupabase,
       organizationId: target.organization_id,
       userId: target.user_id,
-      userName: profile?.full_name?.split(" ")[0] ?? "le courtier",
+      profileId: target.profile_id,
+      userName: userName ?? "le courtier",
     }).catch(() => null);
 
     if (result?.success) processed += 1;

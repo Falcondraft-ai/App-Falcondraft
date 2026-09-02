@@ -118,7 +118,7 @@ export async function DELETE() {
 
   try {
     // Decrypt to validate the token is readable; Microsoft has no revocation endpoint.
-    decryptToken(connection.refresh_token);
+    if (connection.refresh_token) decryptToken(connection.refresh_token);
   } catch {
     // Continue with deletion even if decryption fails.
   }

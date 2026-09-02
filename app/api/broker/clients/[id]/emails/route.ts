@@ -3,12 +3,12 @@ import { brokerClientDisplayName } from "@/lib/broker/clients";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import {
   companyEmailDomain,
-  getMailboxAddresses,
-  getOutlookAccessForUser,
-  searchMessagesForClient,
   type ClientSearchCriteria,
   type OutlookMessage,
 } from "@/lib/email/outlook-read";
+import { getBrokerProfiles } from "@/lib/broker/profiles";
+import { getMailboxClient } from "@/lib/email/mailbox-resolver";
+import type { MailboxClient } from "@/lib/email/mailbox";
 import type { BrokerClientRow } from "@/types/database";
 
 export type ClientEmail = {
@@ -121,111 +121,164 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   }
   const linkedIds = new Set(linkedEmails.map((e) => e.id));
 
-  const access = await getOutlookAccessForUser(orgId, auth.user.id);
-  // Toutes les adresses du cabinet (principale + alias SMTP) : c'est ce qui
-  // permet de reconnaître un email SORTANT, y compris envoyé depuis un alias.
-  const mailboxAddresses = access
-    ? new Set(await getMailboxAddresses(access.accessToken))
-    : new Set<string>();
-  if (access?.email) mailboxAddresses.add(access.email.trim().toLowerCase());
+  // TOUTES les boîtes du cabinet, pas seulement celle de la personne connectée :
+  // un dossier doit montrer la conversation complète, même si c'est un collègue
+  // qui a échangé avec l'assuré. Chaque profil a la sienne.
+  const profiles = await getBrokerProfiles(orgId);
+  const resolved = await Promise.all([
+    getMailboxClient({
+      organizationId: orgId,
+      userId: auth.user.id,
+      profileId: null,
+      adminSupabase: admin,
+    }),
+    ...profiles.map((p) =>
+      getMailboxClient({
+        organizationId: orgId,
+        userId: auth.user.id,
+        profileId: p.id,
+        adminSupabase: admin,
+      }),
+    ),
+  ]);
+
+  // Deux profils peuvent retomber sur la même boîte de repli (Microsoft) : on
+  // dédoublonne par adresse pour ne pas chercher trois fois la même chose.
+  const seenAddresses = new Set<string>();
+  const mailboxes: MailboxClient[] = [];
+  for (const mb of resolved) {
+    if (!mb) continue;
+    if (seenAddresses.has(mb.address)) {
+      await mb.close();
+      continue;
+    }
+    seenAddresses.add(mb.address);
+    mailboxes.push(mb);
+  }
+
+  // Adresses du cabinet, tous profils confondus : c'est ce qui permet de
+  // reconnaître un email SORTANT, y compris envoyé depuis un alias.
+  const mailboxAddresses = new Set<string>();
+  for (const mb of mailboxes) {
+    for (const addr of mb.addresses) mailboxAddresses.add(addr);
+  }
+  for (const p of profiles) {
+    if (p.email) mailboxAddresses.add(p.email.trim().toLowerCase());
+  }
+  const access = mailboxes[0] ?? null;
 
   // 2) Live mailbox search (direct exchanges + mentions), merged with the
   //    persisted links which always take precedence.
   let liveEmails: ClientEmail[] = [];
   let criteriaEmpty = true;
-  if (access) {
-    // Gather every signal that identifies this client.
-    const [{ data: contracts }, { data: claims }] = await Promise.all([
-      admin
-        .from("broker_contracts")
-        .select("policy_number")
-        .eq("organization_id", orgId)
-        .eq("client_id", id)
-        .not("policy_number", "is", null)
-        .limit(50),
-      admin
-        .from("broker_claims")
-        .select("reference")
-        .eq("organization_id", orgId)
-        .eq("client_id", id)
-        .not("reference", "is", null)
-        .limit(50),
-    ]);
+  try {
+    if (access) {
+      // Gather every signal that identifies this client.
+      const [{ data: contracts }, { data: claims }] = await Promise.all([
+        admin
+          .from("broker_contracts")
+          .select("policy_number")
+          .eq("organization_id", orgId)
+          .eq("client_id", id)
+          .not("policy_number", "is", null)
+          .limit(50),
+        admin
+          .from("broker_claims")
+          .select("reference")
+          .eq("organization_id", orgId)
+          .eq("client_id", id)
+          .not("reference", "is", null)
+          .limit(50),
+      ]);
 
-    const displayName = brokerClientDisplayName(client);
-    const names = [displayName];
-    if (
-      client.company_name?.trim() &&
-      client.company_name.trim() !== displayName
-    ) {
-      names.push(client.company_name.trim());
-    }
+      const displayName = brokerClientDisplayName(client);
+      const names = [displayName];
+      if (
+        client.company_name?.trim() &&
+        client.company_name.trim() !== displayName
+      ) {
+        names.push(client.company_name.trim());
+      }
 
-    const references = [
-      ...(contracts ?? []).map(
-        (c) => (c as { policy_number: string | null }).policy_number,
-      ),
-      ...(claims ?? []).map((c) => (c as { reference: string | null }).reference),
-    ].filter((r): r is string => Boolean(r && r.trim()));
+      const references = [
+        ...(contracts ?? []).map(
+          (c) => (c as { policy_number: string | null }).policy_number,
+        ),
+        ...(claims ?? []).map((c) => (c as { reference: string | null }).reference),
+      ].filter((r): r is string => Boolean(r && r.trim()));
 
-    const domain = companyEmailDomain(
-      client.email,
-      client.client_type === "company",
-    );
-
-    const criteria: ClientSearchCriteria = {
-      emails: client.email ? [client.email.trim().toLowerCase()] : [],
-      names,
-      references,
-      domain,
-    };
-    criteriaEmpty =
-      criteria.emails.length === 0 &&
-      criteria.names.length === 0 &&
-      criteria.references.length === 0 &&
-      !criteria.domain;
-
-    if (!criteriaEmpty) {
-      const messages = await searchMessagesForClient(
-        access.accessToken,
-        criteria,
-        q,
+      const domain = companyEmailDomain(
+        client.email,
+        client.client_type === "company",
       );
-      const emailSet = new Set(criteria.emails);
-      const isDirect = (m: OutlookMessage): boolean => {
-        if (m.fromEmail && emailSet.has(m.fromEmail)) return true;
-        if (m.recipients.some((r) => emailSet.has(r))) return true;
-        if (criteria.domain) {
-          const at = `@${criteria.domain}`;
-          if (m.fromEmail.endsWith(at)) return true;
-          if (m.recipients.some((r) => r.endsWith(at))) return true;
-        }
-        return false;
+
+      const criteria: ClientSearchCriteria = {
+        emails: client.email ? [client.email.trim().toLowerCase()] : [],
+        names,
+        references,
+        domain,
       };
-      liveEmails = messages
-        .filter((m) => !linkedIds.has(m.id))
-        .map((m) => {
-          const sent = Boolean(m.fromEmail && mailboxAddresses.has(m.fromEmail));
-          return {
-            id: m.id,
-            subject: m.subject,
-            from: m.fromName || m.fromEmail,
-            fromEmail: m.fromEmail,
-            receivedAt: m.receivedDateTime,
-            preview: m.bodyPreview,
-            hasAttachments: m.hasAttachments,
-            webLink: m.webLink,
-            matchType: (isDirect(m) ? "direct" : "mention") as
-              | "direct"
-              | "mention",
-            direction: (sent ? "sent" : "received") as "received" | "sent",
-            // Sur un email envoyé, le destinataire est l'information utile.
-            to: sent
-              ? m.recipients.filter((r) => !mailboxAddresses.has(r))
-              : [],
-          };
-        });
+      criteriaEmpty =
+        criteria.emails.length === 0 &&
+        criteria.names.length === 0 &&
+        criteria.references.length === 0 &&
+        !criteria.domain;
+
+      if (!criteriaEmpty) {
+        // Une recherche par boîte, fusionnée par identifiant : un même email
+        // adressé à deux personnes du cabinet ne doit apparaître qu'une fois.
+        const perMailbox = await Promise.all(
+          mailboxes.map((mb) =>
+            mb.searchForClient(criteria, q).catch(() => [] as OutlookMessage[]),
+          ),
+        );
+        const byId = new Map<string, OutlookMessage>();
+        for (const list of perMailbox) {
+          for (const m of list) if (!byId.has(m.id)) byId.set(m.id, m);
+        }
+        const messages = [...byId.values()].sort((a, b) =>
+          (b.receivedDateTime ?? "").localeCompare(a.receivedDateTime ?? ""),
+        );
+        const emailSet = new Set(criteria.emails);
+        const isDirect = (m: OutlookMessage): boolean => {
+          if (m.fromEmail && emailSet.has(m.fromEmail)) return true;
+          if (m.recipients.some((r) => emailSet.has(r))) return true;
+          if (criteria.domain) {
+            const at = `@${criteria.domain}`;
+            if (m.fromEmail.endsWith(at)) return true;
+            if (m.recipients.some((r) => r.endsWith(at))) return true;
+          }
+          return false;
+        };
+        liveEmails = messages
+          .filter((m) => !linkedIds.has(m.id))
+          .map((m) => {
+            const sent = Boolean(m.fromEmail && mailboxAddresses.has(m.fromEmail));
+            return {
+              id: m.id,
+              subject: m.subject,
+              from: m.fromName || m.fromEmail,
+              fromEmail: m.fromEmail,
+              receivedAt: m.receivedDateTime,
+              preview: m.bodyPreview,
+              hasAttachments: m.hasAttachments,
+              webLink: m.webLink,
+              matchType: (isDirect(m) ? "direct" : "mention") as
+                | "direct"
+                | "mention",
+              direction: (sent ? "sent" : "received") as "received" | "sent",
+              // Sur un email envoyé, le destinataire est l'information utile.
+              to: sent
+                ? m.recipients.filter((r) => !mailboxAddresses.has(r))
+                : [],
+            };
+          });
+      }
     }
+  } finally {
+    // Sessions IMAP refermées quoi qu'il arrive : une connexion oubliée reste
+    // ouverte côté serveur de messagerie et finit par saturer son quota.
+    await Promise.all(mailboxes.map((mb) => mb.close()));
   }
 
   // Nothing persisted and no way to search live → keep the guiding empty states.
@@ -236,6 +289,6 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
 
   return NextResponse.json({
     emails: [...linkedEmails, ...liveEmails],
-    mailbox: access?.email,
+    mailbox: access?.address,
   });
 }

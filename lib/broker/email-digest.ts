@@ -7,12 +7,6 @@ import {
   insuranceTypeLabel,
 } from "@/lib/broker/clients";
 import {
-  getFileAttachmentBytes,
-  getMailboxAddresses,
-  getMessageAttachmentsMeta,
-  getOutlookAccessForUser,
-  getOutlookMessageBody,
-  listRecentInboxMessages,
   resolveMailboxAddress,
   type OutlookMessage,
 } from "@/lib/email/outlook-read";
@@ -25,6 +19,8 @@ import {
   isReadableDocument,
   understandDocument,
 } from "@/lib/broker/document-understanding";
+import { getMailboxClient } from "@/lib/email/mailbox-resolver";
+import type { MailboxClient } from "@/lib/email/mailbox";
 import type { BrokerClientRow, Database } from "@/types/database";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -86,6 +82,12 @@ export type DigestContext = {
   organizationId: string;
   userId: string;
   userName: string;
+  /**
+   * Profil de cabinet dont on traite la boîte. Sur un compte partagé, c'est LUI
+   * qui distingue les briefings : sans lui, tout le cabinet se partagerait un
+   * seul fil de courrier et le pointeur de reprise de l'un écraserait l'autre.
+   */
+  profileId?: string | null;
 };
 
 export type GenerateDigestResult =
@@ -577,14 +579,36 @@ export async function generateDigest(
     };
   }
 
-  const access = await getOutlookAccessForUser(ctx.organizationId, ctx.userId);
-  if (!access) {
+  const mailbox = await getMailboxClient({
+    organizationId: ctx.organizationId,
+    userId: ctx.userId,
+    profileId: ctx.profileId ?? null,
+    adminSupabase: ctx.adminSupabase,
+  });
+  if (!mailbox) {
     return {
       success: false,
       reason: "not_connected",
-      message: "Connectez votre boîte Outlook pour générer le briefing.",
+      message: "Connectez votre boîte email pour générer le briefing.",
     };
   }
+
+  try {
+    return await runDigest(ctx, mailbox, options);
+  } finally {
+    // Une session IMAP reste ouverte tant qu'on ne la referme pas : ce `finally`
+    // est ce qui empêche d'épuiser les connexions du serveur de messagerie.
+    await mailbox.close();
+  }
+}
+
+/** Corps du briefing, une fois la boîte ouverte. Voir `generateDigest`. */
+async function runDigest(
+  ctx: DigestContext,
+  mailbox: MailboxClient,
+  options?: { windowDays?: number },
+): Promise<GenerateDigestResult> {
+  const apiKey = process.env.OPENAI_API_KEY!;
 
   const now = new Date();
   const backfillDays =
@@ -606,11 +630,16 @@ export async function generateDigest(
     // The FURTHEST point ever covered, not the most recent digest: a manual
     // "Remonter 90 jours" writes an older window and must never rewind the
     // rolling pointer to it.
-    const { data: lastDigest } = await ctx.adminSupabase
+    let pointerQuery = ctx.adminSupabase
       .from("broker_email_digests")
       .select("window_end")
       .eq("organization_id", ctx.organizationId)
-      .eq("user_id", ctx.userId)
+      .eq("user_id", ctx.userId);
+    // Chaque profil a sa boîte, donc son propre point de reprise.
+    pointerQuery = ctx.profileId
+      ? pointerQuery.eq("profile_id", ctx.profileId)
+      : pointerQuery.is("profile_id", null);
+    const { data: lastDigest } = await pointerQuery
       .order("window_end", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -632,11 +661,10 @@ export async function generateDigest(
 
   // Mailbox aliases (primary + SMTP proxies) so we can tag each email with the
   // address it was delivered to — the bespoke broker aggregates several.
-  const mailboxAddresses = await getMailboxAddresses(access.accessToken);
+  const mailboxAddresses = mailbox.addresses;
   const mailboxAddressSet = new Set(mailboxAddresses);
 
-  const { messages: allMessages, truncated } = await listRecentInboxMessages(
-    access.accessToken,
+  const { messages: allMessages, truncated } = await mailbox.listInbox(
     sinceIso,
     maxEmails,
   );
@@ -659,12 +687,18 @@ export async function generateDigest(
   let candidates = allMessages;
   if (allMessages.length > 0) {
     const ids = allMessages.map((m) => m.id);
-    const { data: seen } = await ctx.adminSupabase
+    let seenQuery = ctx.adminSupabase
       .from("broker_email_items")
       .select("graph_message_id")
       .eq("organization_id", ctx.organizationId)
-      .eq("user_id", ctx.userId)
-      .in("graph_message_id", ids);
+      .eq("user_id", ctx.userId);
+    // Sur un compte partagé l'utilisateur est le même pour tout le cabinet :
+    // sans le profil, un email en copie à deux personnes disparaîtrait du
+    // briefing de la seconde.
+    seenQuery = ctx.profileId
+      ? seenQuery.eq("profile_id", ctx.profileId)
+      : seenQuery.is("profile_id", null);
+    const { data: seen } = await seenQuery.in("graph_message_id", ids);
     const seenSet = new Set((seen ?? []).map((r) => r.graph_message_id));
     candidates = allMessages.filter((m) => !seenSet.has(m.id));
   }
@@ -676,6 +710,7 @@ export async function generateDigest(
       .insert({
         organization_id: ctx.organizationId,
         user_id: ctx.userId,
+        profile_id: ctx.profileId ?? null,
         status: "ready",
         narrative: isBackfill
           ? `Rien de non traité sur les ${backfillDays} derniers jours. Boîte à jour côté courtage.`
@@ -776,6 +811,7 @@ export async function generateDigest(
         organization_id: ctx.organizationId,
         digest_id: digestId,
         user_id: ctx.userId,
+        profile_id: ctx.profileId ?? null,
         graph_message_id: m.id,
         from_name: m.fromName || null,
         from_email: m.fromEmail || null,
@@ -797,6 +833,7 @@ export async function generateDigest(
       .insert({
         organization_id: ctx.organizationId,
         user_id: ctx.userId,
+        profile_id: ctx.profileId ?? null,
         status: "ready",
         narrative:
           "Rien à traiter côté courtage : seuls des emails automatiques sont arrivés.",
@@ -823,7 +860,7 @@ export async function generateDigest(
   // ~250-char preview. Failures fall back to the preview (never blocking).
   const bodyByMessage = new Map<string, string>();
   await mapPool(messages, GRAPH_CONCURRENCY, async (m) => {
-    const full = await getOutlookMessageBody(access.accessToken, m.id);
+    const full = await mailbox.getBody(m.id);
     if (full?.body) bodyByMessage.set(m.id, full.body.slice(0, MAX_BODY_CHARS));
   });
 
@@ -834,7 +871,7 @@ export async function generateDigest(
     // Fetch for EVERY message, not only those with hasAttachments=true: an
     // inline photo (e.g. sent from a phone / pasted in the body) does NOT set
     // that flag, yet is a real fileAttachment we must catch and classify.
-    const metas = await getMessageAttachmentsMeta(access.accessToken, m.id);
+    const metas = await mailbox.listAttachments(m.id);
     const refs = metas.map((meta, j) => {
       const ref: AttachmentRef = {
         ref: `e${i}a${j}`,
@@ -872,11 +909,7 @@ export async function generateDigest(
         : MAX_ATTACHMENTS_ANALYZED,
     );
   await mapPool(analyzable, GRAPH_CONCURRENCY, async (a) => {
-    const file = await getFileAttachmentBytes(
-      access.accessToken,
-      a.messageId,
-      a.attachmentId,
-    );
+    const file = await mailbox.getAttachmentBytes(a.messageId, a.attachmentId);
     if (!file) return;
     const understood = await understandDocument({
       buffer: Buffer.from(file.contentBase64, "base64"),
@@ -937,6 +970,7 @@ export async function generateDigest(
     .insert({
       organization_id: ctx.organizationId,
       user_id: ctx.userId,
+      profile_id: ctx.profileId ?? null,
       status: "ready",
       narrative: ai.narrative?.trim() || null,
       window_start: sinceIso,
@@ -997,6 +1031,7 @@ export async function generateDigest(
         organization_id: ctx.organizationId,
         digest_id: digest.id,
         user_id: ctx.userId,
+        profile_id: ctx.profileId ?? null,
         graph_message_id: message.id,
         from_name: message.fromName || null,
         from_email: message.fromEmail || null,
@@ -1071,6 +1106,7 @@ export async function generateDigest(
         organization_id: ctx.organizationId,
         digest_id: digest.id,
         user_id: ctx.userId,
+        profile_id: ctx.profileId ?? null,
         graph_message_id: message.id,
         from_name: message.fromName || null,
         from_email: message.fromEmail || null,

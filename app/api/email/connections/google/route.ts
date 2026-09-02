@@ -120,7 +120,11 @@ export async function DELETE() {
   }
 
   try {
-    await revokeGoogleToken(decryptToken(connection.refresh_token));
+    // refresh_token est nullable depuis l'arrivée des connexions IMAP ; une
+    // connexion Google en a toujours un.
+    if (connection.refresh_token) {
+      await revokeGoogleToken(decryptToken(connection.refresh_token));
+    }
   } catch {
     // Disconnection must still remove FalconDraft's server-side token copy.
   }

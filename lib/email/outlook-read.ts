@@ -38,6 +38,9 @@ export async function getOutlookAccessForUser(
     .maybeSingle();
 
   if (!connection) return null;
+  // Colonnes nullables depuis l'arrivée des connexions IMAP ; une connexion
+  // Microsoft valide porte toujours les deux.
+  if (!connection.refresh_token || !connection.expires_at) return null;
 
   try {
     const expiresAtMs = new Date(connection.expires_at).getTime();

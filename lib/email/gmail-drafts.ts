@@ -219,6 +219,12 @@ export async function createGmailDraftForConnectedUser(input: GmailDraftInput) {
     throw new Error("Aucune connexion Gmail active pour cet utilisateur.");
   }
 
+  if (!connection.refresh_token || !connection.expires_at) {
+    // Colonnes rendues nullables pour les connexions IMAP ; une connexion OAuth
+    // en a toujours. Mieux vaut un message clair qu'un cast silencieux.
+    throw new Error("Connexion OAuth incomplète — reconnectez la boîte.");
+  }
+
   const accessToken = await getUsableAccessToken({
     connectionId: connection.id,
     encryptedAccessToken: connection.access_token,

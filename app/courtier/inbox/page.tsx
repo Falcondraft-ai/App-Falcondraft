@@ -3,7 +3,8 @@ import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { DigestBackfillMenu } from "@/components/broker/digest-backfill-menu";
 import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
-import { OutlookConnectionCard } from "@/components/broker/outlook-connection-card";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { OutlookDigest } from "@/components/broker/outlook-digest";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { BROKER_OFFERING_CUSTOM, getBrokerOffering } from "@/lib/broker/access";
@@ -13,7 +14,8 @@ import {
   getEmailDigestDetail,
   getLatestEmailDigest,
 } from "@/lib/broker/data";
-import { getOutlookConnectionForUser } from "@/lib/email/connections";
+import { getActiveBrokerProfile } from "@/lib/broker/profiles";
+import { hasConnectedMailbox } from "@/lib/email/mailbox-resolver";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,11 +25,16 @@ export default async function CourtierInboxPage() {
   const organizationId = context.organization!.id;
   const userId = context.user.id;
 
-  const connection = await getOutlookConnectionForUser({
+  // La boîte dépend du PROFIL actif : sur un compte partagé, chacun a la sienne.
+  // Et elle n'est pas forcément Microsoft — un cabinet hébergé chez IONOS ou OVH
+  // passe par IMAP.
+  const activeProfile = await getActiveBrokerProfile(organizationId);
+  const connection = await hasConnectedMailbox({
     organizationId,
     userId,
+    profileId: activeProfile?.id ?? null,
   });
-  const connected = connection?.status === "connected";
+  const connected = connection.connected;
   // Sur mesure : pas de briefing automatique le matin — le courtier le lance
   // lui-même depuis cette page (et « Remonter » rattrape les jours sautés).
   const autoDaily =
@@ -38,30 +45,51 @@ export default async function CourtierInboxPage() {
       <PageTransition>
         <div className="space-y-6">
           <PageHeader
-            title="Assistant Outlook"
+            title="Assistant email"
             description={
               autoDaily
-                ? "Connectez votre boîte Outlook pour recevoir, chaque jour, un briefing trié de vos emails de courtage."
-                : "Connectez votre boîte Outlook pour obtenir, quand vous le lancez, un briefing trié de vos emails de courtage."
+                ? "Connectez votre boîte email pour recevoir, chaque jour, un briefing trié de vos emails de courtage."
+                : "Connectez votre boîte email pour obtenir, quand vous le lancez, un briefing trié de vos emails de courtage."
             }
           />
-          <div className="max-w-2xl">
-            <OutlookConnectionCard initialConnection={connection} />
+          <div
+            className="max-w-2xl rounded-xl border bg-[var(--bg-surface)] p-6"
+            style={{
+              borderColor: "var(--border-1)",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <p className="text-[13px] leading-6 text-[var(--fg-2)]">
+              {activeProfile
+                ? `Aucune boîte n’est encore reliée au profil ${activeProfile.display_name}.`
+                : "Aucune boîte email n’est encore reliée à cet espace."}{" "}
+              La connexion se fait une fois, avec l’adresse et le mot de passe de
+              la messagerie — quel que soit l’hébergeur.
+            </p>
+            <Button asChild className="mt-4">
+              <Link href="/courtier/settings/integrations">
+                Connecter une boîte email
+              </Link>
+            </Button>
           </div>
         </div>
       </PageTransition>
     );
   }
 
-  const digest = await getLatestEmailDigest(organizationId, userId);
+  const digest = await getLatestEmailDigest(
+    organizationId,
+    userId,
+    activeProfile?.id ?? null,
+  );
 
   if (!digest) {
     return (
       <PageTransition>
         <div className="space-y-6">
           <PageHeader
-            title="Assistant Outlook"
-            description="Votre boîte Outlook est connectée. Générez votre premier briefing."
+            title="Assistant email"
+            description="Votre boîte est connectée. Générez votre premier briefing."
           />
           <div
             className="rounded-xl border bg-[var(--bg-surface)] p-8 text-center"
@@ -118,7 +146,7 @@ export default async function CourtierInboxPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <PageHeader
-            title="Assistant Outlook"
+            title="Assistant email"
             description={
               autoDaily
                 ? "Votre briefing du jour, trié et prêt à traiter."
@@ -133,7 +161,7 @@ export default async function CourtierInboxPage() {
                 borderColor: "var(--border-1)",
                 background: "var(--bg-surface)",
               }}
-              title="Toutes les adresses regroupées dans cette boîte Outlook sont analysées."
+              title="Toutes les adresses regroupées dans cette boîte sont analysées."
             >
               <Inbox className="size-3.5" strokeWidth={1.75} />
               {connection.email}

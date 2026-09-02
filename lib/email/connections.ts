@@ -9,7 +9,8 @@ export type EmailConnectionStatus = {
   email: string;
   provider: string;
   status: string;
-  expiresAt: string;
+  /** Nul pour une connexion IMAP : un mot de passe n'expire pas. */
+  expiresAt: string | null;
   updatedAt: string;
 };
 
