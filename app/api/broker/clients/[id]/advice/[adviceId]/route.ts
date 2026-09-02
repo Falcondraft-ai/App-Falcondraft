@@ -116,6 +116,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       organizationId: auth.organizationId,
       clientId,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type: "advice_validated",
       description: "Devoir de conseil validé.",
       metadata: { advice_id: adviceId },

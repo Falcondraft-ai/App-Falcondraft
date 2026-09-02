@@ -23,6 +23,7 @@ import {
   daysUntil,
   formatContractPremium,
   isBrokerContractStatus,
+  RENEWAL_HORIZON_DAYS,
 } from "@/lib/broker/contracts";
 import {
   BROKER_FILES_BUCKET,
@@ -187,7 +188,7 @@ export const agentToolDefinitions = [
   {
     name: "get_upcoming_renewals",
     description:
-      "Liste les contrats dont l'échéance arrive bientôt ou est dépassée (renouvellements à suivre), triés du plus urgent au moins urgent. Paramètre within_days (défaut 60).",
+      `Liste les contrats dont l'échéance arrive bientôt ou est dépassée (renouvellements à suivre), triés du plus urgent au moins urgent. Paramètre within_days (défaut ${RENEWAL_HORIZON_DAYS}).`,
     input_schema: {
       type: "object",
       properties: { within_days: { type: "number" } },
@@ -793,7 +794,7 @@ export async function executeAgentTool(
 
   if (name === "get_upcoming_renewals") {
     const withinDays = Math.min(
-      Math.max(num(input, "within_days") ?? 60, 1),
+      Math.max(num(input, "within_days") ?? RENEWAL_HORIZON_DAYS, 1),
       365,
     );
     const horizon = new Date();

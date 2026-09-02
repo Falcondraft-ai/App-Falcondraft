@@ -45,6 +45,22 @@ export type BrokerOffering = "saas" | "custom";
 
 export type Plan = "essentiel" | "cabinet" | "performance";
 
+/**
+ * Profil de cabinet — une personne qui travaille sous le compte partagé du
+ * cabinet. Porte une identité et une adresse email, jamais d'authentification.
+ */
+export type BrokerProfileRow = {
+  id: string;
+  organization_id: string;
+  display_name: string;
+  email: string | null;
+  role_label: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type BrokerClientRow = {
   id: string;
   organization_id: string;
@@ -74,6 +90,7 @@ export type BrokerClientRow = {
   structured_needs: Record<string, unknown>;
   notes: string | null;
   introducer_id: string | null;
+  profile_id: string | null;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -84,6 +101,7 @@ export type BrokerActivityRow = {
   organization_id: string;
   client_id: string;
   user_id: string | null;
+  profile_id: string | null;
   type: string;
   description: string | null;
   metadata: Record<string, unknown>;
@@ -126,6 +144,7 @@ export type BrokerAdviceRow = {
   id: string;
   organization_id: string;
   client_id: string;
+  profile_id: string | null;
   quote_id: string | null;
   created_by: string;
   title: string;
@@ -337,6 +356,7 @@ export type BrokerEmailDigestRow = {
   id: string;
   organization_id: string;
   user_id: string;
+  profile_id: string | null;
   status: "generating" | "ready" | "failed" | string;
   narrative: string | null;
   window_start: string | null;
@@ -553,6 +573,7 @@ export type EmailConnectionRow = {
   id: string;
   organization_id: string;
   user_id: string;
+  profile_id: string | null;
   provider: "gmail" | string;
   email: string;
   access_token: string;
@@ -1005,6 +1026,7 @@ export type Database = {
           id?: string;
           organization_id: string;
           user_id: string;
+          profile_id?: string | null;
           provider: string;
           email: string;
           access_token: string;
@@ -1018,6 +1040,7 @@ export type Database = {
           id?: string;
           organization_id?: string;
           user_id?: string;
+          profile_id?: string | null;
           provider?: string;
           email?: string;
           access_token?: string;
@@ -1376,6 +1399,29 @@ export type Database = {
         }
       >;
 
+      broker_profiles: TableDefinition<
+        BrokerProfileRow,
+        {
+          id?: string;
+          organization_id: string;
+          display_name: string;
+          email?: string | null;
+          role_label?: string | null;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          display_name?: string;
+          email?: string | null;
+          role_label?: string | null;
+          sort_order?: number;
+          is_active?: boolean;
+          updated_at?: string;
+        }
+      >;
+
       broker_clients: TableDefinition<
         BrokerClientRow,
         {
@@ -1399,6 +1445,7 @@ export type Database = {
           structured_needs?: Record<string, unknown>;
           notes?: string | null;
           introducer_id?: string | null;
+          profile_id?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1422,6 +1469,7 @@ export type Database = {
           structured_needs?: Record<string, unknown>;
           notes?: string | null;
           introducer_id?: string | null;
+          profile_id?: string | null;
           archived_at?: string | null;
           updated_at?: string;
         }
@@ -1460,6 +1508,7 @@ export type Database = {
           organization_id: string;
           client_id: string;
           user_id?: string | null;
+          profile_id?: string | null;
           type: string;
           description?: string | null;
           metadata?: Record<string, unknown>;
@@ -1691,6 +1740,7 @@ export type Database = {
           id?: string;
           organization_id: string;
           user_id: string;
+          profile_id?: string | null;
           status?: string;
           narrative?: string | null;
           window_start?: string | null;
@@ -1979,6 +2029,7 @@ export type Database = {
           organization_id: string;
           client_id: string;
           quote_id?: string | null;
+          profile_id?: string | null;
           created_by: string;
           title?: string;
           content?: string;

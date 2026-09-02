@@ -4,6 +4,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { loadUserOrganizationContextWithAdmin } from "@/lib/auth/organization-context";
 import type { CurrentUserContext } from "@/lib/auth/session";
 import { isBrokerWorkspace } from "@/lib/broker/access";
+import { getActiveBrokerProfile } from "@/lib/broker/profiles";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -13,6 +14,12 @@ export type BrokerApiContext = {
   context: CurrentUserContext;
   user: User;
   organizationId: string;
+  /**
+   * Profil de cabinet actif (null si le cabinet n'en utilise pas). Sert à
+   * attribuer les actions et à choisir la bonne boîte email. Ce n'est PAS un
+   * droit : il ne restreint ni n'élargit ce que la session peut lire.
+   */
+  profileId: string | null;
 };
 
 export type BrokerApiError = {
@@ -87,12 +94,15 @@ export async function requireBrokerApiContext(): Promise<BrokerApiResult> {
     };
   }
 
+  const activeProfile = await getActiveBrokerProfile(context.organization.id);
+
   return {
     success: true,
     adminSupabase,
     context,
     user,
     organizationId: context.organization.id,
+    profileId: activeProfile?.id ?? null,
   };
 }
 
@@ -196,6 +206,8 @@ export async function logBrokerActivity(
     organizationId: string;
     clientId: string;
     userId: string | null;
+    /** Profil sous lequel l'action a été faite — « qui », côté cabinet. */
+    profileId?: string | null;
     type: string;
     description?: string | null;
     metadata?: Record<string, unknown>;
@@ -205,6 +217,7 @@ export async function logBrokerActivity(
     organization_id: params.organizationId,
     client_id: params.clientId,
     user_id: params.userId,
+    profile_id: params.profileId ?? null,
     type: params.type,
     description: params.description ?? null,
     metadata: params.metadata ?? {},

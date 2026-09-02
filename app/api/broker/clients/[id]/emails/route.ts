@@ -3,6 +3,7 @@ import { brokerClientDisplayName } from "@/lib/broker/clients";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import {
   companyEmailDomain,
+  getMailboxAddresses,
   getOutlookAccessForUser,
   searchMessagesForClient,
   type ClientSearchCriteria,
@@ -25,6 +26,14 @@ export type ClientEmail = {
    * "mention" = the live search found the client cited (name/ref).
    */
   matchType: "linked" | "direct" | "mention";
+  /**
+   * Sens de l'échange, du point de vue du cabinet. Un dossier doit montrer la
+   * conversation complète : ce que le client a écrit ET ce qu'on lui a répondu.
+   * "sent" = expédié depuis une des adresses du cabinet.
+   */
+  direction: "received" | "sent";
+  /** Destinataires, affichés à la place de l'expéditeur sur un email envoyé. */
+  to: string[];
 };
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -96,6 +105,10 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
       hasAttachments: it.has_attachments ?? false,
       webLink: it.web_link || "",
       matchType: "linked",
+      // Le briefing ne lit que la boîte de réception : un item rattaché est
+      // toujours un email entrant.
+      direction: "received",
+      to: [],
     });
   }
   let linkedEmails: ClientEmail[] = [...linkedById.values()];
@@ -109,6 +122,12 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   const linkedIds = new Set(linkedEmails.map((e) => e.id));
 
   const access = await getOutlookAccessForUser(orgId, auth.user.id);
+  // Toutes les adresses du cabinet (principale + alias SMTP) : c'est ce qui
+  // permet de reconnaître un email SORTANT, y compris envoyé depuis un alias.
+  const mailboxAddresses = access
+    ? new Set(await getMailboxAddresses(access.accessToken))
+    : new Set<string>();
+  if (access?.email) mailboxAddresses.add(access.email.trim().toLowerCase());
 
   // 2) Live mailbox search (direct exchanges + mentions), merged with the
   //    persisted links which always take precedence.
@@ -185,17 +204,27 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
       };
       liveEmails = messages
         .filter((m) => !linkedIds.has(m.id))
-        .map((m) => ({
-          id: m.id,
-          subject: m.subject,
-          from: m.fromName || m.fromEmail,
-          fromEmail: m.fromEmail,
-          receivedAt: m.receivedDateTime,
-          preview: m.bodyPreview,
-          hasAttachments: m.hasAttachments,
-          webLink: m.webLink,
-          matchType: isDirect(m) ? "direct" : "mention",
-        }));
+        .map((m) => {
+          const sent = Boolean(m.fromEmail && mailboxAddresses.has(m.fromEmail));
+          return {
+            id: m.id,
+            subject: m.subject,
+            from: m.fromName || m.fromEmail,
+            fromEmail: m.fromEmail,
+            receivedAt: m.receivedDateTime,
+            preview: m.bodyPreview,
+            hasAttachments: m.hasAttachments,
+            webLink: m.webLink,
+            matchType: (isDirect(m) ? "direct" : "mention") as
+              | "direct"
+              | "mention",
+            direction: (sent ? "sent" : "received") as "received" | "sent",
+            // Sur un email envoyé, le destinataire est l'information utile.
+            to: sent
+              ? m.recipients.filter((r) => !mailboxAddresses.has(r))
+              : [],
+          };
+        });
     }
   }
 

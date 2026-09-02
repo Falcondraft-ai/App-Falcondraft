@@ -1,5 +1,6 @@
 import "server-only";
 
+import { RENEWAL_HORIZON_DAYS } from "@/lib/broker/contracts";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   BrokerActivityRow,
@@ -434,7 +435,7 @@ export async function getBrokerContracts(
  */
 export async function getBrokerUpcomingRenewals(
   organizationId: string,
-  withinDays = 60,
+  withinDays = RENEWAL_HORIZON_DAYS,
 ): Promise<BrokerContractRow[]> {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return [];

@@ -110,6 +110,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "claim_declared",
     description: values.claimType?.trim()
       ? `Sinistre déclaré — ${values.claimType.trim()}.`

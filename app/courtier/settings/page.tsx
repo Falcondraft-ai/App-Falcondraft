@@ -5,6 +5,8 @@ import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { getTeamMembersForOrganization } from "@/lib/data/supabase-app-data";
 import { getOutlookConnectionForUser } from "@/lib/email/connections";
 import { computeStorageUsage, formatBytes } from "@/lib/broker/storage";
+import { ProfilesManager } from "@/components/broker/profiles-manager";
+import { getBrokerProfiles } from "@/lib/broker/profiles";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,12 +58,13 @@ function ShortcutCard({
 export default async function CourtierGeneralSettingsPage() {
   const context = await requireActiveWorkspaceContext();
   const organization = context.organization!;
-  const [members, outlook] = await Promise.all([
+  const [members, outlook, profiles] = await Promise.all([
     getTeamMembersForOrganization(organization.id),
     getOutlookConnectionForUser({
       organizationId: organization.id,
       userId: context.user.id,
     }),
+    getBrokerProfiles(organization.id, { includeInactive: true }),
   ]);
   const usage = computeStorageUsage(organization);
 
@@ -80,6 +83,8 @@ export default async function CourtierGeneralSettingsPage() {
           devoirs de conseil.
         </p>
       </section>
+
+      <ProfilesManager initialProfiles={profiles} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <ShortcutCard

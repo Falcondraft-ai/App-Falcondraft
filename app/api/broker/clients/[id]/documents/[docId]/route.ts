@@ -75,6 +75,7 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "document_deleted",
     description: `Document supprimé : ${document.title}.`,
   });

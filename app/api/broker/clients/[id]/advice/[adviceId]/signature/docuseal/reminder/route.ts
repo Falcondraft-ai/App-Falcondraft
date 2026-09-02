@@ -128,6 +128,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "advice_signature_reminded",
     description: "Rappel de signature envoyé au client.",
     metadata: { advice_id: adviceId, automatic: false },

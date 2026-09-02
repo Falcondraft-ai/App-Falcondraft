@@ -130,6 +130,19 @@ export function daysUntil(date: string | null | undefined): number | null {
 }
 
 /**
+ * Horizon d'anticipation des renouvellements, en jours. Un préavis de
+ * résiliation courant est de deux mois : le cabinet doit voir arriver
+ * l'échéance AVANT d'entrer dans ce préavis, d'où 90 jours.
+ *
+ * Source unique — toutes les vues (tableau de bord, contrats, renouvellements,
+ * copilote) lisent cette constante.
+ */
+export const RENEWAL_HORIZON_DAYS = 90;
+
+/** Libellé de l'horizon, pour les titres et les états vides. */
+export const RENEWAL_HORIZON_LABEL = `Sous ${RENEWAL_HORIZON_DAYS} jours`;
+
+/**
  * Classifies a renewal date into an urgency band, used to colour and group
  * the renewals view. Only contracts that are active/pending matter for renewal.
  */
@@ -143,14 +156,14 @@ export function renewalUrgency(
   if (days === null) return "none";
   if (days < 0) return "overdue";
   if (days <= 30) return "soon";
-  if (days <= 60) return "upcoming";
+  if (days <= RENEWAL_HORIZON_DAYS) return "upcoming";
   return "later";
 }
 
 export const renewalUrgencyLabels: Record<RenewalUrgency, string> = {
   overdue: "Échéance dépassée",
   soon: "Sous 30 jours",
-  upcoming: "Sous 60 jours",
+  upcoming: RENEWAL_HORIZON_LABEL,
   later: "Plus tard",
   none: "—",
 };
@@ -187,7 +200,7 @@ export const renewalUrgencyTone: Record<
   },
 };
 
-/** True when a contract needs renewal attention (overdue or within 60 days). */
+/** True when a contract needs renewal attention (overdue or within the horizon). */
 export function needsRenewalAttention(
   contract: Pick<BrokerContractRow, "renewal_date" | "status">,
 ): boolean {

@@ -206,6 +206,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "document_added",
     description: "Devoir de conseil généré en PDF.",
     metadata: { advice_id: adviceId, document_id: documentId },

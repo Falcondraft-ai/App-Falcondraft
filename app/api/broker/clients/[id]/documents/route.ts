@@ -124,6 +124,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "document_added",
     description: `Document ajouté : ${values.title}.`,
     metadata: { category: values.category, size_bytes: sizeBytes },

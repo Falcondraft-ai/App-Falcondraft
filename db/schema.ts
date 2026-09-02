@@ -199,6 +199,8 @@ export const emailConnections = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull(),
+    // Boîte rattachée à un profil de cabinet (null hors module courtier).
+    profileId: uuid("profile_id"),
     provider: text("provider").notNull(),
     email: text("email").notNull(),
     accessToken: text("access_token").notNull(),
@@ -212,11 +214,12 @@ export const emailConnections = pgTable(
     organizationIdx: index("email_connections_organization_id_idx").on(
       table.organizationId,
     ),
-    userProviderIdx: uniqueIndex("email_connections_user_provider_idx").on(
-      table.organizationId,
-      table.userId,
-      table.provider,
-    ),
+    // Étendu au profil en 0057 : un cabinet = un compte, plusieurs boîtes.
+    // L'index réel utilise coalesce(profile_id, uuid zéro) — Drizzle ne sait pas
+    // exprimer l'expression, la migration fait foi.
+    userProviderIdx: uniqueIndex(
+      "email_connections_user_provider_profile_idx",
+    ).on(table.organizationId, table.userId, table.provider, table.profileId),
   }),
 );
 
@@ -390,6 +393,33 @@ export const billingDocuments = pgTable(
   }),
 );
 
+/**
+ * Profils de cabinet : plusieurs personnes travaillent sous UN seul compte
+ * Supabase. Un profil porte une identité et une adresse email, jamais un mot de
+ * passe — voir la migration 0057 pour la limite de traçabilité assumée.
+ */
+export const brokerProfiles = pgTable(
+  "broker_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    displayName: text("display_name").notNull(),
+    email: text("email"),
+    roleLabel: text("role_label"),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("broker_profiles_organization_id_idx").on(
+      table.organizationId,
+    ),
+  }),
+);
+
 export const brokerClients = pgTable(
   "broker_clients",
   {
@@ -415,6 +445,9 @@ export const brokerClients = pgTable(
     structuredNeeds: jsonb("structured_needs").default({}).notNull(),
     notes: text("notes"),
     introducerId: uuid("introducer_id"),
+    profileId: uuid("profile_id").references(() => brokerProfiles.id, {
+      onDelete: "set null",
+    }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -440,6 +473,9 @@ export const brokerActivity = pgTable(
       .notNull()
       .references(() => brokerClients.id, { onDelete: "cascade" }),
     userId: uuid("user_id"),
+    profileId: uuid("profile_id").references(() => brokerProfiles.id, {
+      onDelete: "set null",
+    }),
     type: text("type").notNull(),
     description: text("description"),
     metadata: jsonb("metadata").default({}).notNull(),

@@ -183,6 +183,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
         organizationId: auth.organizationId,
         clientId,
         userId: auth.user.id,
+        profileId: auth.profileId,
         type: event.type,
         description: event.description,
       });
@@ -192,6 +193,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       organizationId: auth.organizationId,
       clientId,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type: "compliance_updated",
       description: "Dossier de conformité mis à jour.",
     });

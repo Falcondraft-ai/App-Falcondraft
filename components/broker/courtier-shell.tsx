@@ -13,6 +13,7 @@ import {
   HardDrive,
   HelpCircle,
   LayoutDashboard,
+  Loader2,
   LogOut,
   Mail,
   Menu,
@@ -56,6 +57,8 @@ import { AgentChat } from "@/components/broker/agent-chat";
 import { CourtierNotifications } from "@/components/broker/courtier-notifications";
 import { CourtierTopbarSearch } from "@/components/broker/courtier-topbar-search";
 import { type StorageUsage } from "@/lib/broker/storage";
+import { profileInitials } from "@/lib/broker/profile-format";
+import type { BrokerProfileRow } from "@/types/database";
 
 const EXPANDED_WIDTH = 256;
 const COLLAPSED_WIDTH = 72;
@@ -620,12 +623,40 @@ function AccountBlock({
   collapsed,
   profilePhotoUrl,
   onSignOut,
+  profiles,
+  activeProfileId,
 }: {
   user: CourtierShellUser;
   collapsed: boolean;
   profilePhotoUrl: string | null;
   onSignOut: () => void;
+  profiles: BrokerProfileRow[];
+  activeProfileId: string | null;
 }) {
+  const router = useRouter();
+  const [switching, setSwitching] = React.useState<string | null>(null);
+
+  // Bascule de profil : un clic, sans repasser par l'écran d'accueil.
+  async function switchProfile(profileId: string) {
+    if (switching || profileId === activeProfileId) return;
+    setSwitching(profileId);
+    const res = await fetch("/api/broker/profiles/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setSwitching(null);
+      toast.error("Changement de profil impossible.", {
+        description: "Veuillez réessayer.",
+      });
+      return;
+    }
+    router.refresh();
+    setSwitching(null);
+  }
+
+  const others = profiles.filter((p) => p.id !== activeProfileId);
   const avatar = (
     <Avatar className="size-9 shrink-0 rounded-full ring-1 ring-white/10">
       {profilePhotoUrl ? (
@@ -741,7 +772,49 @@ function AccountBlock({
           </div>
         </div>
 
-        <div className="p-1.5">
+        {/* Bascule de profil — le cabinet travaille à plusieurs sur un compte :
+            changer d'identité doit coûter un clic, pas une déconnexion. */}
+        {others.length > 0 ? (
+          <div className="p-1.5 pb-0">
+            <p
+              className="px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.09em]"
+              style={{ color: "var(--fg-4)" }}
+            >
+              Changer de profil
+            </p>
+            {others.map((profile) => (
+              <DropdownMenuItem
+                key={profile.id}
+                disabled={switching !== null}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  void switchProfile(profile.id);
+                }}
+                className="cursor-pointer rounded-lg px-2.5 py-2 text-[13px]"
+              >
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-[8px] text-[10px] font-semibold"
+                  style={{
+                    background: "linear-gradient(155deg, #283450, #181f31)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  {switching === profile.id ? (
+                    <Loader2 className="size-3 animate-spin" strokeWidth={2} />
+                  ) : (
+                    profileInitials(profile.display_name)
+                  )}
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {profile.display_name}
+                </span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator className="my-1.5" />
+          </div>
+        ) : null}
+
+        <div className="p-1.5 pt-0">
           <DropdownMenuItem
             asChild
             className="cursor-pointer rounded-lg px-2.5 py-2 text-[13px]"
@@ -800,12 +873,16 @@ function SidebarContent({
   onNavigate,
   onFlyoutOpen,
   onFlyoutClose,
+  profiles,
+  activeProfileId,
 }: {
   sections: NavSection[];
   pathname: string;
   collapsed: boolean;
   usage: StorageUsage;
   user: CourtierShellUser;
+  profiles: BrokerProfileRow[];
+  activeProfileId: string | null;
   profilePhotoUrl: string | null;
   openGroups: Set<string>;
   onToggleGroup: (href: string) => void;
@@ -904,6 +981,8 @@ function SidebarContent({
             collapsed={collapsed}
             profilePhotoUrl={profilePhotoUrl}
             onSignOut={onSignOut}
+            profiles={profiles}
+            activeProfileId={activeProfileId}
           />
         </div>
       </div>
@@ -920,12 +999,17 @@ export function CourtierShell({
   user,
   usage,
   showProposals = false,
+  profiles = [],
+  activeProfileId = null,
 }: {
   children: React.ReactNode;
   organizationName: string;
   user: CourtierShellUser;
   usage: StorageUsage;
   showProposals?: boolean;
+  /** Profils du cabinet — vide si le cabinet n'en utilise pas. */
+  profiles?: BrokerProfileRow[];
+  activeProfileId?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -1058,6 +1142,8 @@ export function CourtierShell({
           onToggleGroup={toggleGroup}
           onToggleCollapse={toggleCollapsed}
           onSignOut={signOut}
+          profiles={profiles}
+          activeProfileId={activeProfileId}
           onFlyoutOpen={collapsed ? openFlyout : undefined}
           onFlyoutClose={scheduleClose}
         />
@@ -1126,6 +1212,8 @@ export function CourtierShell({
                   openGroups={openGroups}
                   onToggleGroup={toggleGroup}
                   onSignOut={signOut}
+                  profiles={profiles}
+                  activeProfileId={activeProfileId}
                   onNavigate={() => setMobileOpen(false)}
                 />
               </div>

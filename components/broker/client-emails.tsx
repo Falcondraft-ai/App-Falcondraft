@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ExternalLink, Inbox, Mail, Paperclip, Search } from "lucide-react";
+import {
+  CornerUpRight,
+  ExternalLink,
+  Inbox,
+  Mail,
+  Paperclip,
+  Search,
+} from "lucide-react";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
 import { formatDateTime } from "@/lib/format";
 import type { ClientEmail } from "@/app/api/broker/clients/[id]/emails/route";
@@ -125,7 +132,7 @@ export function ClientEmails({ clientId }: { clientId: string }) {
             hint={
               query
                 ? "Essayez d’autres mots-clés."
-                : "Les messages concernant ce client apparaîtront ici (échanges directs et emails qui le citent)."
+                : "Les messages concernant ce client apparaîtront ici : ce qu’il vous écrit, ce que vous lui envoyez, et les emails qui le citent."
             }
           />
         ) : (
@@ -138,7 +145,7 @@ export function ClientEmails({ clientId }: { clientId: string }) {
             />
             <EmailGroup
               label="Échangés avec le client"
-              hint="Messages où le client est expéditeur ou destinataire."
+              hint="Messages reçus du client comme ceux qui lui ont été envoyés."
               emails={groups.direct}
               showHeader={multiGroup}
             />
@@ -202,11 +209,27 @@ function EmailGroup({
                 rel="noopener noreferrer"
                 className="group flex items-start gap-3 rounded-lg border border-transparent px-2.5 py-2.5 transition-colors hover:border-[var(--border-1)] hover:bg-[var(--bg-sunken)]"
               >
-                <BrokerAvatar name={email.from} size={34} />
+                <BrokerAvatar
+                  name={
+                    email.direction === "sent"
+                      ? (email.to[0] ?? email.from)
+                      : email.from
+                  }
+                  size={34}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    {email.direction === "sent" ? (
+                      <CornerUpRight
+                        className="size-3.5 shrink-0 text-[var(--fg-4)]"
+                        strokeWidth={1.75}
+                        aria-label="Email envoyé"
+                      />
+                    ) : null}
                     <p className="truncate text-[13px] font-semibold text-[var(--fg-1)]">
-                      {email.from}
+                      {email.direction === "sent"
+                        ? `À ${email.to[0] ?? "destinataire"}`
+                        : email.from}
                     </p>
                     {email.hasAttachments ? (
                       <Paperclip

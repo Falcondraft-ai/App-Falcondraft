@@ -256,6 +256,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "advice_signature_prepared",
     description: wasSigned
       ? "Nouvelle demande de signature sur la version à jour du document — la version signée précédente reste archivée au dossier."
@@ -413,6 +414,7 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "advice_signature_cancelled",
     description: "Demande de signature annulée — le lien ne fonctionne plus.",
     metadata: { advice_id: adviceId },

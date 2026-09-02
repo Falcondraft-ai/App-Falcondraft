@@ -28,6 +28,7 @@ import {
   needsRenewalAttention,
   renewalUrgency,
   renewalUrgencyTone,
+  RENEWAL_HORIZON_DAYS,
 } from "@/lib/broker/contracts";
 import { getBrokerClients, getBrokerContracts } from "@/lib/broker/data";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -81,7 +82,7 @@ export default async function BrokerContractsPage() {
             variant="cell"
             label="Renouvellements à suivre"
             value={String(renewalsCount)}
-            detail="Échéances dépassées ou sous 60 jours"
+            detail={`Échéances dépassées ou sous ${RENEWAL_HORIZON_DAYS} jours`}
             tone="warning"
           />
         </StatStrip>

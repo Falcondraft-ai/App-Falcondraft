@@ -160,6 +160,7 @@ export async function POST(request: NextRequest) {
       organizationId: auth.organizationId,
       clientId: values.clientId,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type: "commission_added",
       description: "Commission enregistrée pour ce dossier.",
       metadata: { commission_id: commission.id },

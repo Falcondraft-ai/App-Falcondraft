@@ -89,6 +89,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "quote_imported",
     description: "Devis compagnie importé — en attente de vérification.",
     metadata: { quote_id: quote.id },

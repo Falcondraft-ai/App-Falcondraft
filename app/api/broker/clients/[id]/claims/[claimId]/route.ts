@@ -146,6 +146,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       organizationId: auth.organizationId,
       clientId,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type,
       description: `Sinistre — statut : ${brokerClaimStatusLabels[values.status]}.`,
       metadata: { claim_id: claimId, status: values.status },

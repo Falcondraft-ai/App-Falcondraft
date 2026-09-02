@@ -92,6 +92,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: activityType,
     description: activityDesc,
     metadata: { advice_id: adviceId },

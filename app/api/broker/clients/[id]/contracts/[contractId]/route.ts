@@ -141,6 +141,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       organizationId: auth.organizationId,
       clientId,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type:
         values.status === "terminated"
           ? "contract_terminated"

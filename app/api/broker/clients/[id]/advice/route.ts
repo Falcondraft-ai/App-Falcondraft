@@ -127,6 +127,8 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       organization_id: auth.organizationId,
       client_id: clientId,
       quote_id: quote?.id ?? null,
+      // Le devoir de conseil engage une personne : on retient laquelle.
+      profile_id: auth.profileId,
       created_by: auth.user.id,
       title: "Devoir de conseil",
       content,
@@ -151,6 +153,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "advice_created",
     description: "Devoir de conseil généré — contenu à relire et valider.",
     metadata: { advice_id: advice.id },

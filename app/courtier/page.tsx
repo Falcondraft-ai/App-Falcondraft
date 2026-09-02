@@ -36,6 +36,7 @@ import {
   formatContractPremium,
   renewalUrgency,
   renewalUrgencyTone,
+  RENEWAL_HORIZON_DAYS,
 } from "@/lib/broker/contracts";
 import {
   getBrokerClients,
@@ -58,7 +59,7 @@ export default async function CourtierDashboardPage() {
   const [clients, activity, renewals] = await Promise.all([
     getBrokerClients(organizationId, { limit: 200 }),
     getBrokerRecentActivity(organizationId, 8),
-    getBrokerUpcomingRenewals(organizationId, 60),
+    getBrokerUpcomingRenewals(organizationId, RENEWAL_HORIZON_DAYS),
   ]);
   const clientNames = new Map(
     clients.map((c) => [c.id, brokerClientDisplayName(c)]),

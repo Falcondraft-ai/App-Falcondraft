@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
     .from("broker_clients")
     .insert({
       organization_id: auth.organizationId,
+      // Profil qui ouvre le dossier — le dossier reste visible de tous.
+      profile_id: auth.profileId,
       created_by: auth.user.id,
       client_type: values.clientType,
       first_name: values.firstName?.trim() || null,
@@ -154,6 +156,7 @@ export async function POST(request: NextRequest) {
     organizationId: auth.organizationId,
     clientId: data.id,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "client_created",
     description: `Dossier créé pour ${brokerClientDisplayName(data)}.`,
   });

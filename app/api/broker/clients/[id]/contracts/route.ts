@@ -122,6 +122,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     organizationId: auth.organizationId,
     clientId,
     userId: auth.user.id,
+    profileId: auth.profileId,
     type: "contract_created",
     description: values.insurerName?.trim()
       ? `Contrat ajouté — ${values.insurerName.trim()}.`

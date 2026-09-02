@@ -108,6 +108,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       organizationId: auth.organizationId,
       clientId,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type: "quote_validated",
       description: "Devis compagnie vérifié et validé.",
       metadata: { quote_id: quoteId },

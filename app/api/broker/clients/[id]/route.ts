@@ -158,6 +158,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext) {
       organizationId: auth.organizationId,
       clientId: id,
       userId: auth.user.id,
+      profileId: auth.profileId,
       type: "status_changed",
       description: `Statut mis à jour : ${brokerClientStatusLabels[values.status]}.`,
       metadata: { from: existing.status, to: values.status },

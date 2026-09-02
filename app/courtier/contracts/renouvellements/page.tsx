@@ -16,6 +16,8 @@ import {
   renewalUrgency,
   renewalUrgencyTone,
   type RenewalUrgency,
+  RENEWAL_HORIZON_DAYS,
+  RENEWAL_HORIZON_LABEL,
 } from "@/lib/broker/contracts";
 import { getBrokerClients, getBrokerUpcomingRenewals } from "@/lib/broker/data";
 import { formatDate } from "@/lib/format";
@@ -31,7 +33,7 @@ const groupOrder: { key: RenewalUrgency; title: string; hint: string }[] = [
     hint: "À traiter en priorité",
   },
   { key: "soon", title: "Sous 30 jours", hint: "Préparez la relance" },
-  { key: "upcoming", title: "Sous 60 jours", hint: "À anticiper" },
+  { key: "upcoming", title: RENEWAL_HORIZON_LABEL, hint: "À anticiper" },
 ];
 
 function relativeLabel(date: string | null): string {
@@ -50,7 +52,7 @@ export default async function BrokerRenewalsPage() {
   const organizationId = context.organization!.id;
 
   const [renewals, clients] = await Promise.all([
-    getBrokerUpcomingRenewals(organizationId, 60),
+    getBrokerUpcomingRenewals(organizationId, RENEWAL_HORIZON_DAYS),
     getBrokerClients(organizationId, { limit: 2000, includeArchived: true }),
   ]);
 
@@ -174,7 +176,7 @@ export default async function BrokerRenewalsPage() {
           >
             <EmptyState
               title="Aucun renouvellement à venir"
-              description="Aucune échéance de contrat dans les 60 prochains jours. Renseignez les dates d’échéance de vos contrats pour les voir apparaître ici."
+              description={`Aucune échéance de contrat dans les ${RENEWAL_HORIZON_DAYS} prochains jours. Renseignez les dates d’échéance de vos contrats pour les voir apparaître ici.`}
               action={
                 <Button asChild>
                   <Link href="/courtier/contracts">Voir les contrats</Link>
