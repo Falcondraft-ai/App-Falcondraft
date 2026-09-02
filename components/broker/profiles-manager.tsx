@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, UserRound, X } from "lucide-react";
+import { Loader2, Plus, Trash2, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +78,37 @@ export function ProfilesManager({
         p.id === profile.id ? { ...p, is_active: !p.is_active } : p,
       ),
     );
+    router.refresh();
+  }
+
+  async function remove(profile: BrokerProfileRow) {
+    if (busy) return;
+    const confirmed = window.confirm(
+      `Supprimer le profil « ${profile.display_name} » ?\n\n` +
+        "Ses dossiers, documents et devoirs de conseil sont conservés ; ils ne " +
+        "seront simplement plus rattachés à personne. Sa boîte email est " +
+        "déconnectée.",
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    const res = await fetch(
+      `/api/broker/profiles?id=${encodeURIComponent(profile.id)}`,
+      { method: "DELETE" },
+    ).catch(() => null);
+    const data = (await res?.json().catch(() => null)) as
+      | { success?: boolean; message?: string }
+      | null;
+    setBusy(false);
+
+    if (!res?.ok || !data?.success) {
+      toast.error("Profil non supprimé.", {
+        description: data?.message ?? "Veuillez réessayer.",
+      });
+      return;
+    }
+    setProfiles((prev) => prev.filter((p) => p.id !== profile.id));
+    toast.success(`Profil « ${profile.display_name} » supprimé.`);
     router.refresh();
   }
 
@@ -219,25 +250,40 @@ export function ProfilesManager({
                   {profile.email ?? "Aucune adresse email associée"}
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => void deactivate(profile)}
-                title={
-                  profile.is_active
-                    ? "Retirer ce profil du sélecteur"
-                    : "Remettre ce profil dans le sélecteur"
-                }
-              >
-                {profile.is_active ? (
-                  <X className="size-3.5" strokeWidth={1.75} />
-                ) : (
-                  <UserRound className="size-3.5" strokeWidth={1.75} />
-                )}
-                {profile.is_active ? "Désactiver" : "Réactiver"}
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void deactivate(profile)}
+                  title={
+                    profile.is_active
+                      ? "Retirer ce profil du sélecteur, sans rien supprimer"
+                      : "Remettre ce profil dans le sélecteur"
+                  }
+                >
+                  {profile.is_active ? (
+                    <X className="size-3.5" strokeWidth={1.75} />
+                  ) : (
+                    <UserRound className="size-3.5" strokeWidth={1.75} />
+                  )}
+                  {profile.is_active ? "Désactiver" : "Réactiver"}
+                </Button>
+                {profiles.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void remove(profile)}
+                    title="Supprimer définitivement ce profil"
+                    className="text-[var(--destructive)] hover:bg-[var(--destructive-soft)] hover:text-[var(--destructive)]"
+                  >
+                    <Trash2 className="size-3.5" strokeWidth={1.75} />
+                  </Button>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

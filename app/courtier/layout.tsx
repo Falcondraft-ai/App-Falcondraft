@@ -6,6 +6,7 @@ import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { isBrokerWorkspace } from "@/lib/broker/access";
 import { hasProposalAutomation } from "@/lib/billing/entitlements";
 import {
+  ensureDefaultBrokerProfile,
   getActiveBrokerProfile,
   getBrokerProfiles,
 } from "@/lib/broker/profiles";
@@ -28,6 +29,13 @@ export default async function CourtierLayout({
 
   // Cabinet à plusieurs sur un compte partagé : personne n'entre sans avoir dit
   // qui il est. Un cabinet sans profils n'est pas concerné et passe directement.
+  // Un cabinet a toujours au moins un profil : sans lui, aucune action n'a
+  // d'auteur et aucune boîte email n'a de propriétaire.
+  await ensureDefaultBrokerProfile({
+    organizationId: organization.id,
+    fullName: context.profile?.full_name ?? null,
+    email: context.user.email ?? null,
+  });
   const profiles = await getBrokerProfiles(organization.id);
   const activeProfile = await getActiveBrokerProfile(organization.id, profiles);
 

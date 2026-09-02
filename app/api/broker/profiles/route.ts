@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import { PROFILE_COOKIE, profileCookieOptions } from "@/lib/broker/profiles";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import type { BrokerProfileRow } from "@/types/database";
 
@@ -181,5 +183,62 @@ export async function PATCH(request: NextRequest) {
     .eq("id", id);
 
   if (error) return jsonError("Mise à jour impossible.", 500, "update_failed");
+  return NextResponse.json({ success: true });
+}
+
+/**
+ * Supprime un profil.
+ *
+ * Ce qui a été fait sous ce profil n'est pas effacé : les dossiers, documents et
+ * devoirs de conseil restent, leur `profile_id` retombe simplement à null
+ * (`on delete set null`). Seule sa boîte email part avec lui, elle n'a plus de
+ * propriétaire. Le dernier profil n'est pas supprimable : un cabinet en garde
+ * toujours un.
+ */
+export async function DELETE(request: NextRequest) {
+  const auth = await requireBrokerApiContext();
+  if (!auth.success) return jsonError(auth.message, auth.status, auth.reason);
+  if (!canCreateWorkspaceRecords(auth.context.membership?.role)) {
+    return jsonError("Votre rôle ne permet pas cette action.", 403, "insufficient_role");
+  }
+
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) return jsonError("Profil manquant.", 400, "invalid_input");
+
+  const { data: profiles } = await auth.adminSupabase
+    .from("broker_profiles")
+    .select("id")
+    .eq("organization_id", auth.organizationId);
+
+  const list = profiles ?? [];
+  if (!list.some((p) => p.id === id)) {
+    return jsonError("Profil introuvable.", 404, "profile_not_found");
+  }
+  if (list.length <= 1) {
+    return jsonError(
+      "Impossible de supprimer le dernier profil du cabinet.",
+      409,
+      "last_profile",
+    );
+  }
+
+  const { error } = await auth.adminSupabase
+    .from("broker_profiles")
+    .delete()
+    .eq("organization_id", auth.organizationId)
+    .eq("id", id);
+
+  if (error) {
+    console.error("[broker] profile delete failed:", error.message);
+    return jsonError("Suppression impossible.", 500, "delete_failed");
+  }
+
+  // Le profil supprimé était peut-être celui en cours : sans ça, le cabinet
+  // resterait bloqué sur un cookie qui ne désigne plus personne.
+  const cookieStore = await cookies();
+  if (cookieStore.get(PROFILE_COOKIE)?.value === id) {
+    cookieStore.set(PROFILE_COOKIE, "", { ...profileCookieOptions, maxAge: 0 });
+  }
+
   return NextResponse.json({ success: true });
 }

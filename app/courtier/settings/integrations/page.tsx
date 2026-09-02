@@ -29,7 +29,6 @@ export default async function CourtierIntegrationsSettingsPage() {
         .from("email_connections")
         .select("profile_id, email, provider, last_verified_at")
         .eq("organization_id", organization.id)
-        .eq("user_id", context.user.id)
         .eq("provider", IMAP_PROVIDER)
         .eq("status", "connected")
     : { data: null };

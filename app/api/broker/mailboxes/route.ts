@@ -93,7 +93,9 @@ export async function POST(request: NextRequest) {
       last_verified_at: now,
       updated_at: now,
     },
-    { onConflict: "organization_id,user_id,provider,profile_id" },
+    // La boîte appartient au profil : deux comptes du cabinet qui relient la
+    // même adresse mettent à jour la même ligne (migration 0059).
+    { onConflict: "organization_id,provider,profile_id" },
   );
 
   if (error) {
@@ -123,7 +125,6 @@ export async function DELETE(request: NextRequest) {
     .from("email_connections")
     .delete()
     .eq("organization_id", auth.organizationId)
-    .eq("user_id", auth.user.id)
     .eq("provider", IMAP_PROVIDER)
     .eq("profile_id", profileId);
 

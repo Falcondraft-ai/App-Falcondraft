@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { BrokerProfileRow } from "@/types/database";
 
@@ -52,6 +53,51 @@ export async function getBrokerProfiles(
     .order("display_name", { ascending: true });
 
   return (data ?? []) as BrokerProfileRow[];
+}
+
+/**
+ * Garantit qu'un cabinet a au moins un profil.
+ *
+ * Un espace courtier sans profil laisse des actions sans auteur et des boîtes
+ * email sans propriétaire. Plutôt que d'imposer une configuration avant de
+ * pouvoir travailler, on crée à la volée un premier profil à partir du compte :
+ * le cabinet démarre immédiatement, et renomme ou complète ensuite.
+ *
+ * Idempotent — ne fait rien dès qu'un profil existe.
+ */
+export async function ensureDefaultBrokerProfile(input: {
+  organizationId: string;
+  fullName: string | null;
+  email: string | null;
+}): Promise<BrokerProfileRow | null> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return null;
+
+  const { data: existing } = await admin
+    .from("broker_profiles")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .limit(1)
+    .maybeSingle();
+  if (existing) return null;
+
+  const displayName =
+    input.fullName?.trim() ||
+    input.email?.trim().split("@")[0] ||
+    "Mon profil";
+
+  const { data: created } = await admin
+    .from("broker_profiles")
+    .insert({
+      organization_id: input.organizationId,
+      display_name: displayName,
+      email: input.email?.trim().toLowerCase() || null,
+      sort_order: 0,
+    })
+    .select("*")
+    .single();
+
+  return (created as BrokerProfileRow | null) ?? null;
 }
 
 /**

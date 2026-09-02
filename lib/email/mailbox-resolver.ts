@@ -204,17 +204,19 @@ export async function getMailboxClient(
   const admin = target.adminSupabase ?? getSupabaseAdminClient();
   if (!admin) return null;
 
+  // La boîte d'un profil appartient au cabinet, pas au compte qui l'a reliée :
+  // on ne filtre PAS sur user_id quand un profil est en jeu. Sans quoi deux
+  // logins du même cabinet ne verraient pas la même boîte (voir migration 0059).
   let query = admin
     .from("email_connections")
     .select(IMAP_COLUMNS)
     .eq("organization_id", target.organizationId)
-    .eq("user_id", target.userId)
     .eq("provider", IMAP_PROVIDER)
     .eq("status", "connected");
 
   query = target.profileId
     ? query.eq("profile_id", target.profileId)
-    : query.is("profile_id", null);
+    : query.eq("user_id", target.userId).is("profile_id", null);
 
   const { data: imapRow } = await query.maybeSingle();
 
@@ -256,12 +258,12 @@ export async function hasConnectedMailbox(target: {
     .from("email_connections")
     .select("email, provider")
     .eq("organization_id", target.organizationId)
-    .eq("user_id", target.userId)
     .eq("provider", IMAP_PROVIDER)
     .eq("status", "connected");
+  // Même règle que ci-dessus : la boîte suit le profil, pas le login.
   imap = target.profileId
     ? imap.eq("profile_id", target.profileId)
-    : imap.is("profile_id", null);
+    : imap.eq("user_id", target.userId).is("profile_id", null);
 
   const { data: imapRow } = await imap.maybeSingle();
   if (imapRow) {
