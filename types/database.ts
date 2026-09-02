@@ -373,7 +373,8 @@ export type BrokerEmailItemRow = {
   id: string;
   organization_id: string;
   profile_id: string | null;
-  digest_id: string;
+  /** Nul pour un rattachement manuel, fait hors de tout briefing (0060). */
+  digest_id: string | null;
   user_id: string;
   graph_message_id: string;
   from_name: string | null;
@@ -1797,7 +1798,7 @@ export type Database = {
           id?: string;
           organization_id: string;
           profile_id?: string | null;
-          digest_id: string;
+          digest_id?: string | null;
           user_id: string;
           graph_message_id: string;
           from_name?: string | null;

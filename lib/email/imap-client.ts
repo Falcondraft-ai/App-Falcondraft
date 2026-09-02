@@ -47,7 +47,10 @@ type CachedMessage = {
   /** Structure MIME, conservée pour cibler le corps et les pièces jointes
    *  sans retélécharger le message entier. */
   parts: MimePart[];
+  /** Partie texte brut, si l'email en propose une. */
   textPart: string | null;
+  /** Partie HTML, si l'email en propose une : c'est elle qu'on affiche. */
+  htmlPart: string | null;
 };
 
 type MimePart = {
@@ -105,11 +108,8 @@ function isRealAttachment(part: MimePart): boolean {
   return Boolean(part.filename);
 }
 
-function pickTextPart(parts: MimePart[]): string | null {
-  const plain = parts.find((p) => p.type === "text/plain" && !p.filename);
-  if (plain) return plain.part;
-  const html = parts.find((p) => p.type === "text/html" && !p.filename);
-  return html?.part ?? null;
+function pickPart(parts: MimePart[], type: string): string | null {
+  return parts.find((p) => p.type === type && !p.filename)?.part ?? null;
 }
 
 /** HTML → texte lisible, même conversion que côté Microsoft. */
@@ -218,7 +218,8 @@ export class ImapMailboxClient implements MailboxClient {
     this.cache.set(id, {
       uid: msg.uid,
       parts,
-      textPart: pickTextPart(parts),
+      textPart: pickPart(parts, "text/plain"),
+      htmlPart: pickPart(parts, "text/html"),
     });
 
     return {
@@ -337,21 +338,29 @@ export class ImapMailboxClient implements MailboxClient {
 
   async getBody(messageId: string): Promise<MailMessageBody | null> {
     const entry = await this.resolve(messageId);
-    if (!entry?.textPart) return null;
+    if (!entry) return null;
 
-    const buffer = await this.downloadPart(entry.uid, entry.textPart);
-    if (!buffer) return null;
+    // Les deux versions quand elles existent : le HTML pour l'affichage, le
+    // texte pour l'analyse. Un email n'a pas toujours les deux — on dérive
+    // alors l'un de l'autre plutôt que de rendre un message vide.
+    const [htmlRaw, textRaw] = await Promise.all([
+      entry.htmlPart ? this.downloadPart(entry.uid, entry.htmlPart) : null,
+      entry.textPart ? this.downloadPart(entry.uid, entry.textPart) : null,
+    ]);
 
-    const raw = buffer.toString("utf8");
-    const isHtml = entry.parts.find((p) => p.part === entry.textPart)?.type ===
-      "text/html";
+    const html = htmlRaw?.toString("utf8") ?? null;
+    const text = textRaw?.toString("utf8").trim() ?? (html ? htmlToText(html) : "");
+    if (!html && !text) return null;
 
     return {
       subject: "",
       fromName: "",
       fromEmail: "",
       receivedDateTime: "",
-      body: (isHtml ? htmlToText(raw) : raw.trim()).slice(0, 6000),
+      body: text.slice(0, 6000),
+      // Non assaini : l'appelant le fait passer par sanitizeEmailHtml avant
+      // tout rendu. Voir lib/email/html.ts.
+      html,
     };
   }
 

@@ -563,7 +563,14 @@ export type OutlookMessageBody = {
   fromName: string;
   fromEmail: string;
   receivedDateTime: string;
+  /** Corps en texte, toujours présent : c'est le repli sûr. */
   body: string;
+  /**
+   * Corps HTML d'origine, NON assaini — à ne jamais rendre tel quel. Il permet
+   * d'afficher l'email avec sa mise en forme après passage par un assainisseur
+   * côté serveur.
+   */
+  html: string | null;
 };
 
 /** Reads a single message with its full body (HTML stripped to plain text). */
@@ -599,11 +606,13 @@ export async function getOutlookMessageBody(
           .trim()
       : raw.trim();
 
+  const isHtml = m.body?.contentType?.toLowerCase() === "html";
   return {
     subject: m.subject?.trim() || "(sans objet)",
     fromName: m.from?.emailAddress?.name?.trim() || "",
     fromEmail: m.from?.emailAddress?.address?.trim().toLowerCase() || "",
     receivedDateTime: m.receivedDateTime ?? "",
     body: text.slice(0, 6000),
+    html: isHtml ? raw : null,
   };
 }

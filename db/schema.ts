@@ -934,9 +934,10 @@ export const brokerEmailItems = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    digestId: uuid("digest_id")
-      .notNull()
-      .references(() => brokerEmailDigests.id, { onDelete: "cascade" }),
+    // Nul pour un rattachement manuel, fait hors briefing (migration 0060).
+    digestId: uuid("digest_id").references(() => brokerEmailDigests.id, {
+      onDelete: "cascade",
+    }),
     userId: uuid("user_id").notNull(),
     graphMessageId: text("graph_message_id").notNull(),
     fromName: text("from_name"),

@@ -16,6 +16,8 @@ import {
   UserRound,
 } from "lucide-react";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
+import { EmailBody } from "@/components/broker/email-body";
+import { LinkEmailButton } from "@/components/broker/link-email-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
@@ -246,7 +248,23 @@ export function MailboxView() {
         </div>
 
         {/* Lecture */}
-        <MessagePane message={selected} />
+        <MessagePane
+          message={selected}
+          onLinked={(client) => {
+            // Mise à jour locale : recharger toute la boîte pour un badge
+            // serait disproportionné.
+            const patch = (m: MailboxMessage): MailboxMessage =>
+              m.id === selected?.id
+                ? { ...m, linkedClient: client, knownSender: client ? null : m.knownSender }
+                : m;
+            setSelected((cur) => (cur ? patch(cur) : cur));
+            setState((cur) =>
+              cur.kind === "ready"
+                ? { ...cur, messages: cur.messages.map(patch) }
+                : cur,
+            );
+          }}
+        />
       </div>
     </div>
   );
@@ -291,27 +309,35 @@ function LinkBadges({ message }: { message: MailboxMessage }) {
 }
 
 /** Panneau de lecture : corps complet et pièces jointes, chargés à la demande. */
-function MessagePane({ message }: { message: MailboxMessage | null }) {
+function MessagePane({
+  message,
+  onLinked,
+}: {
+  message: MailboxMessage | null;
+  onLinked: (client: { id: string; name: string } | null) => void;
+}) {
   const [detail, setDetail] = React.useState<MailboxMessageDetail | null>(null);
   const [loading, setLoading] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!message) {
-      setDetail(null);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setDetail(null);
-    void (async () => {
+  const [loadingImages, setLoadingImages] = React.useState(false);
+
+  const loadDetail = React.useCallback(
+    async (withImages: boolean) => {
+      if (!message) return;
+      if (withImages) setLoadingImages(true);
+      else setLoading(true);
+
       const res = await fetch(
-        `/api/courtier/mailbox/message?id=${encodeURIComponent(message.id)}`,
+        `/api/courtier/mailbox/message?id=${encodeURIComponent(message.id)}${
+          withImages ? "&images=1" : ""
+        }`,
       ).catch(() => null);
       const data = (await res?.json().catch(() => null)) as
         | (MailboxMessageDetail & { message?: string })
         | null;
-      if (cancelled) return;
+
       setLoading(false);
+      setLoadingImages(false);
       if (!res?.ok || !data) {
         toast.error("Email illisible.", {
           description: data?.message ?? "Réessayez dans un instant.",
@@ -319,11 +345,18 @@ function MessagePane({ message }: { message: MailboxMessage | null }) {
         return;
       }
       setDetail(data);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [message]);
+    },
+    [message],
+  );
+
+  React.useEffect(() => {
+    if (!message) {
+      setDetail(null);
+      return;
+    }
+    setDetail(null);
+    void loadDetail(false);
+  }, [message, loadDetail]);
 
   if (!message) {
     return (
@@ -369,8 +402,8 @@ function MessagePane({ message }: { message: MailboxMessage | null }) {
           <p className="mt-0.5 font-mono text-[11.5px] text-[var(--fg-4)]">
             {message.receivedAt ? formatDateTime(message.receivedAt) : ""}
           </p>
-          <div className="mt-2">
-            <LinkBadges message={message} />
+          <div className="mt-3">
+            <LinkEmailButton message={message} onLinked={onLinked} />
           </div>
         </div>
 
@@ -382,9 +415,11 @@ function MessagePane({ message }: { message: MailboxMessage | null }) {
             </p>
           ) : detail ? (
             <>
-              <p className="whitespace-pre-wrap text-[13px] leading-6 text-[var(--fg-1)]">
-                {detail.body || "(Message sans texte)"}
-              </p>
+              <EmailBody
+                detail={detail}
+                onShowImages={() => void loadDetail(true)}
+                loadingImages={loadingImages}
+              />
               {detail.attachments.length > 0 ? (
                 <div
                   className="mt-5 border-t pt-4"
