@@ -4,6 +4,7 @@ import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CornerUpRight,
+  Loader2,
   ExternalLink,
   Inbox,
   Mail,
@@ -24,16 +25,22 @@ export function ClientEmails({ clientId }: { clientId: string }) {
   const [query, setQuery] = React.useState("");
   const [state, setState] = React.useState<State>({ kind: "loading" });
 
+  const [searchingMailbox, setSearchingMailbox] = React.useState(false);
+
   const load = React.useCallback(
-    async (q: string) => {
+    async (q: string, live = false) => {
       setState((prev) => (prev.kind === "ready" ? prev : { kind: "loading" }));
-      const params = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+      if (live) setSearchingMailbox(true);
+      const parts: string[] = [];
+      if (q.trim()) parts.push(`q=${encodeURIComponent(q.trim())}`);
+      if (live) parts.push("live=1");
       const res = await fetch(
-        `/api/broker/clients/${clientId}/emails${params}`,
+        `/api/broker/clients/${clientId}/emails${parts.length ? `?${parts.join("&")}` : ""}`,
       ).catch(() => null);
       const data = (await res?.json().catch(() => null)) as
         | { emails?: ClientEmail[]; reason?: string }
         | null;
+      setSearchingMailbox(false);
       if (data?.reason === "not_connected") {
         setState({ kind: "not_connected" });
         return;
@@ -47,9 +54,13 @@ export function ClientEmails({ clientId }: { clientId: string }) {
     [clientId],
   );
 
-  // Initial load + debounced search.
+  // Au montage : uniquement les emails déjà rattachés, donc instantané. Une
+  // recherche, elle, n'a de sens que si elle fouille vraiment les boîtes.
   React.useEffect(() => {
-    const t = setTimeout(() => void load(query), query ? 350 : 0);
+    const t = setTimeout(
+      () => void load(query, Boolean(query.trim())),
+      query ? 350 : 0,
+    );
     return () => clearTimeout(t);
   }, [query, load]);
 
@@ -88,6 +99,25 @@ export function ClientEmails({ clientId }: { clientId: string }) {
             Emails du dossier
           </h2>
         </div>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          {/* Fouille des boîtes à la demande : trois connexions IMAP et
+              plusieurs recherches chacune, ce serait long à chaque ouverture
+              de dossier alors que les emails déjà rangés suffisent souvent. */}
+          <button
+            type="button"
+            onClick={() => void load(query, true)}
+            disabled={searchingMailbox}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-60"
+            style={{ borderColor: "var(--border-1)" }}
+            title="Chercher aussi dans les boîtes email du cabinet"
+          >
+            {searchingMailbox ? (
+              <Loader2 className="size-3.5 animate-spin" strokeWidth={1.75} />
+            ) : (
+              <Search className="size-3.5" strokeWidth={1.75} />
+            )}
+            {searchingMailbox ? "Recherche…" : "Chercher dans les boîtes"}
+          </button>
         <div className="relative w-full sm:w-64">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-4)]"
@@ -103,6 +133,7 @@ export function ClientEmails({ clientId }: { clientId: string }) {
             style={{ borderColor: "var(--border-1)", color: "var(--fg-1)" }}
           />
         </div>
+        </div>
       </div>
 
       <div className="px-5 py-4">
@@ -113,7 +144,7 @@ export function ClientEmails({ clientId }: { clientId: string }) {
           />
         ) : state.kind === "not_connected" ? (
           <Empty
-            title="Boîte Outlook non connectée"
+            title="Aucune boîte email connectée"
             hint="Connectez Outlook dans Paramètres → Intégrations pour voir les emails du dossier."
           />
         ) : state.kind === "loading" ? (

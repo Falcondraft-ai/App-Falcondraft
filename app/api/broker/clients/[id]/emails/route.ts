@@ -56,6 +56,11 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
 
   const { id } = await ctx.params;
   const q = request.nextUrl.searchParams.get("q")?.trim() || undefined;
+  // Deux temps : la page affiche d'abord les emails DÉJÀ rattachés, immédiats
+  // car ils sont en base. La fouille des boîtes — trois connexions IMAP et
+  // plusieurs recherches chacune — n'arrive qu'à la demande, sinon le dossier
+  // met dix secondes à s'ouvrir pour un résultat souvent déjà connu.
+  const live = request.nextUrl.searchParams.get("live") === "1";
   const admin = auth.adminSupabase;
   const orgId = auth.organizationId;
 
@@ -120,6 +125,14 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
     );
   }
   const linkedIds = new Set(linkedEmails.map((e) => e.id));
+
+  if (!live) {
+    return NextResponse.json({
+      emails: linkedEmails,
+      // Dit à l'interface qu'une recherche plus large reste possible.
+      liveAvailable: true,
+    });
+  }
 
   // TOUTES les boîtes du cabinet, pas seulement celle de la personne connectée :
   // un dossier doit montrer la conversation complète, même si c'est un collègue

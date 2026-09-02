@@ -70,19 +70,18 @@ const BACKFILL_MAX_EMAILS = 600;
 // Attachment kinds that ARE client documents — a mail carrying one is relevant
 // on its own and its attachment must always be offered for filing.
 /**
- * Marqueurs d'un expéditeur mécanique : une adresse dont personne ne lit les
- * réponses. Reconnus N'IMPORTE OÙ dans la partie locale, séparés par un tiret,
- * un point ou un underscore — les plateformes préfixent presque toujours
- * (`messages-noreply@`, `invitations-noreply@`), et un motif ancré au début les
- * manquait tous.
+ * Marqueurs d'un expéditeur qu'aucun humain ne lit : automates et envois de
+ * masse. Reconnus N'IMPORTE OÙ dans la partie locale, séparés par un tiret, un
+ * point ou un underscore — les plateformes préfixent presque toujours
+ * (`messages-noreply@`), et un motif ancré au début les manquait toutes.
  *
- * Ne contient VOLONTAIREMENT ni « marketing », ni « newsletter », ni
- * « campaign » : c'est exactement de ces adresses que les compagnies et les
- * grossistes envoient leurs nouveautés produit, et une garantie nouvelle en MRH
- * est une information de métier pour un courtier, pas du bruit.
+ * « newsletter » et « marketing » en font partie, mais UNIQUEMENT parce que le
+ * garde-fou assureurs ci-dessous les rattrape : sans lui, une nouveauté produit
+ * envoyée par une compagnie depuis `marketing@` serait perdue, et c'est une
+ * information de métier pour un courtier.
  */
 const BULK_SENDER_PATTERN =
-  /(^|[-_.])(no[-_.]?reply|do[-_.]?not[-_.]?reply|donotreply|ne[-_.]?pas[-_.]?repondre|nepasrepondre|mailer[-_.]?daemon|postmaster|bounces?)([-_.+]|$)/i;
+  /(^|[-_.])(no[-_.]?reply|do[-_.]?not[-_.]?reply|donotreply|ne[-_.]?pas[-_.]?repondre|nepasrepondre|mailer[-_.]?daemon|postmaster|bounces?|newsletters?|mailing|marketing|campaign|unsubscribe|desabonnement)([-_.+]|$)/i;
 
 /**
  * Domaines qui s'annoncent eux-mêmes comme métier de l'assurance. Premier
@@ -284,6 +283,7 @@ function buildSystemPrompt(userName: string, mailboxAddresses: string[]): string
 }
 
 function buildUserPayload(
+  offset: number,
   messages: OutlookMessage[],
   attachmentsByMessage: Map<string, AttachmentRef[]>,
   clientRoster: RosterEntry[],
@@ -291,8 +291,12 @@ function buildUserPayload(
   understoodByRef: Map<string, AttachmentUnderstanding>,
   bodyByMessage: Map<string, string>,
 ): string {
-  const emails = messages.map((m, i) => ({
-    ref: `e${i}`,
+  // Le rang GLOBAL, pas le rang dans le lot : les références des pièces jointes
+  // (`e12a0`) sont calculées sur l'ensemble des emails, et deux lots qui
+  // repartiraient de `e0` verraient leurs verdicts se recouvrir — le résumé de
+  // l'un atterrissant sur l'autre.
+  const emails = messages.map((m, local) => ({
+    ref: `e${offset + local}`,
     from_name: m.fromName,
     from_email: m.fromEmail,
     subject: m.subject,
@@ -444,6 +448,8 @@ async function mapPool<T, R>(
 async function classifyBatch(
   apiKey: string,
   userName: string,
+  /** Rang du premier email du lot dans l'ensemble — voir buildUserPayload. */
+  offset: number,
   messages: OutlookMessage[],
   attachmentsByMessage: Map<string, AttachmentRef[]>,
   clientRoster: RosterEntry[],
@@ -469,6 +475,7 @@ async function classifyBatch(
         {
           role: "user",
           content: buildUserPayload(
+            offset,
             messages,
             attachmentsByMessage,
             clientRoster,
@@ -549,16 +556,17 @@ async function classifyEmails(
   understoodByRef: Map<string, AttachmentUnderstanding>,
   bodyByMessage: Map<string, string>,
 ): Promise<AiResponse | null> {
-  const batches: OutlookMessage[][] = [];
+  const batches: { offset: number; items: OutlookMessage[] }[] = [];
   for (let i = 0; i < messages.length; i += CLASSIFY_BATCH_SIZE) {
-    batches.push(messages.slice(i, i + CLASSIFY_BATCH_SIZE));
+    batches.push({ offset: i, items: messages.slice(i, i + CLASSIFY_BATCH_SIZE) });
   }
 
   const results = await mapPool(batches, CLASSIFY_CONCURRENCY, (batch) =>
     classifyBatch(
       apiKey,
       userName,
-      batch,
+      batch.offset,
+      batch.items,
       attachmentsByMessage,
       clientRoster,
       mailboxByMessage,
