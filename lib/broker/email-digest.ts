@@ -43,7 +43,11 @@ const MAX_WINDOW_DAYS = 90;
 // Emails classified in one OpenAI call. Bodies are ~2.5k chars each, so a whole
 // backlog in a single request would blow past the context window and cost far
 // more than several small, parallel calls.
-const CLASSIFY_BATCH_SIZE = 25;
+// Emails classés en un appel. 25 tenaient dans le contexte, mais pas dans la
+// RÉPONSE : vingt-cinq résumés, motifs et brouillons dépassent vite le plafond
+// de sortie, et un JSON tronqué fait échouer le lot entier. Douze laisse de la
+// marge et limite la casse quand un lot échoue.
+const CLASSIFY_BATCH_SIZE = 12;
 // Parallelism caps: Graph throttles (429) long before it runs out of breath, and
 // OpenAI is rate-limited per minute.
 const GRAPH_CONCURRENCY = 8;
@@ -457,7 +461,9 @@ async function classifyBatch(
     body: JSON.stringify({
       model: DIGEST_MODEL,
       response_format: { type: "json_object" },
-      max_completion_tokens: 6000,
+      // Large : ce plafond couvre AUSSI les jetons de raisonnement du modèle.
+      // Trop bas, la réponse est coupée en plein JSON et tout le lot est perdu.
+      max_completion_tokens: 16000,
       messages: [
         { role: "system", content: buildSystemPrompt(userName, mailboxAddresses) },
         {
@@ -475,22 +481,50 @@ async function classifyBatch(
     }),
   }).catch(() => null);
 
-  if (!res || !res.ok) {
-    console.error("[digest] openai error", res?.status);
+  // Diagnostic : un briefing qui échoue sans laisser de trace exploitable est
+  // impossible à réparer. On dit POURQUOI, à chaque sortie possible.
+  if (!res) {
+    console.error("[digest] appel OpenAI injoignable (réseau)");
+    return null;
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error(
+      `[digest] OpenAI a répondu ${res.status} : ${detail.slice(0, 300)}`,
+    );
     return null;
   }
 
   const payload = (await res.json().catch(() => null)) as {
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string }; finish_reason?: string }[];
+    usage?: {
+      completion_tokens?: number;
+      completion_tokens_details?: { reasoning_tokens?: number };
+    };
   } | null;
 
-  const content = payload?.choices?.[0]?.message?.content;
-  if (!content) return null;
+  const choice = payload?.choices?.[0];
+  const content = choice?.message?.content;
+  const usage = payload?.usage;
+  const spent = `${usage?.completion_tokens ?? "?"} jetons dont ${
+    usage?.completion_tokens_details?.reasoning_tokens ?? "?"
+  } de raisonnement`;
+
+  if (!content) {
+    console.error(
+      `[digest] réponse vide (finish_reason=${choice?.finish_reason ?? "?"}, ${spent})`,
+    );
+    return null;
+  }
 
   try {
     return JSON.parse(content) as AiResponse;
   } catch {
-    console.error("[digest] failed to parse AI JSON");
+    // Cause de loin la plus fréquente : réponse coupée au plafond de sortie,
+    // le JSON s'arrête au milieu. Le finish_reason le dit.
+    console.error(
+      `[digest] JSON illisible (finish_reason=${choice?.finish_reason ?? "?"}, ${spent}, ${content.length} caractères) — fin: ${content.slice(-120)}`,
+    );
     return null;
   }
 }
@@ -938,6 +972,13 @@ async function runDigest(
     };
   }
 
+  // Repères de durée : quand un briefing traîne ou échoue, il faut pouvoir dire
+  // QUELLE étape a coûté le temps, sans instrumenter à chaud en production.
+  const startedAt = Date.now();
+  const phase = (label: string) =>
+    console.log(`[digest] ${label} — ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+  phase(`${messages.length} email(s) à analyser`);
+
   // Full email bodies — the AI must read what each email actually says, not a
   // ~250-char preview. Failures fall back to the preview (never blocking).
   const bodyByMessage = new Map<string, string>();
@@ -968,6 +1009,8 @@ async function runDigest(
     });
     if (refs.length > 0) attachmentsByMessage.set(m.id, refs);
   });
+
+  phase("corps et pièces jointes lus");
 
   // Read the content of document-like attachments (PDF/image) so classification
   // is based on what they ACTUALLY contain, not their file name — bounded in
@@ -1021,6 +1064,8 @@ async function runDigest(
     );
   }
 
+  phase("documents analysés (vision)");
+
   const ai = await classifyEmails(
     apiKey,
     ctx.userName,
@@ -1032,6 +1077,8 @@ async function runDigest(
     understoodByRef,
     bodyByMessage,
   );
+
+  phase("classification terminée");
 
   if (!ai) {
     return {

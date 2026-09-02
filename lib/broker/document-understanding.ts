@@ -113,9 +113,14 @@ export async function understandDocument(input: {
         },
       ];
 
+  // Sans plafond de durée, un PDF lourd peut suspendre tout le briefing : la
+  // lecture d'une pièce jointe est un confort, jamais une raison d'attendre.
+  const timeout = AbortSignal.timeout(60_000);
+
   let res: Response | null;
   try {
     res = await fetch(OPENAI_URL, {
+      signal: timeout,
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
