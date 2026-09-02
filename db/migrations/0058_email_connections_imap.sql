@@ -21,6 +21,15 @@
 -- propose, et ne jamais l'exposer côté navigateur.
 -- ============================================================================
 
+-- La contrainte de la migration 0022 n'admettait que les deux fournisseurs
+-- OAuth. Sans « imap », toute tentative d'enregistrement est rejetée par la
+-- base avant même d'arriver au code.
+alter table public.email_connections
+  drop constraint if exists email_connections_provider_check;
+alter table public.email_connections
+  add constraint email_connections_provider_check
+    check (provider in ('gmail', 'outlook', 'imap'));
+
 -- Une connexion IMAP n'a ni jeton de rafraîchissement ni expiration : ces deux
 -- colonnes étaient NOT NULL pour OAuth, elles deviennent facultatives.
 alter table public.email_connections
