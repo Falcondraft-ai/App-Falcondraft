@@ -5,13 +5,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   CornerUpRight,
   Loader2,
-  ExternalLink,
+  MailOpen,
   Inbox,
   Mail,
   Paperclip,
   Search,
 } from "lucide-react";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
+import {
+  EmailReaderDialog,
+  type EmailReaderTarget,
+} from "@/components/broker/email-reader-dialog";
 import { formatDateTime } from "@/lib/format";
 import type { ClientEmail } from "@/app/api/broker/clients/[id]/emails/route";
 
@@ -26,6 +30,19 @@ export function ClientEmails({ clientId }: { clientId: string }) {
   const [state, setState] = React.useState<State>({ kind: "loading" });
 
   const [searchingMailbox, setSearchingMailbox] = React.useState(false);
+  const [reading, setReading] = React.useState<EmailReaderTarget | null>(null);
+  const openReader = React.useCallback((email: ClientEmail) => {
+    setReading({
+      id: email.id,
+      subject: email.subject || "(sans objet)",
+      from:
+        email.direction === "sent"
+          ? `À ${email.to[0] ?? "destinataire"}`
+          : email.from,
+      fromEmail: email.fromEmail || null,
+      receivedAt: email.receivedAt || null,
+    });
+  }, []);
 
   const load = React.useCallback(
     async (q: string, live = false) => {
@@ -173,12 +190,14 @@ export function ClientEmails({ clientId }: { clientId: string }) {
               hint="Emails à l’origine ou liés à ce dossier (création, mise à jour, pièce classée, note) — quel que soit l’expéditeur."
               emails={groups.linked}
               showHeader={multiGroup}
+              onRead={openReader}
             />
             <EmailGroup
               label="Échangés avec le client"
               hint="Messages reçus du client comme ceux qui lui ont été envoyés."
               emails={groups.direct}
               showHeader={multiGroup}
+              onRead={openReader}
             />
             <EmailGroup
               label="Concernent ce dossier"
@@ -186,10 +205,13 @@ export function ClientEmails({ clientId }: { clientId: string }) {
               emails={groups.mention}
               showHeader={multiGroup}
               muted
+              onRead={openReader}
             />
           </div>
         )}
       </div>
+
+      <EmailReaderDialog target={reading} onClose={() => setReading(null)} />
     </section>
   );
 }
@@ -200,12 +222,14 @@ function EmailGroup({
   emails,
   showHeader,
   muted,
+  onRead,
 }: {
   label: string;
   hint: string;
   emails: ClientEmail[];
   showHeader: boolean;
   muted?: boolean;
+  onRead: (email: ClientEmail) => void;
 }) {
   if (emails.length === 0) return null;
   return (
@@ -234,11 +258,12 @@ function EmailGroup({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              <a
-                href={email.webLink || undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-start gap-3 rounded-lg border border-transparent px-2.5 py-2.5 transition-colors hover:border-[var(--border-1)] hover:bg-[var(--bg-sunken)]"
+              {/* Bouton, pas lien : hors Microsoft un email n'a aucune URL,
+                  et le lien restait mort. La lecture se fait dans l'outil. */}
+              <button
+                type="button"
+                onClick={() => onRead(email)}
+                className="group flex w-full items-start gap-3 rounded-lg border border-transparent px-2.5 py-2.5 text-left transition-colors hover:border-[var(--border-1)] hover:bg-[var(--bg-sunken)]"
               >
                 <BrokerAvatar
                   name={
@@ -282,11 +307,12 @@ function EmailGroup({
                     </p>
                   ) : null}
                 </div>
-                <ExternalLink
+                <MailOpen
                   className="mt-0.5 size-3.5 shrink-0 text-[var(--fg-4)] opacity-0 transition-opacity group-hover:opacity-100"
                   strokeWidth={1.75}
+                  aria-label="Lire l’email"
                 />
-              </a>
+              </button>
             </motion.li>
           ))}
         </ul>
