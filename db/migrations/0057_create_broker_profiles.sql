@@ -84,6 +84,17 @@ create index if not exists email_connections_profile_id_idx
   on public.email_connections(profile_id);
 
 -- ---------------------------------------------------------------------------
+-- Droits
+--
+-- Une table fraîchement créée n'hérite d'aucun privilège pour les rôles de
+-- l'application : sans ce bloc, PostgREST répond « permission denied » (42501)
+-- et la RLS n'est même pas atteinte. Les autres tables du module les déclarent
+-- de la même façon.
+-- ---------------------------------------------------------------------------
+grant select, insert, update, delete on public.broker_profiles to authenticated;
+grant select, insert, update, delete on public.broker_profiles to service_role;
+
+-- ---------------------------------------------------------------------------
 -- RLS — même contrat que les autres tables broker : cloisonnement par
 -- organisation, écriture réservée aux non-lecteurs.
 -- ---------------------------------------------------------------------------
