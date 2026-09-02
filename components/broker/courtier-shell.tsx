@@ -12,10 +12,10 @@ import {
   FolderOpen,
   HardDrive,
   HelpCircle,
+  Inbox,
   LayoutDashboard,
   Loader2,
   LogOut,
-  Mail,
   Menu,
   Mic,
   PanelLeftClose,
@@ -24,6 +24,7 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  Sparkles,
   Users,
   Wallet,
 } from "lucide-react";
@@ -129,7 +130,13 @@ const baseNavSections: NavSection[] = [
   },
   {
     label: "Communication",
-    items: [{ href: "/courtier/inbox", label: "Assistant Outlook", icon: Mail }],
+    items: [
+      // « Vos emails » d'abord : c'est la boîte telle quelle, consultable sans
+      // rien déclencher. L'assistant, lui, est l'analyse — plus rare, plus
+      // coûteuse, et elle ne montre que ce qui appelle une action.
+      { href: "/courtier/emails", label: "Vos emails", icon: Inbox },
+      { href: "/courtier/inbox", label: "Assistant email", icon: Sparkles },
+    ],
   },
 ];
 

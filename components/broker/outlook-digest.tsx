@@ -12,6 +12,7 @@ import {
   FileSignature,
   HelpCircle,
   Mail,
+  MailOpen,
   MessageSquare,
   Paperclip,
   PenLine,
@@ -26,6 +27,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  EmailReaderDialog,
+  type EmailReaderTarget,
+} from "@/components/broker/email-reader-dialog";
 import {
   emailCategoryLabel,
   emailCategoryOrder,
@@ -330,6 +335,7 @@ function MailboxBadge({ address }: { address: string }) {
 
 function ItemCard({
   item,
+  onRead,
   suggestions,
   clientName,
   clientIdFor,
@@ -346,6 +352,8 @@ function ItemCard({
   onAttachClient,
   attachBusy,
 }: {
+  /** Ouvre l'email en entier dans l'outil. */
+  onRead: () => void;
   item: BrokerEmailItemRow;
   suggestions: BrokerEmailSuggestionRow[];
   clientName: string | null;
@@ -533,6 +541,17 @@ function ItemCard({
           className="mt-3 flex items-center justify-end gap-1.5 border-t pt-2.5"
           style={{ borderColor: "var(--border-1)" }}
         >
+          {/* Lecture dans l'outil : seule option hors Microsoft, où l'email
+              n'a aucune URL. Toujours proposée — un résumé ne suffit pas pour
+              trancher sur un sinistre ou une échéance. */}
+          <button
+            type="button"
+            onClick={onRead}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium text-[var(--fg-3)] transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--fg-1)]"
+          >
+            <MailOpen className="size-3.5" strokeWidth={1.75} />
+            Lire l’email
+          </button>
           {item.web_link ? (
             <a
               href={item.web_link}
@@ -590,6 +609,19 @@ export function OutlookDigest({
   suggestions: BrokerEmailSuggestionRow[];
   clientNames: Record<string, string>;
 }) {
+  // Email ouvert en lecture. Un seul à la fois : c'est une consultation, pas
+  // une navigation.
+  const [reading, setReading] = React.useState<EmailReaderTarget | null>(null);
+  const openReader = React.useCallback((item: BrokerEmailItemRow) => {
+    setReading({
+      id: item.graph_message_id,
+      subject: item.subject || "(sans objet)",
+      from: item.from_name || item.from_email || "Expéditeur",
+      fromEmail: item.from_email,
+      receivedAt: item.received_at,
+    });
+  }, []);
+
   const initialStatuses = React.useMemo(() => {
     const map: Record<string, LocalStatus> = {};
     for (const s of suggestions) {
@@ -1024,6 +1056,7 @@ export function OutlookDigest({
                 <ItemCard
                   key={item.id}
                   item={item}
+                  onRead={() => openReader(item)}
                   suggestions={suggestionsByItem.get(item.id) ?? []}
                   clientName={clientNameFor(item)}
                   clientIdFor={(s) => clientIdFor(item, s)}
@@ -1131,6 +1164,7 @@ export function OutlookDigest({
                   <ItemCard
                     key={item.id}
                     item={item}
+                    onRead={() => openReader(item)}
                     suggestions={suggestionsByItem.get(item.id) ?? []}
                     clientName={clientNameFor(item)}
                     clientIdFor={(s) => clientIdFor(item, s)}
@@ -1235,6 +1269,17 @@ export function OutlookDigest({
                         <RotateCcw className="size-3.5" strokeWidth={1.75} />
                         Remettre
                       </button>
+                      {/* Lire un email écarté : c'est ainsi qu'on vérifie un
+                          tri douteux avant de le remettre dans le briefing. */}
+                      <button
+                        type="button"
+                        onClick={() => openReader(item)}
+                        className="flex size-7 items-center justify-center rounded-md text-[var(--fg-4)] transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--fg-2)]"
+                        aria-label="Lire l’email"
+                        title="Lire l’email"
+                      >
+                        <MailOpen className="size-3.5" strokeWidth={1.75} />
+                      </button>
                       {item.web_link ? (
                         <a
                           href={item.web_link}
@@ -1255,6 +1300,8 @@ export function OutlookDigest({
           </AnimatePresence>
         </section>
       ) : null}
+
+      <EmailReaderDialog target={reading} onClose={() => setReading(null)} />
     </div>
   );
 }
