@@ -7,8 +7,11 @@ import { getBrokerProfiles } from "@/lib/broker/profiles";
 export const dynamic = "force-dynamic";
 
 /**
- * Écran de choix du profil. Hors du layout courtier : tant que personne n'est
- * identifié, afficher la navigation complète du cabinet n'aurait pas de sens.
+ * Entrée explicite « changer de profil ».
+ *
+ * Le choix à l'arrivée, lui, est rendu par le layout courtier : tant que
+ * personne n'est identifié, il affiche le sélecteur à la place du contenu.
+ * Rediriger vers cette page depuis ce même layout bouclerait.
  */
 export default async function CourtierProfilesPage() {
   const context = await requireActiveWorkspaceContext();
@@ -22,7 +25,7 @@ export default async function CourtierProfilesPage() {
 
   return (
     <main className="min-h-screen" style={{ background: "var(--bg-canvas)" }}>
-      <ProfilePicker profiles={profiles} />
+      <ProfilePicker profiles={profiles} redirectTo="/courtier" />
     </main>
   );
 }

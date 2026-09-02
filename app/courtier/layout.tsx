@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CourtierShell } from "@/components/broker/courtier-shell";
+import { ProfilePicker } from "@/components/broker/profile-picker";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { normalizeWorkspaceRole } from "@/lib/auth/workspace-permissions";
 import { isBrokerWorkspace } from "@/lib/broker/access";
@@ -29,8 +30,16 @@ export default async function CourtierLayout({
   // qui il est. Un cabinet sans profils n'est pas concerné et passe directement.
   const profiles = await getBrokerProfiles(organization.id);
   const activeProfile = await getActiveBrokerProfile(organization.id, profiles);
+
+  // Porte rendue SUR PLACE, pas par une redirection : l'écran de choix vit sous
+  // ce layout, le rediriger vers lui-même bouclerait indéfiniment. Le cookie
+  // posé, un simple rafraîchissement laisse passer vers la page demandée.
   if (profiles.length > 0 && !activeProfile) {
-    redirect("/courtier/profils");
+    return (
+      <main className="min-h-screen" style={{ background: "var(--bg-canvas)" }}>
+        <ProfilePicker profiles={profiles} />
+      </main>
+    );
   }
 
   const displayName =

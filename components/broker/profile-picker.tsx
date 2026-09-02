@@ -16,9 +16,14 @@ import type { BrokerProfileRow } from "@/types/database";
  */
 export function ProfilePicker({
   profiles,
-  redirectTo = "/courtier",
+  redirectTo,
 }: {
   profiles: BrokerProfileRow[];
+  /**
+   * Où aller après le choix. Omis, on se contente de rafraîchir : le layout
+   * relit le cookie et laisse passer vers la page déjà demandée, sans faire
+   * perdre au courtier l'adresse sur laquelle il arrivait.
+   */
   redirectTo?: string;
 }) {
   const router = useRouter();
@@ -40,7 +45,7 @@ export function ProfilePicker({
       });
       return;
     }
-    router.replace(redirectTo);
+    if (redirectTo) router.replace(redirectTo);
     router.refresh();
   }
 
