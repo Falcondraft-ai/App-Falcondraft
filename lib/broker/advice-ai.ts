@@ -3,6 +3,7 @@ import { insuranceTypeLabel } from "@/lib/broker/clients";
 import { summarizeStructuredNeeds } from "@/lib/broker/needs";
 import { formatPremium } from "@/lib/broker/quotes";
 import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
+import { logAnthropicUsage } from "@/lib/ai/usage";
 
 // The devoir de conseil is a legal document → quality over cost: Claude Opus 4.8
 // (deliberate exception to the module's OpenAI default). Override via env.
@@ -134,6 +135,8 @@ export async function generateAdviceContent(
       message: "La génération IA n'a pas abouti. Réessayez.",
     };
   }
+
+  logAnthropicUsage("advice_motifs", ADVICE_MODEL, message.usage);
 
   if (message.stop_reason === "refusal") {
     return {

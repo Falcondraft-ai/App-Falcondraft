@@ -25,12 +25,19 @@ import {
 } from "@/lib/broker/settings";
 import { getMailboxClient } from "@/lib/email/mailbox-resolver";
 import type { MailboxClient } from "@/lib/email/mailbox";
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+import { reasoningParams } from "@/lib/ai/model";
 import type { BrokerClientRow, Database } from "@/types/database";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 // High-volume email triage (runs daily per broker). Configurable via env so the
 // model/cost can be tuned without a code change.
 const DIGEST_MODEL = process.env.COURTIER_DIGEST_MODEL || "gpt-5.5";
+// Fusion des résumés de lots en un paragraphe : recopier trois phrases en
+// une n'exige aucun raisonnement sur le portefeuille. Le modèle de tri reste
+// le plus capable ; celui-ci descend d'un palier, sans effet visible.
+const NARRATIVE_MODEL =
+  process.env.COURTIER_NARRATIVE_MODEL || "gpt-5.4-mini";
 // Emails read per run. A busy cabinet takes 100+/day, so the daily briefing has
 // to swallow a full day comfortably, and a catch-up several weeks of backlog.
 // Whatever does not fit is NOT dropped: the run stops on a precise timestamp and
@@ -445,6 +452,71 @@ async function mapPool<T, R>(
   return results;
 }
 
+/**
+ * Attribution d'un appel de classification : la clé de cache de prompt (routage
+ * vers la même partition, donc préfixe facturé au tarif réduit) et l'organisation
+ * à qui imputer les jetons.
+ */
+type DigestAttribution = { cacheKey: string; organizationId: string };
+
+/**
+ * Marqueurs de début de fil cité, valables sur les deux fournisseurs.
+ *
+ * Attention : côté Outlook le corps arrive avec TOUS ses espaces écrasés (voir
+ * getOutlookMessageBody) — il n'y a plus de retour à la ligne sur lequel
+ * s'ancrer. Les motifs sont donc volontairement non ancrés, et un en-tête cité
+ * n'est reconnu que par sa PAIRE de champs (« De : … Envoyé : ») : « De : »
+ * seul apparaît dans du texte légitime et couperait à tort.
+ */
+const QUOTED_REPLY_MARKERS: RegExp[] = [
+  /-{2,}\s*Message d'origine\s*-{2,}/i,
+  /-{2,}\s*Original Message\s*-{2,}/i,
+  /-{2,}\s*Forwarded message\s*-{2,}/i,
+  /_{10,}/,
+  /\bDe\s*:\s*[\s\S]{0,200}?\b(?:Envoy[ée]|À|A)\s*:/i,
+  /\bFrom\s*:\s*[\s\S]{0,200}?\b(?:Sent|To)\s*:/i,
+  // Fenêtre courte et volontaire : un en-tête réel (« Le mar. 3 mars 2026 à
+  // 09:12, X a écrit : ») tient en ~60 caractères. Large, le motif attrapait
+  // « Le 1er du mois prochain… » suivi plus loin d'un vrai « a écrit : » et
+  // coupait la fin d'un message légitime.
+  // Casse STRICTE, sans /i : « le » est l'un des mots les plus fréquents du
+  // français, et « …transmettre le devis dès que possible » suivi plus loin
+  // d'un vrai « a écrit : » suffisait à couper un message légitime. Les clients
+  // de messagerie écrivent toujours ces en-têtes avec la majuscule.
+  /\bLe\s[\s\S]{0,120}?\sa\s[ée]crit\s*:/,
+  /\bOn\s[\s\S]{0,120}?\swrote\s*:/,
+];
+
+/**
+ * Longueur minimale de ce qui reste après la coupe.
+ *
+ * Garde-fou décisif : un transfert sans commentaire (« Fwd: demande de devis »
+ * d'un apporteur) porte TOUT son contenu utile dans la partie citée. Si la tête
+ * du message est maigre, on renvoie le corps entier — mieux vaut payer quelques
+ * jetons que perdre la demande d'un prospect.
+ */
+const MIN_BODY_AFTER_TRIM = 250;
+
+/**
+ * Retire le fil de discussion cité d'un corps d'email.
+ *
+ * Sur une réponse, l'utile tient en quelques lignes suivies de tout
+ * l'historique — que le modèle a déjà lu dans les emails précédents du même
+ * briefing. C'est la moitié du volume volatil d'un lot, facturée pour rien. La
+ * coupe est déterministe : au premier marqueur rencontré, jamais au jugé.
+ */
+export function stripQuotedReply(body: string): string {
+  let cut = body.length;
+  for (const marker of QUOTED_REPLY_MARKERS) {
+    const match = marker.exec(body);
+    if (match && match.index < cut) cut = match.index;
+  }
+  if (cut >= body.length) return body;
+
+  const head = body.slice(0, cut).trim();
+  return head.length >= MIN_BODY_AFTER_TRIM ? head : body;
+}
+
 async function classifyBatch(
   apiKey: string,
   userName: string,
@@ -457,6 +529,7 @@ async function classifyBatch(
   mailboxAddresses: string[],
   understoodByRef: Map<string, AttachmentUnderstanding>,
   bodyByMessage: Map<string, string>,
+  attribution: DigestAttribution,
 ): Promise<AiResponse | null> {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -467,6 +540,14 @@ async function classifyBatch(
     body: JSON.stringify({
       model: DIGEST_MODEL,
       response_format: { type: "json_object" },
+      // Le tri suit des règles explicites vers un schéma JSON strict : un
+      // raisonnement étendu n'améliore pas le verdict, il gonfle la facture
+      // (jetons de raisonnement = tarif de sortie).
+      ...reasoningParams(DIGEST_MODEL, "low"),
+      // Le préfixe (consignes + portefeuille) est identique sur TOUS les lots
+      // d'un run : cette clé les route vers la même partition de cache, où il
+      // est facturé au tarif réduit au lieu du plein tarif à chaque lot.
+      prompt_cache_key: attribution.cacheKey,
       // Large : ce plafond couvre AUSSI les jetons de raisonnement du modèle.
       // Trop bas, la réponse est coupée en plein JSON et tout le lot est perdu.
       max_completion_tokens: 16000,
@@ -504,15 +585,16 @@ async function classifyBatch(
 
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string }; finish_reason?: string }[];
-    usage?: {
-      completion_tokens?: number;
-      completion_tokens_details?: { reasoning_tokens?: number };
-    };
+    usage?: OpenAiUsage;
   } | null;
 
   const choice = payload?.choices?.[0];
   const content = choice?.message?.content;
   const usage = payload?.usage;
+  logOpenAiUsage("digest_classify", DIGEST_MODEL, usage, {
+    organizationId: attribution.organizationId,
+    units: messages.length,
+  });
   const spent = `${usage?.completion_tokens ?? "?"} jetons dont ${
     usage?.completion_tokens_details?.reasoning_tokens ?? "?"
   } de raisonnement`;
@@ -555,13 +637,14 @@ async function classifyEmails(
   mailboxAddresses: string[],
   understoodByRef: Map<string, AttachmentUnderstanding>,
   bodyByMessage: Map<string, string>,
+  attribution: DigestAttribution,
 ): Promise<AiResponse | null> {
   const batches: { offset: number; items: OutlookMessage[] }[] = [];
   for (let i = 0; i < messages.length; i += CLASSIFY_BATCH_SIZE) {
     batches.push({ offset: i, items: messages.slice(i, i + CLASSIFY_BATCH_SIZE) });
   }
 
-  const results = await mapPool(batches, CLASSIFY_CONCURRENCY, (batch) =>
+  const runBatch = (batch: { offset: number; items: OutlookMessage[] }) =>
     classifyBatch(
       apiKey,
       userName,
@@ -573,8 +656,23 @@ async function classifyEmails(
       mailboxAddresses,
       understoodByRef,
       bodyByMessage,
-    ),
-  );
+      attribution,
+    );
+
+  // Amorçage du cache de prompt. Les lots partageaient déjà un préfixe
+  // identique (consignes + portefeuille, ~10 000 jetons), mais les trois
+  // premiers partaient de front : aucun n'avait encore écrit le cache, tous le
+  // payaient plein tarif. Le premier lot part donc SEUL — il amorce — puis les
+  // autres se parallélisent et lisent le préfixe au tarif réduit.
+  const results: (AiResponse | null)[] = [];
+  if (batches.length > 0) {
+    results.push(await runBatch(batches[0]));
+    if (batches.length > 1) {
+      results.push(
+        ...(await mapPool(batches.slice(1), CLASSIFY_CONCURRENCY, runBatch)),
+      );
+    }
+  }
 
   const emails: AiEmailResult[] = [];
   const narratives: string[] = [];
@@ -597,7 +695,7 @@ async function classifyEmails(
 
   const narrative =
     narratives.length > 1
-      ? ((await synthesizeNarrative(apiKey, userName, narratives)) ??
+      ? ((await synthesizeNarrative(apiKey, userName, narratives, attribution)) ??
         narratives[0])
       : (narratives[0] ?? null);
 
@@ -613,6 +711,7 @@ async function synthesizeNarrative(
   apiKey: string,
   userName: string,
   narratives: string[],
+  attribution: DigestAttribution,
 ): Promise<string | null> {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -621,7 +720,8 @@ async function synthesizeNarrative(
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: DIGEST_MODEL,
+      model: NARRATIVE_MODEL,
+      ...reasoningParams(NARRATIVE_MODEL, "low"),
       max_completion_tokens: 400,
       messages: [
         {
@@ -640,7 +740,12 @@ async function synthesizeNarrative(
   if (!res || !res.ok) return null;
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
+    usage?: OpenAiUsage;
   } | null;
+  logOpenAiUsage("digest_narrative", NARRATIVE_MODEL, payload?.usage, {
+    organizationId: attribution.organizationId,
+    units: narratives.length,
+  });
   return payload?.choices?.[0]?.message?.content?.trim() || null;
 }
 
@@ -992,7 +1097,12 @@ async function runDigest(
   const bodyByMessage = new Map<string, string>();
   await mapPool(messages, GRAPH_CONCURRENCY, async (m) => {
     const full = await mailbox.getBody(m.id);
-    if (full?.body) bodyByMessage.set(m.id, full.body.slice(0, MAX_BODY_CHARS));
+    // Fil cité retiré AVANT le plafond : sur une réponse, le message utile est
+    // en tête et l'historique derrière — sans la coupe, le plafond garderait
+    // surtout de la citation déjà lue ailleurs dans le briefing.
+    if (full?.body) {
+      bodyByMessage.set(m.id, stripQuotedReply(full.body).slice(0, MAX_BODY_CHARS));
+    }
   });
 
   // Attachment metadata for messages that have attachments.
@@ -1048,6 +1158,7 @@ async function runDigest(
       buffer: Buffer.from(file.contentBase64, "base64"),
       mimeType: a.contentType,
       fileName: a.name,
+      organizationId: ctx.organizationId,
     });
     if (understood.ok) understoodByRef.set(a.ref, understood.data);
   });
@@ -1074,6 +1185,14 @@ async function runDigest(
 
   phase("documents analysés (vision)");
 
+  // La clé de cache est liée à la BOÎTE (organisation + profil), pas au run :
+  // deux briefings du même courtier dans la journée partagent alors le préfixe
+  // déjà en cache.
+  const attribution: DigestAttribution = {
+    cacheKey: `courtier-digest-${ctx.organizationId}-${ctx.profileId ?? "default"}`,
+    organizationId: ctx.organizationId,
+  };
+
   const ai = await classifyEmails(
     apiKey,
     ctx.userName,
@@ -1084,6 +1203,7 @@ async function runDigest(
     mailboxAddresses,
     understoodByRef,
     bodyByMessage,
+    attribution,
   );
 
   phase("classification terminée");

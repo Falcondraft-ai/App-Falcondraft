@@ -527,6 +527,16 @@ Règle : choisir le modèle **le plus adapté par tâche**. À qualité comparab
 
 Ne jamais hardcoder un modèle : passer par variable d'env (pattern ci-dessus).
 
+### Maîtrise du coût IA
+
+Un cabinet a consommé 8,92 $ d'API en une journée : les 9 points d'appel partaient tous sur `gpt-5.5`, sans effort de raisonnement réglé ni mesure. Les garde-fous en place (à respecter pour tout nouvel appel) :
+
+- **Mesure obligatoire.** Chaque appel journalise ses jetons via [`lib/ai/usage.ts`](lib/ai/usage.ts) sous une étiquette de fonctionnalité (`logOpenAiUsage` / `logAnthropicUsage`) → ligne `[ai-usage] {…}` greppable dans les logs. Sur un appel **streamé**, il faut `stream_options: { include_usage: true }`, sinon l'usage n'arrive jamais. Ne jamais journaliser de contenu — compteurs et identifiants internes seulement.
+- **Effort de raisonnement.** [`lib/ai/model.ts`](lib/ai/model.ts) → `reasoningParams(model, "low")` sur toute tâche à schéma JSON strict (tri, identification, extraction). Les jetons de raisonnement sont facturés au tarif de *sortie* et l'effort par défaut est « medium ». Le copilote garde le défaut : il planifie sur 6 tours d'outils. Le helper n'émet le paramètre que si le modèle le comprend — un `gpt-4.1` mis dans la variable d'env ne casse pas l'appel.
+- **Modèle par tâche.** Haut de gamme pour le copilote, le tri du courrier et l'extraction de chiffres ; un palier en dessous pour le résumé d'ouverture (`COURTIER_NARRATIVE_MODEL`) et l'identification des pièces jointes (`COURTIER_DOC_MODEL`). **Il n'existe pas de `gpt-5.5-mini`** — le palier mini s'arrête à `gpt-5.4-mini` / `gpt-5.4-nano`.
+- **Cache de prompt.** Tout appel répété doit porter un `prompt_cache_key` stable (copilote : par utilisateur ; briefing : par boîte). Le préfixe long et invariant se met **avant** le contenu volatil, et le premier appel d'une série part **seul** pour amorcer le cache — sinon les appels parallèles le ratent tous. Surveiller `cache_hit` dans le journal d'usage.
+- **Volume envoyé.** Corps d'emails débarrassés du fil cité (`stripQuotedReply`, [`email-digest.ts`](lib/broker/email-digest.ts)) ; PDF tronqué à ses premières pages pour l'*identification* (`COURTIER_DOC_MAX_PAGES`, défaut 3) alors que l'extraction reçoit le document complet ; `detail: "low"` sur les images de classification ; lecture de pièce jointe mise en cache par empreinte SHA-256.
+
 ### Signature électronique (DocuSeal) — intégration complète
 Garde : `hasFeature(org, "esign")` — disponible sur les offres `cabinet`, `performance` **et** `custom` (sur mesure). Ne jamais regater sur `hasProposalAutomation`.
 

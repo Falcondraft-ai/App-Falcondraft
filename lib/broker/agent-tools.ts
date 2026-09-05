@@ -731,6 +731,7 @@ export async function executeAgentTool(
       buffer,
       mimeType: file.contentType,
       fileName: file.name,
+      organizationId,
     });
     if (!understood.ok) {
       return { file_name: file.name, readable: true, error: understood.message };
@@ -776,6 +777,7 @@ export async function executeAgentTool(
       buffer,
       mimeType: upload.mimeType,
       fileName: upload.fileName,
+      organizationId,
     });
     if (!understood.ok) {
       return { file_name: upload.fileName, readable: true, error: understood.message };

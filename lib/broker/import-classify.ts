@@ -1,4 +1,6 @@
 import "server-only";
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+import { reasoningParams } from "@/lib/ai/model";
 
 // Per-file classification for the portfolio import. Reads a PDF/image with the
 // vision model (same pattern & cost stance as lib/broker/quote-extract.ts) to
@@ -168,6 +170,7 @@ export async function classifyImportFile(input: {
       },
       body: JSON.stringify({
         model: IMPORT_MODEL,
+        ...reasoningParams(IMPORT_MODEL, "low"),
         response_format: { type: "json_object" },
         max_completion_tokens: 1200,
         messages: [
@@ -190,7 +193,9 @@ export async function classifyImportFile(input: {
 
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
+    usage?: OpenAiUsage;
   } | null;
+  logOpenAiUsage("import_classify", IMPORT_MODEL, payload?.usage);
   const content = payload?.choices?.[0]?.message?.content;
   if (!content) return heuristicExtraction(input.fileName, input.originalPath);
 

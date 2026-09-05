@@ -2,6 +2,8 @@
 // attestation) → structured fields that pre-fill the contract. Same approach and
 // model as the quote extractor. The broker always reviews what was read: nothing
 // here is authoritative until they validate it on the contract page.
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+import { reasoningParams } from "@/lib/ai/model";
 
 import { brokerInsuranceTypes } from "@/lib/broker/clients";
 import {
@@ -149,6 +151,7 @@ export async function extractContract(input: {
       },
       body: JSON.stringify({
         model: EXTRACT_MODEL,
+        ...reasoningParams(EXTRACT_MODEL, "low"),
         response_format: { type: "json_object" },
         max_completion_tokens: 2500,
         messages: [
@@ -176,7 +179,9 @@ export async function extractContract(input: {
 
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
+    usage?: OpenAiUsage;
   } | null;
+  logOpenAiUsage("contract_extract", EXTRACT_MODEL, payload?.usage);
   const content = payload?.choices?.[0]?.message?.content;
   if (!content) {
     return {

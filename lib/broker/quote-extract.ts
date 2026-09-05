@@ -2,6 +2,8 @@
 // pre-fill the validation form. Uses OpenAI (consistent with the bordereau
 // extractor and the module's cost-oriented default). The broker always reviews
 // and validates before the data feeds the devoir de conseil.
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+import { reasoningParams } from "@/lib/ai/model";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const EXTRACT_MODEL = process.env.COURTIER_EXTRACT_MODEL || "gpt-5.5";
@@ -111,6 +113,7 @@ export async function extractQuote(input: {
       },
       body: JSON.stringify({
         model: EXTRACT_MODEL,
+        ...reasoningParams(EXTRACT_MODEL, "low"),
         response_format: { type: "json_object" },
         max_completion_tokens: 3000,
         messages: [
@@ -137,7 +140,9 @@ export async function extractQuote(input: {
 
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
+    usage?: OpenAiUsage;
   } | null;
+  logOpenAiUsage("quote_extract", EXTRACT_MODEL, payload?.usage);
   const content = payload?.choices?.[0]?.message?.content;
   if (!content) {
     return {

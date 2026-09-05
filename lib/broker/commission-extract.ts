@@ -1,4 +1,6 @@
 import "server-only";
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+import { reasoningParams } from "@/lib/ai/model";
 
 import ExcelJS from "exceljs";
 
@@ -338,6 +340,7 @@ async function callOpenAI(
     },
     body: JSON.stringify({
       model: EXTRACT_MODEL,
+      ...reasoningParams(EXTRACT_MODEL, "low"),
       response_format: { type: "json_object" },
       max_completion_tokens: 8000,
       messages: [
@@ -353,7 +356,9 @@ async function callOpenAI(
   }
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
+    usage?: OpenAiUsage;
   } | null;
+  logOpenAiUsage("commission_extract", EXTRACT_MODEL, payload?.usage);
   const content = payload?.choices?.[0]?.message?.content;
   if (!content) return null;
   try {

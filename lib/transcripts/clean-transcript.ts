@@ -1,5 +1,7 @@
 import "server-only";
 
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+
 const OPENAI_TRANSCRIPT_CLEANUP_MODEL =
   process.env.OPENAI_TRANSCRIPT_CLEANUP_MODEL || "gpt-4.1";
 
@@ -213,6 +215,7 @@ type ChatCompletionResponse = {
       content?: string | null;
     };
   }>;
+  usage?: OpenAiUsage;
 };
 
 const FILLER_WORDS = new Set([
@@ -502,6 +505,12 @@ export async function cleanTranscriptText(rawText: string): Promise<string> {
     }
 
     const data = (await response.json()) as ChatCompletionResponse;
+
+    logOpenAiUsage(
+      "transcript_cleanup",
+      OPENAI_TRANSCRIPT_CLEANUP_MODEL,
+      data.usage,
+    );
 
     const finishReason = data.choices?.[0]?.finish_reason;
 

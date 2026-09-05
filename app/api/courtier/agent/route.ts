@@ -8,6 +8,7 @@ import {
 } from "@/lib/broker/agent-tools";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import { hasProposalAutomation } from "@/lib/billing/entitlements";
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 // Up to 6 tool rounds, vision document reads and an advice generation can run
@@ -304,6 +305,11 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               model: AGENT_MODEL,
               stream: true,
+              // Sur un flux, l'usage n'est PAS renvoyé par défaut : sans cette
+              // option, le copilote — l'appel le plus lourd du module (prompt
+              // système + 48 outils + historique, sur 6 tours) — reste un angle
+              // mort dans le suivi de la facture.
+              stream_options: { include_usage: true },
               max_completion_tokens: 2000,
               // Routes every request of the same user to the same prompt-cache
               // shard: the stable prefix (system + tools + history) is then
@@ -325,6 +331,8 @@ export async function POST(request: NextRequest) {
           const toolCalls = new Map<number, ToolCallAccum>();
           let assistantContent = "";
           let finishReason: string | null = null;
+          // Arrive dans le tout dernier événement du flux, sans `choices`.
+          let roundUsage: OpenAiUsage | null = null;
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -353,12 +361,14 @@ export async function POST(request: NextRequest) {
                   };
                   finish_reason?: string | null;
                 }[];
+                usage?: OpenAiUsage;
               };
               try {
                 evt = JSON.parse(payload);
               } catch {
                 continue;
               }
+              if (evt.usage) roundUsage = evt.usage;
               const choice = evt.choices?.[0];
               if (!choice) continue;
               const delta = choice.delta;
@@ -384,6 +394,14 @@ export async function POST(request: NextRequest) {
               if (choice.finish_reason) finishReason = choice.finish_reason;
             }
           }
+
+          logOpenAiUsage("courtier_agent", AGENT_MODEL, roundUsage, {
+            organizationId: organization.id,
+            // Le tour d'outils : c'est lui qui explique un coût élevé sur une
+            // seule question (l'historique et les résultats d'outils se
+            // cumulent d'un tour à l'autre).
+            units: round + 1,
+          });
 
           if (finishReason !== "tool_calls" || toolCalls.size === 0) break;
 

@@ -1,5 +1,10 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+import { PDFDocument } from "pdf-lib";
+import { logOpenAiUsage, type OpenAiUsage } from "@/lib/ai/usage";
+import { reasoningParams } from "@/lib/ai/model";
+
 import {
   type AttachmentDocCategory,
   attachmentDocCategories,
@@ -12,7 +17,49 @@ import {
 // instead of guessing from the file name. The broker always keeps the final say.
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = process.env.COURTIER_EXTRACT_MODEL || "gpt-5.5";
+// Identifier un document (5 catégories, un titre, deux phrases, le nom du
+// concerné) ne demande pas le modèle le plus capable — et c'est l'appel le plus
+// cher du briefing, répété sur chaque pièce jointe. Variable dédiée : cette
+// lecture ne partage plus le modèle des extractions chiffrées
+// (devis/contrats/bordereaux), qui gardent le haut de gamme.
+const MODEL = process.env.COURTIER_DOC_MODEL || "gpt-5.4-mini";
+
+// Pages envoyées d'un PDF. On veut SAVOIR ce qu'est le document, pas en
+// extraire les chiffres : la nature, l'émetteur et le nom de l'assuré tiennent
+// dans les premières pages. Envoyer un contrat de 40 pages entier pour cette
+// réponse-là coûtait le prix fort. L'extraction détaillée, elle, passe par
+// quote-extract / contract-extract et reçoit toujours le document complet.
+const MAX_PDF_PAGES = Number(process.env.COURTIER_DOC_MAX_PAGES || 3);
+
+/**
+ * Mémoire de lecture, par empreinte du fichier.
+ *
+ * Une même pièce jointe circule dans un fil (réponses, transferts) et revient
+ * dans plusieurs emails d'un même briefing : sans cela, elle était relue — et
+ * refacturée — à chaque occurrence. Bornée, et volontairement en mémoire de
+ * processus : c'est un cache d'exécution, pas une donnée à conserver.
+ */
+const understandingCache = new Map<string, DocumentUnderstanding>();
+const UNDERSTANDING_CACHE_MAX = 200;
+
+/** Ne garde le PDF que sur ses premières pages ; l'original si on ne sait pas le découper. */
+async function firstPages(buffer: Buffer, maxPages: number): Promise<Buffer> {
+  if (!Number.isFinite(maxPages) || maxPages < 1) return buffer;
+  try {
+    const source = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    if (source.getPageCount() <= maxPages) return buffer;
+    const trimmed = await PDFDocument.create();
+    const pages = await trimmed.copyPages(
+      source,
+      Array.from({ length: maxPages }, (_, i) => i),
+    );
+    for (const page of pages) trimmed.addPage(page);
+    return Buffer.from(await trimmed.save());
+  } catch {
+    // PDF exotique ou protégé : mieux vaut l'envoyer entier que ne rien lire.
+    return buffer;
+  }
+}
 
 export type DocumentUnderstanding = {
   /** Broker document category the content most closely matches. */
@@ -53,6 +100,8 @@ export async function understandDocument(input: {
   buffer: Buffer;
   mimeType: string;
   fileName: string;
+  /** Organisation à qui imputer les jetons dans le journal d'usage. */
+  organizationId?: string | null;
 }): Promise<DocumentUnderstandingResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -74,7 +123,18 @@ export async function understandDocument(input: {
     };
   }
 
-  const b64 = input.buffer.toString("base64");
+  // Même fichier déjà lu (fil de discussion, transfert) → on ne repaie pas.
+  const fingerprint = createHash("sha256")
+    .update(input.buffer)
+    .update(`|${MODEL}|${MAX_PDF_PAGES}`)
+    .digest("hex");
+  const cached = understandingCache.get(fingerprint);
+  if (cached) return { ok: true, data: cached };
+
+  const payloadBuffer = isPdf
+    ? await firstPages(input.buffer, MAX_PDF_PAGES)
+    : input.buffer;
+  const b64 = payloadBuffer.toString("base64");
   const schema =
     '{"category": "company_quote|contract|rib|id_document|other", "label": string, "summary": string, "subject_name": string|null}';
   const instruction =
@@ -109,6 +169,10 @@ export async function understandDocument(input: {
           type: "image_url",
           image_url: {
             url: `data:${mime.startsWith("image/") ? mime : "image/png"};base64,${b64}`,
+            // Reconnaître la nature d'une pièce (CNI, RIB, devis) ne réclame
+            // pas la pleine résolution : "high" multiplie les jetons d'image
+            // pour une réponse identique sur cette tâche.
+            detail: "low",
           },
         },
       ];
@@ -129,6 +193,7 @@ export async function understandDocument(input: {
       body: JSON.stringify({
         model: MODEL,
         response_format: { type: "json_object" },
+        ...reasoningParams(MODEL, "low"),
         max_completion_tokens: 900,
         messages: [
           {
@@ -154,7 +219,11 @@ export async function understandDocument(input: {
 
   const payload = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
+    usage?: OpenAiUsage;
   } | null;
+  logOpenAiUsage("document_understanding", MODEL, payload?.usage, {
+    organizationId: input.organizationId ?? null,
+  });
   const content = payload?.choices?.[0]?.message?.content;
   if (!content) {
     return { ok: false, reason: "empty", message: "Le document n'a pas pu être lu." };
@@ -174,13 +243,20 @@ export async function understandDocument(input: {
     ? (rawCategory as AttachmentDocCategory)
     : normalizeAttachmentCategory(rawCategory);
 
-  return {
-    ok: true,
-    data: {
-      category,
-      label: str(raw.label, 160) ?? input.fileName,
-      summary: str(raw.summary, 800) ?? "",
-      subject_name: str(raw.subject_name, 160),
-    },
+  const data: DocumentUnderstanding = {
+    category,
+    label: str(raw.label, 160) ?? input.fileName,
+    summary: str(raw.summary, 800) ?? "",
+    subject_name: str(raw.subject_name, 160),
   };
+
+  if (understandingCache.size >= UNDERSTANDING_CACHE_MAX) {
+    // Éviction simple du plus ancien : le cache sert un run en cours, pas un
+    // historique — une politique plus fine n'apporterait rien ici.
+    const oldest = understandingCache.keys().next().value;
+    if (oldest) understandingCache.delete(oldest);
+  }
+  understandingCache.set(fingerprint, data);
+
+  return { ok: true, data };
 }
