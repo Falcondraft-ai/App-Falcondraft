@@ -46,6 +46,57 @@ export function isBrokerClientStatus(
 }
 
 // ---------------------------------------------------------------------------
+// Types de dossier
+// ---------------------------------------------------------------------------
+/**
+ * Un dossier décrit soit un ASSURÉ (particulier, entreprise), soit un
+ * CORRESPONDANT (compagnie, plateforme, fournisseur).
+ *
+ * La distinction n'est pas cosmétique : un correspondant n'a ni devoir de
+ * conseil, ni conformité LCB-FT, ni place dans le portefeuille. Il sert à
+ * ranger des échanges et des documents, rien de plus.
+ */
+export const brokerClientTypes = ["individual", "company", "carrier"] as const;
+
+export type BrokerClientType = (typeof brokerClientTypes)[number];
+
+export const brokerClientTypeLabels: Record<BrokerClientType, string> = {
+  individual: "Particulier",
+  company: "Entreprise",
+  carrier: "Compagnie",
+};
+
+export const brokerClientTypeHints: Record<BrokerClientType, string> = {
+  individual: "Un assuré, personne physique",
+  company: "Un assuré, personne morale",
+  carrier: "Compagnie, plateforme ou fournisseur — pas un assuré",
+};
+
+export function isBrokerClientType(value: string): value is BrokerClientType {
+  return (brokerClientTypes as readonly string[]).includes(value);
+}
+
+export function brokerClientTypeLabel(value: string | null | undefined): string {
+  if (value && isBrokerClientType(value)) return brokerClientTypeLabels[value];
+  return brokerClientTypeLabels.individual;
+}
+
+/** Le dossier porte un nom de structure, pas un état civil. */
+export function isNamedByCompany(clientType: string | null | undefined): boolean {
+  return clientType === "company" || clientType === "carrier";
+}
+
+/**
+ * Ce dossier compte-t-il dans le portefeuille ?
+ *
+ * Seul garde-fou contre la dérive des chiffres : tout compteur, export ou
+ * statistique passe par là plutôt que de tester `client_type` à la main.
+ */
+export function isPortfolioClient(clientType: string | null | undefined): boolean {
+  return clientType !== "carrier";
+}
+
+// ---------------------------------------------------------------------------
 // Insurance branches — fixed set for the bespoke broker (non éditable)
 // ---------------------------------------------------------------------------
 export const brokerInsuranceTypes = [
@@ -106,8 +157,8 @@ export function brokerClientDisplayName(
     "client_type" | "first_name" | "last_name" | "company_name"
   >,
 ): string {
-  if (client.client_type === "company") {
-    return client.company_name?.trim() || "Client sans nom";
+  if (isNamedByCompany(client.client_type)) {
+    return client.company_name?.trim() || "Dossier sans nom";
   }
   const full = [client.first_name, client.last_name]
     .map((part) => part?.trim())

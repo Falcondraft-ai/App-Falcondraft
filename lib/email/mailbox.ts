@@ -102,6 +102,21 @@ export interface MailboxClient {
   createDraft(draft: MailDraft): Promise<MailDraftResult>;
 
   /**
+   * Met un message à la corbeille de la messagerie.
+   *
+   * Corbeille, pas destruction : le message part là où le serveur mail le
+   * garde puis le purge selon SA politique de rétention (30 jours par défaut
+   * chez Microsoft). C'est volontaire — dupliquer une corbeille dans
+   * FalconDraft ferait diverger les deux boîtes, et le courtier ne saurait
+   * plus laquelle fait foi. Il retrouve un message supprimé par erreur là où
+   * il a toujours eu l'habitude de le chercher.
+   *
+   * Retourne false plutôt que de lever : l'appelant affiche un message clair,
+   * un échec de suppression n'est pas une panne de l'application.
+   */
+  deleteMessage(messageId: string): Promise<boolean>;
+
+  /**
    * Libère la connexion. Sans objet en OAuth (HTTP sans état), indispensable en
    * IMAP où une session TCP reste ouverte.
    */

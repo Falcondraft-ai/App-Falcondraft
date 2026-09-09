@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
+import { DeleteEmailButton } from "@/components/broker/delete-email-button";
 import { EmailBody } from "@/components/broker/email-body";
 import { LinkEmailButton } from "@/components/broker/link-email-button";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,7 @@ export function MailboxView() {
     <div className="flex flex-col gap-4">
       {/* Barre d'outils */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
+        <div className="relative min-w-[180px] flex-1 basis-full sm:basis-auto">
           <Search
             className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--fg-4)]"
             strokeWidth={1.75}
@@ -250,6 +251,19 @@ export function MailboxView() {
         {/* Lecture */}
         <MessagePane
           message={selected}
+          onDeleted={(messageId) => {
+            // Retrait local : le message n'est plus dans la boîte, recharger
+            // toute la fenêtre pour le constater serait du gâchis.
+            setSelected(null);
+            setState((cur) =>
+              cur.kind === "ready"
+                ? {
+                    ...cur,
+                    messages: cur.messages.filter((m) => m.id !== messageId),
+                  }
+                : cur,
+            );
+          }}
           onLinked={(client) => {
             // Mise à jour locale : recharger toute la boîte pour un badge
             // serait disproportionné.
@@ -312,32 +326,28 @@ function LinkBadges({ message }: { message: MailboxMessage }) {
 function MessagePane({
   message,
   onLinked,
+  onDeleted,
 }: {
   message: MailboxMessage | null;
   onLinked: (client: { id: string; name: string } | null) => void;
+  onDeleted: (messageId: string) => void;
 }) {
   const [detail, setDetail] = React.useState<MailboxMessageDetail | null>(null);
   const [loading, setLoading] = React.useState(false);
 
-  const [loadingImages, setLoadingImages] = React.useState(false);
-
   const loadDetail = React.useCallback(
-    async (withImages: boolean) => {
+    async () => {
       if (!message) return;
-      if (withImages) setLoadingImages(true);
-      else setLoading(true);
+      setLoading(true);
 
       const res = await fetch(
-        `/api/courtier/mailbox/message?id=${encodeURIComponent(message.id)}${
-          withImages ? "&images=1" : ""
-        }`,
+        `/api/courtier/mailbox/message?id=${encodeURIComponent(message.id)}`,
       ).catch(() => null);
       const data = (await res?.json().catch(() => null)) as
         | (MailboxMessageDetail & { message?: string })
         | null;
 
       setLoading(false);
-      setLoadingImages(false);
       if (!res?.ok || !data) {
         toast.error("Email illisible.", {
           description: data?.message ?? "Réessayez dans un instant.",
@@ -355,7 +365,7 @@ function MessagePane({
       return;
     }
     setDetail(null);
-    void loadDetail(false);
+    void loadDetail();
   }, [message, loadDetail]);
 
   if (!message) {
@@ -402,8 +412,13 @@ function MessagePane({
           <p className="mt-0.5 font-mono text-[11.5px] text-[var(--fg-4)]">
             {message.receivedAt ? formatDateTime(message.receivedAt) : ""}
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <LinkEmailButton message={message} onLinked={onLinked} />
+            <DeleteEmailButton
+              messageId={message.id}
+              subject={message.subject}
+              onDeleted={() => onDeleted(message.id)}
+            />
           </div>
         </div>
 
@@ -415,11 +430,7 @@ function MessagePane({
             </p>
           ) : detail ? (
             <>
-              <EmailBody
-                detail={detail}
-                onShowImages={() => void loadDetail(true)}
-                loadingImages={loadingImages}
-              />
+              <EmailBody detail={detail} />
               {detail.attachments.length > 0 ? (
                 <div
                   className="mt-5 border-t pt-4"

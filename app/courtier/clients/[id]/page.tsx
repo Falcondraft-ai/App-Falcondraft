@@ -27,7 +27,9 @@ import {
 import { hasProposalAutomation } from "@/lib/billing/entitlements";
 import {
   brokerClientDisplayName,
+  brokerClientTypeLabel,
   insuranceTypeLabel,
+  type BrokerClientType,
 } from "@/lib/broker/clients";
 import { contractDisplayLabel } from "@/lib/broker/contracts";
 import {
@@ -128,6 +130,14 @@ export default async function BrokerClientDetailPage({
     label: contractDisplayLabel(c),
   }));
   const displayName = brokerClientDisplayName(client);
+  /**
+   * Dossier de correspondant : une compagnie n'est pas assurée. Ni contrat, ni
+   * devis, ni devoir de conseil, ni sinistre, ni commission ne la concernent —
+   * les afficher vides donnerait l'impression d'un dossier incomplet alors
+   * qu'ils n'ont simplement aucun sens ici. Restent l'essentiel : les échanges,
+   * les documents et l'historique.
+   */
+  const isCarrier = client.client_type === "carrier";
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
   const canDelete = isWorkspaceManager(context.membership?.role);
   const brokerSettings = parseBrokerSettings(organization);
@@ -147,8 +157,13 @@ export default async function BrokerClientDetailPage({
           style={{ color: "var(--fg-3)" }}
           aria-label="Breadcrumb"
         >
-          <Link href="/courtier/clients" className="hover:text-[var(--fg-1)]">
-            Dossiers clients
+          <Link
+            href={
+              isCarrier ? "/courtier/clients?vue=carriers" : "/courtier/clients"
+            }
+            className="hover:text-[var(--fg-1)]"
+          >
+            {isCarrier ? "Compagnies" : "Dossiers clients"}
           </Link>
           <ChevronRight className="size-3" strokeWidth={2} aria-hidden="true" />
           <span style={{ color: "var(--fg-1)", fontWeight: 600 }}>
@@ -164,7 +179,7 @@ export default async function BrokerClientDetailPage({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               <p className="fd-eyebrow flex items-center gap-2 text-[var(--accent-foreground)]">
-                <span>Dossier</span>
+                <span>{isCarrier ? "Compagnie" : "Dossier"}</span>
                 {branchLabel ? (
                   <>
                     <span aria-hidden className="opacity-40">
@@ -181,9 +196,7 @@ export default async function BrokerClientDetailPage({
                 {canEdit ? (
                   <ClientRenameDialog
                     clientId={client.id}
-                    clientType={
-                      client.client_type === "company" ? "company" : "individual"
-                    }
+                    clientType={client.client_type as BrokerClientType}
                     firstName={client.first_name}
                     lastName={client.last_name}
                     companyName={client.company_name}
@@ -198,16 +211,21 @@ export default async function BrokerClientDetailPage({
                     background: "var(--bg-sunken)",
                   }}
                 >
-                  {client.client_type === "company"
-                    ? "Entreprise"
-                    : "Particulier"}
+                  {brokerClientTypeLabel(client.client_type)}
                 </span>
-                <BrokerStatusBadge status={client.status} />
+                {isCarrier ? null : <BrokerStatusBadge status={client.status} />}
               </div>
             </div>
             <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
-              <span className="fd-eyebrow">Statut du dossier</span>
-              <ClientStatusControl clientId={client.id} status={client.status} />
+              {isCarrier ? null : (
+                <>
+                  <span className="fd-eyebrow">Statut du dossier</span>
+                  <ClientStatusControl
+                    clientId={client.id}
+                    status={client.status}
+                  />
+                </>
+              )}
               {canDelete ? (
                 <div className="mt-1.5">
                   <ClientDeleteButton
@@ -225,20 +243,23 @@ export default async function BrokerClientDetailPage({
           <div className="space-y-5">
             <ClientInfoEditor client={client} canEdit={canEdit} />
 
-            <Card
-              title="Contrats"
-              description="Importez un contrat au format PDF ou saisissez-le : échéances et renouvellements sont suivis automatiquement."
-            >
-              <ContractManager
-                clientId={client.id}
-                contracts={contracts}
-                branches={brokerSettings.enabledBranches}
-                insurers={brokerSettings.partnerInsurers}
-                canEdit={canEdit}
-                storageFull={storageFull}
-              />
-            </Card>
+            {isCarrier ? null : (
+              <Card
+                title="Contrats"
+                description="Importez un contrat au format PDF ou saisissez-le : échéances et renouvellements sont suivis automatiquement."
+              >
+                <ContractManager
+                  clientId={client.id}
+                  contracts={contracts}
+                  branches={brokerSettings.enabledBranches}
+                  insurers={brokerSettings.partnerInsurers}
+                  canEdit={canEdit}
+                  storageFull={storageFull}
+                />
+              </Card>
+            )}
 
+            {isCarrier ? null : (
             <Card
               title="Devis compagnie"
               description="Importez un devis reçu d’une compagnie, vérifiez les informations puis validez."
@@ -310,7 +331,10 @@ export default async function BrokerClientDetailPage({
               </div>
             </Card>
 
+            )}
+
             {/* Devoir de conseil — après le devis (logique du parcours) */}
+            {isCarrier ? null : (
             <section
               className="rounded-xl border bg-[var(--bg-surface)]"
               style={{
@@ -373,10 +397,15 @@ export default async function BrokerClientDetailPage({
                 ) : null}
               </div>
             </section>
+            )}
 
             <Card
               title="Documents du dossier"
-              description="Contrats, pièces d’identité, RIB et autres pièces."
+              description={
+                isCarrier
+                  ? "Circulaires, conditions générales et tout document reçu de ce correspondant."
+                  : "Contrats, pièces d’identité, RIB et autres pièces."
+              }
             >
               <ClientDocuments
                 clientId={client.id}
@@ -386,7 +415,7 @@ export default async function BrokerClientDetailPage({
               />
             </Card>
 
-            {saasModules ? (
+            {saasModules && !isCarrier ? (
               <Card
                 title="Sinistres"
                 description="Suivez les sinistres déclarés par le client, leur instruction et leur indemnisation."
@@ -405,7 +434,7 @@ export default async function BrokerClientDetailPage({
           <div className="space-y-5">
             <ClientEmails clientId={client.id} />
 
-            {saasModules && commissions.length > 0 ? (
+            {saasModules && !isCarrier && commissions.length > 0 ? (
               <Card
                 title="Commissions"
                 description="Les commissions liées à ce dossier."

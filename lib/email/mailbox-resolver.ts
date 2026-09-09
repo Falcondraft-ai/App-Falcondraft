@@ -15,6 +15,7 @@ import type {
 } from "@/lib/email/mailbox";
 import { outlookOAuthProvider } from "@/lib/email/microsoft-oauth";
 import {
+  deleteOutlookMessage,
   getFileAttachmentBytes,
   getMailboxAddresses,
   getMessageAttachmentsMeta,
@@ -121,6 +122,10 @@ class OutlookMailboxClient implements MailboxClient {
             : "Le brouillon n’a pas pu être créé dans la boîte.",
       };
     }
+  }
+
+  deleteMessage(messageId: string): Promise<boolean> {
+    return deleteOutlookMessage(this.accessToken, messageId);
   }
 
   async close(): Promise<void> {

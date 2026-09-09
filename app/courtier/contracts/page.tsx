@@ -42,7 +42,12 @@ export default async function BrokerContractsPage() {
 
   const [contracts, clients] = await Promise.all([
     getBrokerContracts(organizationId, { limit: 1000 }),
-    getBrokerClients(organizationId, { limit: 2000, includeArchived: true }),
+    getBrokerClients(organizationId, {
+      limit: 2000,
+      includeArchived: true,
+      // Résolution de noms : un contrat peut pointer n'importe quel dossier.
+      scope: "all",
+    }),
   ]);
 
   const clientNames = new Map(

@@ -24,6 +24,7 @@ import {
   brokerClientDisplayName,
   brokerClientStatusLabels,
   brokerClientStatuses,
+  brokerClientTypeLabel,
   insuranceTypeLabel,
   isBrokerClientStatus,
 } from "@/lib/broker/clients";
@@ -37,12 +38,19 @@ export const revalidate = 0;
 type SearchParams = {
   status?: string;
   q?: string;
+  /** "carriers" bascule sur les dossiers compagnies / fournisseurs. */
+  vue?: string;
 };
 
-function buildHref(status: string | null, q: string | undefined) {
+function buildHref(
+  status: string | null,
+  q: string | undefined,
+  vue?: string | null,
+) {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
   if (q) params.set("q", q);
+  if (vue) params.set("vue", vue);
   const qs = params.toString();
   return qs ? `/courtier/clients?${qs}` : "/courtier/clients";
 }
@@ -57,36 +65,49 @@ export default async function CourtierClientsPage({
   const canManage = isWorkspaceManager(context.membership?.role);
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
 
-  const { status: statusParam, q } = await searchParams;
+  const { status: statusParam, q, vue } = await searchParams;
+  // Les compagnies vivent à part : mêmes dossiers, mais ce ne sont pas des
+  // assurés. Les mélanger à la liste ferait mentir chaque compteur.
+  const carriersView = vue === "carriers";
   const activeStatus =
-    statusParam && isBrokerClientStatus(statusParam) ? statusParam : undefined;
+    !carriersView && statusParam && isBrokerClientStatus(statusParam)
+      ? statusParam
+      : undefined;
   const search = q?.trim() || undefined;
 
   const clients = await getBrokerClients(organizationId, {
     status: activeStatus,
     search,
+    scope: carriersView ? "carriers" : "clients",
   });
 
-  const filters: { key: string | null; label: string }[] = [
-    { key: null, label: "Tous" },
-    ...brokerClientStatuses.map((status) => ({
-      key: status,
-      label: brokerClientStatusLabels[status],
-    })),
-  ];
+  // Le statut décrit une progression commerciale : sans objet sur une compagnie.
+  const filters: { key: string | null; label: string }[] = carriersView
+    ? []
+    : [
+        { key: null, label: "Tous" },
+        ...brokerClientStatuses.map((status) => ({
+          key: status,
+          label: brokerClientStatusLabels[status],
+        })),
+      ];
 
   return (
     <PageTransition>
       <div className="space-y-5">
         <PageHeader
-          title="Vos dossiers clients"
-          description="Centralisez et suivez tous vos dossiers, du premier contact à la signature."
+          title={carriersView ? "Vos compagnies" : "Vos dossiers clients"}
+          description={
+            carriersView
+              ? "Compagnies, plateformes et fournisseurs — leurs échanges et leurs documents, rangés à part de votre portefeuille."
+              : "Centralisez et suivez tous vos dossiers, du premier contact à la signature."
+          }
           actions={
             <div className="flex items-center gap-2">
-              {canManage && clients.length > 0 ? (
+              {canManage && !carriersView && clients.length > 0 ? (
                 <ClientsExportButton />
               ) : null}
-              {canEdit ? (
+              {canEdit && !carriersView ? (
                 <Button asChild variant="ghost">
                   <Link
                     href="/courtier/import"
@@ -110,6 +131,42 @@ export default async function CourtierClientsPage({
           }
         />
 
+        {/* Deux portefeuilles distincts, jamais mélangés dans un compteur. */}
+        <div
+          className="inline-flex items-center gap-1 rounded-lg border p-1"
+          style={{
+            borderColor: "var(--border-1)",
+            background: "var(--bg-sunken)",
+          }}
+        >
+          {(
+            [
+              { key: null, label: "Clients" },
+              { key: "carriers", label: "Compagnies" },
+            ] as { key: string | null; label: string }[]
+          ).map((tab) => {
+            const isActive = (tab.key ?? null) === (carriersView ? "carriers" : null);
+            return (
+              <Link
+                key={tab.label}
+                href={buildHref(null, search, tab.key)}
+                className="rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors"
+                style={
+                  isActive
+                    ? {
+                        background: "var(--bg-surface)",
+                        color: "var(--fg-1)",
+                        boxShadow: "var(--shadow-sm)",
+                      }
+                    : { color: "var(--fg-3)" }
+                }
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
+
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
             {filters.map((filter) => {
@@ -117,7 +174,7 @@ export default async function CourtierClientsPage({
               return (
                 <Link
                   key={filter.label}
-                  href={buildHref(filter.key, search)}
+                  href={buildHref(filter.key, search, carriersView ? "carriers" : null)}
                   className={cn(
                     "rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
                   )}
@@ -149,6 +206,9 @@ export default async function CourtierClientsPage({
             {activeStatus ? (
               <input type="hidden" name="status" value={activeStatus} />
             ) : null}
+            {carriersView ? (
+              <input type="hidden" name="vue" value="carriers" />
+            ) : null}
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-4)]"
               strokeWidth={1.75}
@@ -158,7 +218,9 @@ export default async function CourtierClientsPage({
               type="search"
               name="q"
               defaultValue={search ?? ""}
-              placeholder="Rechercher un client…"
+              placeholder={
+                carriersView ? "Rechercher une compagnie…" : "Rechercher un client…"
+              }
               className="h-9 w-full rounded-md border bg-[var(--bg-surface)] pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-[var(--border-focus)]"
               style={{ borderColor: "var(--border-1)", color: "var(--fg-1)" }}
             />
@@ -181,17 +243,21 @@ export default async function CourtierClientsPage({
                     style={{ background: "var(--bg-sunken)" }}
                   >
                     <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Client
+                      {carriersView ? "Compagnie" : "Client"}
                     </TableHead>
                     <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
                       Type
                     </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Branche
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Statut
-                    </TableHead>
+                    {carriersView ? null : (
+                      <>
+                        <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                          Branche
+                        </TableHead>
+                        <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                          Statut
+                        </TableHead>
+                      </>
+                    )}
                     <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
                       Mis à jour
                     </TableHead>
@@ -222,16 +288,18 @@ export default async function CourtierClientsPage({
                         ) : null}
                       </TableCell>
                       <TableCell className="text-[13px] text-[var(--fg-2)]">
-                        {client.client_type === "company"
-                          ? "Entreprise"
-                          : "Particulier"}
+                        {brokerClientTypeLabel(client.client_type)}
                       </TableCell>
-                      <TableCell className="text-[13px] text-[var(--fg-2)]">
-                        {insuranceTypeLabel(client.insurance_type)}
-                      </TableCell>
-                      <TableCell>
-                        <BrokerStatusBadge status={client.status} />
-                      </TableCell>
+                      {carriersView ? null : (
+                        <>
+                          <TableCell className="text-[13px] text-[var(--fg-2)]">
+                            {insuranceTypeLabel(client.insurance_type)}
+                          </TableCell>
+                          <TableCell>
+                            <BrokerStatusBadge status={client.status} />
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="font-mono text-[12px] text-[var(--fg-3)]">
                         {formatDate(client.updated_at)}
                       </TableCell>
@@ -255,24 +323,36 @@ export default async function CourtierClientsPage({
                 title={
                   search || activeStatus
                     ? "Aucun dossier ne correspond"
-                    : "Aucun dossier client"
+                    : carriersView
+                      ? "Aucune compagnie"
+                      : "Aucun dossier client"
                 }
                 description={
                   search || activeStatus
                     ? "Ajustez vos filtres ou votre recherche pour retrouver un dossier."
-                    : "Créez votre premier dossier client pour commencer à centraliser ses informations et ses documents."
+                    : carriersView
+                      ? "Ouvrez un dossier compagnie pour y ranger les communications de vos partenaires et fournisseurs, hors de votre portefeuille client."
+                      : "Créez votre premier dossier client pour commencer à centraliser ses informations et ses documents."
                 }
                 action={
                   search || activeStatus ? (
                     <Button asChild variant="ghost">
-                      <Link href="/courtier/clients">
+                      <Link
+                        href={buildHref(
+                          null,
+                          undefined,
+                          carriersView ? "carriers" : null,
+                        )}
+                      >
                         Réinitialiser les filtres
                       </Link>
                     </Button>
                   ) : (
                     <Button asChild>
                       <Link href="/courtier/clients/new">
-                        Créer un dossier client
+                        {carriersView
+                          ? "Créer un dossier compagnie"
+                          : "Créer un dossier client"}
                       </Link>
                     </Button>
                   )

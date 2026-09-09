@@ -69,7 +69,11 @@ export default async function BrokerStatementDetailPage({
 
   const [lines, clients, contracts] = await Promise.all([
     getBrokerStatementCommissions(organizationId, statementId),
-    getBrokerClients(organizationId, { limit: 2000, includeArchived: true }),
+    getBrokerClients(organizationId, {
+      limit: 2000,
+      includeArchived: true,
+      scope: "all",
+    }),
     getBrokerContracts(organizationId, { limit: 2000 }),
   ]);
 

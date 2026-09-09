@@ -215,11 +215,15 @@ export async function GET() {
   const admin = auth.adminSupabase;
   const orgId = auth.organizationId;
 
+  // Export du PORTEFEUILLE : les dossiers compagnies en sont exclus. Ce sont
+  // des correspondants, pas des assurés — les livrer dans un export client
+  // fausserait la reprise chez un confrère comme chez un successeur.
   const { data: clientRows } = await admin
     .from("broker_clients")
     .select("*")
     .eq("organization_id", orgId)
     .is("archived_at", null)
+    .neq("client_type", "carrier")
     .order("created_at", { ascending: true });
 
   const clients = (clientRows ?? []) as BrokerClientRow[];

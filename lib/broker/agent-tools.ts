@@ -7,6 +7,7 @@ import { buildAdviceJustificationDraft } from "@/lib/broker/advice-document";
 import {
   brokerClientDisplayName,
   brokerClientStatusLabels,
+  brokerClientTypeLabel,
   brokerInsuranceTypes,
   insuranceTypeLabel,
   isBrokerClientStatus,
@@ -393,6 +394,12 @@ export async function executeAgentTool(
       query = query.or(
         `first_name.ilike.${t},last_name.ilike.${t},company_name.ilike.${t},email.ilike.${t},phone.ilike.${t}`,
       );
+    } else {
+      // Sans recherche, « liste mes clients » veut dire le portefeuille : les
+      // dossiers compagnies n'en font pas partie. Une recherche nommée, elle,
+      // doit pouvoir les retrouver — sinon le copilote nierait l'existence d'un
+      // dossier que le courtier a sous les yeux.
+      query = query.neq("client_type", "carrier");
     }
     const { data } = await query;
     const clients = (data ?? []) as BrokerClientRow[];
@@ -401,7 +408,7 @@ export async function executeAgentTool(
       clients: clients.map((c) => ({
         id: c.id,
         name: brokerClientDisplayName(c),
-        type: c.client_type === "company" ? "entreprise" : "particulier",
+        type: brokerClientTypeLabel(c.client_type).toLowerCase(),
         branch: insuranceTypeLabel(c.insurance_type),
         status: brokerClientStatusLabels[isBrokerClientStatus(c.status) ? c.status : "new"],
         email: c.email,
@@ -485,11 +492,13 @@ export async function executeAgentTool(
   }
 
   if (name === "get_stats") {
+    // Statistiques du portefeuille : compagnies exclues, comme partout ailleurs.
     const { data } = await adminSupabase
       .from("broker_clients")
       .select("status")
       .eq("organization_id", organizationId)
       .is("archived_at", null)
+      .neq("client_type", "carrier")
       .limit(2000);
     const rows = (data ?? []) as { status: string }[];
     const byStatus: Record<string, number> = {};

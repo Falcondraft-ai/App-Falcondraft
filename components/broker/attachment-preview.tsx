@@ -22,6 +22,7 @@ import {
   ClientPicker,
   type ClientOption,
 } from "@/components/broker/client-picker";
+import type { CreatedClient } from "@/components/broker/quick-client-dialog";
 import { formatDateTime } from "@/lib/format";
 import type {
   BrokerEmailItemRow,
@@ -137,6 +138,7 @@ export function AttachmentPreview({
   clientIdFor,
   onPickClient,
   onClientsOpen,
+  onClientCreated,
   onAccept,
 }: {
   open: boolean;
@@ -150,6 +152,7 @@ export function AttachmentPreview({
   clientIdFor: (s: BrokerEmailSuggestionRow) => string | null;
   onPickClient: (s: BrokerEmailSuggestionRow, clientId: string) => void;
   onClientsOpen: () => void;
+  onClientCreated: (client: CreatedClient) => void;
   onAccept: (s: BrokerEmailSuggestionRow) => void;
 }) {
   const current = attachments[index];
@@ -322,6 +325,11 @@ export function AttachmentPreview({
                     tone="attention"
                     onPick={(id) => onPickClient(current, id)}
                     onOpen={onClientsOpen}
+                    createDefaults={{
+                      name: item.from_name || item.from_email || undefined,
+                      email: item.from_email || undefined,
+                    }}
+                    onCreated={onClientCreated}
                   />
                   <Button
                     type="button"

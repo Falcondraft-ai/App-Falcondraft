@@ -3,13 +3,15 @@ import { z } from "zod";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import {
   brokerClientDisplayName,
+  brokerClientTypes,
+  isNamedByCompany,
 } from "@/lib/broker/clients";
-import { getBrokerClients } from "@/lib/broker/data";
+import { getBrokerClientDirectory } from "@/lib/broker/data";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
 
 const createClientSchema = z
   .object({
-    clientType: z.enum(["individual", "company"]).default("individual"),
+    clientType: z.enum(brokerClientTypes).default("individual"),
     firstName: z.string().trim().max(120).optional().nullable(),
     lastName: z.string().trim().max(120).optional().nullable(),
     companyName: z.string().trim().max(160).optional().nullable(),
@@ -31,11 +33,16 @@ const createClientSchema = z
     notes: z.string().trim().max(5000).optional().nullable(),
   })
   .superRefine((values, ctx) => {
-    if (values.clientType === "company") {
+    // Entreprise comme compagnie sont désignées par leur raison sociale : la
+    // même règle vaut pour les deux.
+    if (isNamedByCompany(values.clientType)) {
       if (!values.companyName?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Le nom de l'entreprise est requis.",
+          message:
+            values.clientType === "carrier"
+              ? "Le nom de la compagnie est requis."
+              : "Le nom de l'entreprise est requis.",
           path: ["companyName"],
         });
       }
@@ -62,16 +69,17 @@ export async function GET() {
     return jsonError(auth.message, auth.status, auth.reason);
   }
 
-  const clients = await getBrokerClients(auth.organizationId, {
-    limit: 2000,
-    includeArchived: true,
-  });
+  // Annuaire complet, compagnies incluses : ces sélecteurs servent à RANGER
+  // (un email, une pièce jointe), et une circulaire de compagnie doit pouvoir
+  // atterrir dans le dossier de cette compagnie.
+  const clients = await getBrokerClientDirectory(auth.organizationId);
 
   return NextResponse.json({
     success: true,
     clients: clients.map((client) => ({
       id: client.id,
       name: brokerClientDisplayName(client),
+      type: client.client_type,
     })),
   });
 }
@@ -161,5 +169,16 @@ export async function POST(request: NextRequest) {
     description: `Dossier créé pour ${brokerClientDisplayName(data)}.`,
   });
 
-  return NextResponse.json({ success: true, clientId: data.id });
+  // Le dossier complet est renvoyé, pas seulement son id : les sélecteurs qui
+  // créent un dossier à la volée l'ajoutent à leur liste sans re-interroger
+  // l'annuaire.
+  return NextResponse.json({
+    success: true,
+    clientId: data.id,
+    client: {
+      id: data.id,
+      name: brokerClientDisplayName(data),
+      type: data.client_type,
+    },
+  });
 }

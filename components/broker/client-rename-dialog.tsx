@@ -16,6 +16,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  isNamedByCompany,
+  type BrokerClientType,
+} from "@/lib/broker/clients";
 
 /**
  * Quick rename of a client dossier from the header (individual first/last name,
@@ -30,7 +34,7 @@ export function ClientRenameDialog({
   companyName,
 }: {
   clientId: string;
-  clientType: "individual" | "company";
+  clientType: BrokerClientType;
   firstName: string | null;
   lastName: string | null;
   companyName: string | null;
@@ -51,7 +55,7 @@ export function ClientRenameDialog({
     }
   }, [open, firstName, lastName, companyName]);
 
-  const isCompany = clientType === "company";
+  const isCompany = isNamedByCompany(clientType);
   const valid = isCompany
     ? company.trim().length > 0
     : first.trim().length > 0 || last.trim().length > 0;
@@ -104,7 +108,7 @@ export function ClientRenameDialog({
         <DialogHeader>
           <DialogTitle>Renommer le dossier</DialogTitle>
           <DialogDescription>
-            Corrigez le nom du client — c’est le repère affiché partout dans
+            Corrigez le nom du dossier — c’est le repère affiché partout dans
             votre espace.
           </DialogDescription>
         </DialogHeader>
@@ -118,7 +122,11 @@ export function ClientRenameDialog({
         >
           {isCompany ? (
             <div className="space-y-1.5">
-              <Label htmlFor="rename-company">Raison sociale</Label>
+              <Label htmlFor="rename-company">
+                {clientType === "carrier"
+                  ? "Nom de la compagnie"
+                  : "Raison sociale"}
+              </Label>
               <Input
                 id="rename-company"
                 value={company}

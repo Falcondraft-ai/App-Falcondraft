@@ -256,6 +256,45 @@ export class ImapMailboxClient implements MailboxClient {
       // ensuite sur l'horodatage réel, sinon on perdrait les emails du jour de
       // reprise.
       const searchSince = new Date(since.getTime() - 86_400_000);
+
+      // Lecture d'une BOÎTE (ordre décroissant) : on ne veut que les `limit`
+      // messages les plus récents. Tout parcourir pour n'en garder que la fin
+      // faisait payer une fenêtre de deux semaines entière — des milliers
+      // d'enveloppes et de structures MIME — pour en afficher deux cents.
+      //
+      // SEARCH ne rapporte que des UID (une seule commande, quelques kilo-octets) :
+      // on prend la queue de la liste, la plus récente puisque les UID croissent
+      // avec l'arrivée, et on ne demande le détail que de ceux-là.
+      if (options?.order === "desc") {
+        const uids = await client.search({ since: searchSince }, { uid: true });
+        const all = Array.isArray(uids) ? uids : [];
+        if (all.length === 0) return { messages: [], truncated: false };
+        // Une marge au-delà du plafond : l'affinage à l'horodatage réel, plus
+        // bas, peut écarter quelques messages de la journée de reprise.
+        const wanted = all.slice(-(limit + 20));
+
+        for await (const msg of client.fetch(
+          wanted,
+          { uid: true, envelope: true, bodyStructure: true, internalDate: true },
+          { uid: true },
+        )) {
+          const mapped = this.toMessage(msg);
+          if (!mapped) continue;
+          if (new Date(mapped.receivedDateTime).getTime() < since.getTime()) {
+            continue;
+          }
+          collected.push(mapped);
+        }
+
+        collected.sort((a, b) =>
+          b.receivedDateTime.localeCompare(a.receivedDateTime),
+        );
+        return {
+          messages: collected.slice(0, limit),
+          truncated: all.length > wanted.length,
+        };
+      }
+
       for await (const msg of client.fetch(
         { since: searchSince },
         { uid: true, envelope: true, bodyStructure: true, internalDate: true },
@@ -269,7 +308,7 @@ export class ImapMailboxClient implements MailboxClient {
         // remplir la fenêtre (plus un, pour savoir s'il en reste), on arrête. Un
         // rattrapage de trois semaines représente des milliers de messages qu'il
         // serait absurde de charger pour n'en garder que quelques centaines.
-        if (options?.order !== "desc" && collected.length > limit) break;
+        if (collected.length > limit) break;
       }
     } catch (error) {
       console.error("[imap] list failed:", error);
@@ -279,11 +318,6 @@ export class ImapMailboxClient implements MailboxClient {
     collected.sort((a, b) =>
       a.receivedDateTime.localeCompare(b.receivedDateTime),
     );
-
-    if (options?.order === "desc") {
-      const newestFirst = [...collected].reverse();
-      return { messages: newestFirst.slice(0, limit), truncated: false };
-    }
 
     // Ordre chronologique : on garde le DÉBUT de la fenêtre, jamais vu, et on
     // signale la troncature pour que le run suivant reprenne à la suite.
@@ -399,6 +433,67 @@ export class ImapMailboxClient implements MailboxClient {
       contentType: part.type || "application/octet-stream",
       contentBase64: buffer.toString("base64"),
     };
+  }
+
+  /**
+   * Retrouve la corbeille de la boîte.
+   *
+   * IMAP ne normalise pas son nom : « Trash », « Corbeille », « Deleted
+   * Messages », « INBOX.Trash » selon l'hébergeur et la langue. L'attribut
+   * SPECIAL-USE (RFC 6154) donne la réponse quand le serveur le publie ; à
+   * défaut on retombe sur les noms courants, jamais sur une supposition.
+   */
+  private async findTrashPath(client: ImapFlow): Promise<string | null> {
+    try {
+      const boxes = await client.list();
+      const special = boxes.find((b) => b.specialUse === "\\Trash");
+      if (special) return special.path;
+
+      const known = boxes.find((b) =>
+        /^(inbox[./])?(trash|corbeille|deleted items|deleted messages|elementos eliminados|papelera)$/i.test(
+          b.path,
+        ),
+      );
+      return known?.path ?? null;
+    } catch (error) {
+      console.error("[imap] liste des dossiers impossible:", error);
+      return null;
+    }
+  }
+
+  async deleteMessage(messageId: string): Promise<boolean> {
+    const entry = await this.resolve(messageId);
+    if (!entry) return false;
+
+    const client = await this.connect();
+    try {
+      const trash = await this.findTrashPath(client);
+      if (trash) {
+        await client.messageMove(String(entry.uid), trash, { uid: true });
+      } else {
+        // Aucune corbeille : le serveur n'en propose pas (certains IMAP
+        // minimalistes). On marque \Deleted et on purge — c'est le seul
+        // comportement possible, et l'interface prévient que la suppression
+        // est alors définitive.
+        await client.messageDelete(String(entry.uid), { uid: true });
+      }
+      // Le cache pointerait un UID qui n'existe plus dans INBOX.
+      this.cache.delete(messageId);
+      return true;
+    } catch (error) {
+      console.error("[imap] suppression impossible:", error);
+      return false;
+    }
+  }
+
+  /** La boîte propose-t-elle une corbeille ? Sinon, supprimer est définitif. */
+  async hasTrashFolder(): Promise<boolean> {
+    try {
+      const client = await this.connect();
+      return (await this.findTrashPath(client)) !== null;
+    } catch {
+      return false;
+    }
   }
 
   async searchForClient(

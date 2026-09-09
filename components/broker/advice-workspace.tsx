@@ -89,10 +89,11 @@ export function AdviceCard({
         />
       </Link>
       {pdfDocumentId ? (
-        <div className="mr-1" title="Télécharger le PDF">
+        <div className="mr-1">
           <DocumentDownloadButton
             clientId={clientId}
             documentId={pdfDocumentId}
+            title={advice.title || "Devoir de conseil"}
           />
         </div>
       ) : null}

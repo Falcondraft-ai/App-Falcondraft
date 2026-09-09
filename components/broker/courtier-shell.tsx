@@ -101,6 +101,9 @@ const baseNavSections: NavSection[] = [
         icon: Users,
         submenu: [
           { href: "/courtier/clients", label: "Tous les dossiers" },
+          // Les correspondants (compagnies, fournisseurs) tiennent dans la même
+          // section : ce sont des dossiers, simplement pas des assurés.
+          { href: "/courtier/clients?vue=carriers", label: "Compagnies" },
           {
             href: "/courtier/clients/new",
             label: "+ Nouveau dossier",
@@ -244,6 +247,28 @@ export type CourtierShellUser = {
 function isActive(pathname: string, href: string) {
   if (href === "/courtier") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * Un sous-item peut ne différer que par sa query (« Tous les dossiers » vs
+ * « Compagnies », tous deux sur /courtier/clients) : comparer les seuls chemins
+ * les allumerait ensemble. Repris du shell dossiers, qui traite `?scope=` de la
+ * même façon.
+ */
+function isSubItemActive(
+  pathname: string,
+  search: string,
+  itemHref: string,
+): boolean {
+  const [path, query] = itemHref.split("?");
+  if (pathname !== path) return false;
+  if (!query) return !search || search === "?";
+  const expected = new URLSearchParams(query);
+  const current = new URLSearchParams(search);
+  for (const [key, value] of expected.entries()) {
+    if (current.get(key) !== value) return false;
+  }
+  return true;
 }
 
 function groupIsActive(pathname: string, item: NavItem) {
@@ -395,6 +420,7 @@ function NavLink({
 function NavGroup({
   item,
   pathname,
+  search,
   collapsed,
   open,
   onToggle,
@@ -403,6 +429,7 @@ function NavGroup({
 }: {
   item: NavItem;
   pathname: string;
+  search: string;
   collapsed: boolean;
   open: boolean;
   onToggle: () => void;
@@ -464,7 +491,7 @@ function NavGroup({
             >
               {sub.map((s) => {
                 const subActive =
-                  pathname === s.href.split("?")[0] && !s.highlight;
+                  isSubItemActive(pathname, search, s.href) && !s.highlight;
                 return (
                   <Link
                     key={s.href}
@@ -869,6 +896,7 @@ function AccountBlock({
 function SidebarContent({
   sections,
   pathname,
+  search,
   collapsed,
   usage,
   user,
@@ -885,6 +913,8 @@ function SidebarContent({
 }: {
   sections: NavSection[];
   pathname: string;
+  /** window.location.search — distingue les sous-items d'un même chemin. */
+  search: string;
   collapsed: boolean;
   usage: StorageUsage;
   user: CourtierShellUser;
@@ -945,6 +975,7 @@ function SidebarContent({
                       key={item.href}
                       item={item}
                       pathname={pathname}
+                      search={search}
                       collapsed={collapsed}
                       open={openGroups.has(item.href)}
                       onToggle={() => onToggleGroup(item.href)}
@@ -1024,6 +1055,9 @@ export function CourtierShell({
   const allNavItems = navSections.flatMap((s) => s.items);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
+  // Lue côté client uniquement (SSR safe) : useSearchParams forcerait toute la
+  // coquille sous Suspense, pour une seule ligne de navigation.
+  const [searchString, setSearchString] = React.useState("");
   const [profilePhotoUrl, setProfilePhotoUrl] = React.useState<string | null>(
     null,
   );
@@ -1040,6 +1074,14 @@ export function CourtierShell({
   } | null>(null);
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstNavRef = React.useRef(true);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setSearchString(window.location.search);
+    update();
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
+  }, [pathname]);
 
   // Persisted collapse preference (SSR-safe).
   React.useEffect(() => {
@@ -1141,6 +1183,7 @@ export function CourtierShell({
         <SidebarContent
           sections={navSections}
           pathname={pathname}
+          search={searchString}
           collapsed={collapsed}
           usage={usage}
           user={user}
@@ -1212,6 +1255,7 @@ export function CourtierShell({
                 <SidebarContent
                   sections={navSections}
                   pathname={pathname}
+                  search={searchString}
                   collapsed={false}
                   usage={usage}
                   user={user}

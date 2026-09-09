@@ -16,13 +16,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  brokerClientTypeHints,
+  brokerClientTypeLabels,
+  brokerClientTypes,
   brokerInsuranceTypeLabels,
   brokerInsuranceTypes,
+  isNamedByCompany,
+  type BrokerClientType,
   type BrokerInsuranceType,
 } from "@/lib/broker/clients";
 import { cn } from "@/lib/utils";
-
-type ClientType = "individual" | "company";
 
 type CreateResponse =
   | { success: true; clientId: string }
@@ -62,7 +65,8 @@ export function NewClientForm({
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
-  const [clientType, setClientType] = React.useState<ClientType>("individual");
+  const [clientType, setClientType] =
+    React.useState<BrokerClientType>("individual");
   const [form, setForm] = React.useState({
     firstName: "",
     lastName: "",
@@ -86,8 +90,12 @@ export function NewClientForm({
     event.preventDefault();
     if (submitting) return;
 
-    if (clientType === "company" && !form.companyName.trim()) {
-      toast.error("Le nom de l’entreprise est requis.");
+    if (isNamedByCompany(clientType) && !form.companyName.trim()) {
+      toast.error(
+        clientType === "carrier"
+          ? "Le nom de la compagnie est requis."
+          : "Le nom de l’entreprise est requis.",
+      );
       return;
     }
     if (
@@ -106,9 +114,11 @@ export function NewClientForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clientType,
-        firstName: form.firstName || null,
-        lastName: form.lastName || null,
-        companyName: form.companyName || null,
+        firstName: isNamedByCompany(clientType) ? null : form.firstName || null,
+        lastName: isNamedByCompany(clientType) ? null : form.lastName || null,
+        companyName: isNamedByCompany(clientType)
+          ? form.companyName || null
+          : null,
         email: form.email || "",
         phone: form.phone || null,
         address: form.address || null,
@@ -116,7 +126,8 @@ export function NewClientForm({
         city: form.city || null,
         dateOfBirth: form.dateOfBirth || null,
         birthCountry: form.birthCountry || null,
-        insuranceType: form.insuranceType || null,
+        insuranceType:
+          clientType === "carrier" ? null : form.insuranceType || null,
         notes: form.notes || null,
       }),
     }).catch(() => null);
@@ -136,7 +147,9 @@ export function NewClientForm({
       return;
     }
 
-    toast.success("Dossier client créé.");
+    toast.success(
+      clientType === "carrier" ? "Dossier compagnie créé." : "Dossier client créé.",
+    );
     router.push(`/courtier/clients/${result.clientId}`);
     router.refresh();
   }
@@ -145,23 +158,18 @@ export function NewClientForm({
     <form onSubmit={handleSubmit} className="space-y-5">
       <SectionCard
         title="Type de dossier"
-        description="Particulier ou entreprise — cela adapte les informations demandées."
+        description="Cela adapte les informations demandées — et ce que le dossier sait faire."
       >
-        <div className="grid grid-cols-2 gap-3">
-          {(
-            [
-              { key: "individual", label: "Particulier" },
-              { key: "company", label: "Entreprise" },
-            ] as { key: ClientType; label: string }[]
-          ).map((option) => {
-            const active = clientType === option.key;
+        <div className="grid gap-3 sm:grid-cols-3">
+          {brokerClientTypes.map((option) => {
+            const active = clientType === option;
             return (
               <button
-                key={option.key}
+                key={option}
                 type="button"
-                onClick={() => setClientType(option.key)}
+                onClick={() => setClientType(option)}
                 className={cn(
-                  "rounded-md border px-4 py-3 text-left text-[13px] font-medium transition-colors",
+                  "rounded-md border px-4 py-3 text-left transition-colors",
                 )}
                 style={
                   active
@@ -177,22 +185,51 @@ export function NewClientForm({
                       }
                 }
               >
-                {option.label}
+                <span className="block text-[13px] font-medium">
+                  {brokerClientTypeLabels[option]}
+                </span>
+                <span className="mt-0.5 block text-[11.5px] leading-4 text-[var(--fg-3)]">
+                  {brokerClientTypeHints[option]}
+                </span>
               </button>
             );
           })}
         </div>
+        {clientType === "carrier" ? (
+          <p
+            className="rounded-md border px-3 py-2 text-[12px] leading-5"
+            style={{
+              borderColor: "var(--border-1)",
+              background: "var(--bg-sunken)",
+              color: "var(--fg-3)",
+            }}
+          >
+            Un dossier compagnie sert à ranger des échanges et des documents. Il
+            n’entre pas dans votre portefeuille et n’apparaît ni dans vos
+            statistiques, ni dans vos exports clients.
+          </p>
+        ) : null}
       </SectionCard>
 
-      <SectionCard title="Identité du client">
-        {clientType === "company" ? (
+      <SectionCard
+        title={
+          clientType === "carrier" ? "Identité de la compagnie" : "Identité du client"
+        }
+      >
+        {isNamedByCompany(clientType) ? (
           <div className="space-y-1.5">
-            <Label htmlFor="companyName">Raison sociale</Label>
+            <Label htmlFor="companyName">
+              {clientType === "carrier" ? "Nom de la compagnie" : "Raison sociale"}
+            </Label>
             <Input
               id="companyName"
               value={form.companyName}
               onChange={(event) => update("companyName", event.target.value)}
-              placeholder="Ex. Boulangerie Martin SARL"
+              placeholder={
+                clientType === "carrier"
+                  ? "Ex. Generali"
+                  : "Ex. Boulangerie Martin SARL"
+              }
             />
           </div>
         ) : (
@@ -292,27 +329,35 @@ export function NewClientForm({
       </SectionCard>
 
       <SectionCard
-        title="Branche & notes"
-        description="La branche d’assurance sert de base au devoir de conseil."
+        title={clientType === "carrier" ? "Notes" : "Branche & notes"}
+        description={
+          clientType === "carrier"
+            ? "Ce qu’il est utile de garder en tête sur ce correspondant."
+            : "La branche d’assurance sert de base au devoir de conseil."
+        }
       >
-        <div className="space-y-1.5">
-          <Label>Branche d’assurance</Label>
-          <Select
-            value={form.insuranceType}
-            onValueChange={(value) => update("insuranceType", value)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionner une branche" />
-            </SelectTrigger>
-            <SelectContent>
-              {branches.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {brokerInsuranceTypeLabels[type]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Une compagnie n'a pas de branche : elle n'est pas assurée, et aucun
+            devoir de conseil ne sera jamais rédigé pour elle. */}
+        {clientType === "carrier" ? null : (
+          <div className="space-y-1.5">
+            <Label>Branche d’assurance</Label>
+            <Select
+              value={form.insuranceType}
+              onValueChange={(value) => update("insuranceType", value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sélectionner une branche" />
+              </SelectTrigger>
+              <SelectContent>
+                {branches.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {brokerInsuranceTypeLabels[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="notes">Notes internes</Label>

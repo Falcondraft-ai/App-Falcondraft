@@ -29,7 +29,8 @@ export default async function CourtierDocumentsPage() {
 
   const [documents, clients] = await Promise.all([
     getBrokerDocuments(organizationId, { limit: 300 }),
-    getBrokerClients(organizationId, { limit: 1000 }),
+    // GED : un document peut être rangé dans un dossier compagnie.
+    getBrokerClients(organizationId, { limit: 1000, scope: "all" }),
   ]);
 
   const clientNameById = new Map(
@@ -153,6 +154,7 @@ export default async function CourtierDocumentsPage() {
                         <DocumentDownloadButton
                           clientId={doc.client_id}
                           documentId={doc.id}
+                          title={doc.title || doc.file_name}
                         />
                       </TableCell>
                     </TableRow>

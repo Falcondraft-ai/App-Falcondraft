@@ -20,10 +20,10 @@ import {
   brokerInsuranceTypeLabels,
   brokerInsuranceTypes,
   insuranceTypeLabel,
+  isNamedByCompany,
+  type BrokerClientType,
 } from "@/lib/broker/clients";
 import type { BrokerClientRow } from "@/types/database";
-
-type ClientType = "individual" | "company";
 
 /** "1985-04-12" → "12/04/1985 · 40 ans". */
 function formatBirthDate(value: string | null): string {
@@ -84,7 +84,8 @@ export function ClientInfoEditor({
   const router = useRouter();
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const clientType = (client.client_type as ClientType) ?? "individual";
+  const clientType = (client.client_type as BrokerClientType) ?? "individual";
+  const isCarrier = clientType === "carrier";
 
   const [form, setForm] = React.useState({
     firstName: client.first_name ?? "",
@@ -233,11 +234,13 @@ export function ClientInfoEditor({
                 value={client.birth_country}
               />
             ) : null}
-            <Row
-              icon={<Tag className="size-3.5" strokeWidth={1.75} />}
-              label="Branche"
-              value={insuranceTypeLabel(client.insurance_type)}
-            />
+            {isCarrier ? null : (
+              <Row
+                icon={<Tag className="size-3.5" strokeWidth={1.75} />}
+                label="Branche"
+                value={insuranceTypeLabel(client.insurance_type)}
+              />
+            )}
             {client.notes ? (
               <div className="py-3">
                 <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--fg-4)]">
@@ -251,9 +254,11 @@ export function ClientInfoEditor({
           </div>
         ) : (
           <div className="space-y-4 py-1">
-            {clientType === "company" ? (
+            {isNamedByCompany(clientType) ? (
               <div className="space-y-1.5">
-                <Label htmlFor="companyName">Raison sociale</Label>
+                <Label htmlFor="companyName">
+                  {isCarrier ? "Nom de la compagnie" : "Raison sociale"}
+                </Label>
                 <Input
                   id="companyName"
                   value={form.companyName}
@@ -353,24 +358,26 @@ export function ClientInfoEditor({
               </div>
             ) : null}
 
-            <div className="space-y-1.5">
-              <Label>Branche d’assurance</Label>
-              <Select
-                value={form.insuranceType}
-                onValueChange={(value) => update("insuranceType", value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionner une branche" />
-                </SelectTrigger>
-                <SelectContent>
-                  {brokerInsuranceTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {brokerInsuranceTypeLabels[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isCarrier ? null : (
+              <div className="space-y-1.5">
+                <Label>Branche d’assurance</Label>
+                <Select
+                  value={form.insuranceType}
+                  onValueChange={(value) => update("insuranceType", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Sélectionner une branche" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brokerInsuranceTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {brokerInsuranceTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="notes">Notes internes</Label>

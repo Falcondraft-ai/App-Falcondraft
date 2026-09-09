@@ -5,12 +5,14 @@ import * as React from "react";
 import { toast } from "sonner";
 import {
   Download,
+  Eye,
   FileText,
   Loader2,
   Paperclip,
   Trash2,
   Upload,
 } from "lucide-react";
+import { DocumentPreviewDialog } from "@/components/broker/document-preview-dialog";
 import {
   Select,
   SelectContent,
@@ -62,6 +64,10 @@ export function ClientDocuments({
     null,
   );
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   React.useEffect(() => {
     setDocuments(initialDocuments);
@@ -260,6 +266,17 @@ export function ClientDocuments({
                 </div>
               ) : (
                 <div className="flex shrink-0 items-center gap-1">
+                  {/* Voir avant de télécharger : vérifier une date sur une CNI
+                      ne devrait pas obliger à sortir de l'outil. */}
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDoc({ id: doc.id, title: doc.title })}
+                    aria-label="Ouvrir le document"
+                    title="Ouvrir le document"
+                    className="flex size-8 items-center justify-center rounded-md text-[var(--fg-3)] transition-colors hover:bg-[var(--brand-navy-50)] hover:text-[var(--fg-1)]"
+                  >
+                    <Eye className="size-4" strokeWidth={1.75} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => download(doc)}
@@ -303,6 +320,18 @@ export function ClientDocuments({
           </p>
         </div>
       )}
+
+      {previewDoc ? (
+        <DocumentPreviewDialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setPreviewDoc(null);
+          }}
+          clientId={clientId}
+          documentId={previewDoc.id}
+          title={previewDoc.title}
+        />
+      ) : null}
     </div>
   );
 }

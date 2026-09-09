@@ -30,6 +30,7 @@ import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import {
   brokerClientDisplayName,
   insuranceTypeLabel,
+  isPortfolioClient,
 } from "@/lib/broker/clients";
 import {
   contractDisplayLabel,
@@ -57,14 +58,18 @@ export default async function CourtierDashboardPage() {
   const organization = context.organization!;
   const organizationId = organization.id;
 
-  const [clients, activity, renewals] = await Promise.all([
-    getBrokerClients(organizationId, { limit: 200 }),
+  const [allDossiers, activity, renewals] = await Promise.all([
+    // Tous les dossiers pour résoudre les noms (une compagnie apparaît dans le
+    // fil d'activité et la file de validation)…
+    getBrokerClients(organizationId, { limit: 200, scope: "all" }),
     getBrokerRecentActivity(organizationId, 8),
     getBrokerUpcomingRenewals(organizationId, RENEWAL_HORIZON_DAYS),
   ]);
   const clientNames = new Map(
-    clients.map((c) => [c.id, brokerClientDisplayName(c)]),
+    allDossiers.map((c) => [c.id, brokerClientDisplayName(c)]),
   );
+  // …mais les chiffres du cabinet ne parlent que d'assurés.
+  const clients = allDossiers.filter((c) => isPortfolioClient(c.client_type));
   const topRenewals = renewals.slice(0, 4);
 
   // Résumé du briefing pour le panneau du tableau de bord — la boîte suit le

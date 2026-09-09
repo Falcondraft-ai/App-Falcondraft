@@ -53,6 +53,8 @@ import { brokerDocumentCategoryLabels } from "@/lib/broker/documents";
 import { GenerateDigestButton } from "@/components/broker/generate-digest-button";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { DeleteEmailButton } from "@/components/broker/delete-email-button";
+import type { CreatedClient } from "@/components/broker/quick-client-dialog";
 import type {
   BrokerEmailDigestRow,
   BrokerEmailItemRow,
@@ -148,6 +150,7 @@ function SuggestionRow({
   clientOptions,
   onPickClient,
   onClientsOpen,
+  onClientCreated,
   onPreview,
   status,
   onAccept,
@@ -159,6 +162,7 @@ function SuggestionRow({
   clientOptions: ClientOption[];
   onPickClient: (clientId: string) => void;
   onClientsOpen: () => void;
+  onClientCreated: (client: CreatedClient) => void;
   onPreview?: () => void;
   status: LocalStatus;
   onAccept: () => void;
@@ -230,6 +234,7 @@ function SuggestionRow({
               tone="attention"
               onPick={onPickClient}
               onOpen={onClientsOpen}
+              onCreated={onClientCreated}
             />
             {onPreview ? (
               <button
@@ -341,10 +346,12 @@ function ItemCard({
   clientIdFor,
   onPickSuggestionClient,
   onClientsOpen,
+  onClientCreated,
   statuses,
   onAccept,
   onReject,
   onExclude,
+  onDeleted,
   excludeBusy,
   topBar,
   showMailbox,
@@ -363,10 +370,13 @@ function ItemCard({
     clientId: string,
   ) => void;
   onClientsOpen: () => void;
+  onClientCreated: (client: CreatedClient) => void;
   statuses: Record<string, LocalStatus>;
   onAccept: (s: BrokerEmailSuggestionRow) => void;
   onReject: (s: BrokerEmailSuggestionRow) => void;
   onExclude?: () => void;
+  /** L'email a été mis à la corbeille : la carte disparaît du briefing. */
+  onDeleted?: () => void;
   excludeBusy?: boolean;
   topBar?: React.ReactNode;
   showMailbox?: boolean;
@@ -477,6 +487,7 @@ function ItemCard({
               clientOptions={attachClients ?? []}
               onPickClient={(clientId) => onPickSuggestionClient(s, clientId)}
               onClientsOpen={onClientsOpen}
+              onClientCreated={onClientCreated}
               onPreview={
                 s.type === "attach_document"
                   ? () =>
@@ -531,14 +542,19 @@ function ItemCard({
               placeholder="Rattacher à un dossier"
               onPick={onAttachClient}
               onOpen={onClientsOpen}
+              createDefaults={{
+                name: item.from_name || item.from_email || undefined,
+                email: item.from_email || undefined,
+              }}
+              onCreated={onClientCreated}
             />
           </div>
         )
       ) : null}
 
-      {onExclude ? (
+      {onExclude || onDeleted ? (
         <div
-          className="mt-3 flex items-center justify-end gap-1.5 border-t pt-2.5"
+          className="mt-3 flex flex-wrap items-center justify-end gap-1.5 border-t pt-2.5"
           style={{ borderColor: "var(--border-1)" }}
         >
           {/* Lecture dans l'outil : seule option hors Microsoft, où l'email
@@ -563,16 +579,29 @@ function ItemCard({
               Ouvrir dans Outlook
             </a>
           ) : null}
-          <button
-            type="button"
-            onClick={onExclude}
-            disabled={excludeBusy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium text-[var(--fg-3)] transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
-            style={{ borderColor: "var(--border-1)" }}
-          >
-            <EyeOff className="size-3.5" strokeWidth={1.75} />
-            Écarter
-          </button>
+          {onExclude ? (
+            <button
+              type="button"
+              onClick={onExclude}
+              disabled={excludeBusy}
+              title="Retirer du briefing — l’email reste dans votre boîte"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium text-[var(--fg-3)] transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-50"
+              style={{ borderColor: "var(--border-1)" }}
+            >
+              <EyeOff className="size-3.5" strokeWidth={1.75} />
+              Écarter
+            </button>
+          ) : null}
+          {/* Écarter range la carte ; supprimer s'attaque à l'email lui-même.
+              Les deux voisinent parce que la pub appelle le second, pas le
+              premier — sinon elle revient au briefing suivant. */}
+          {onDeleted ? (
+            <DeleteEmailButton
+              messageId={item.graph_message_id}
+              subject={item.subject}
+              onDeleted={onDeleted}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -591,6 +620,7 @@ function ItemCard({
           clientIdFor={clientIdFor}
           onPickClient={onPickSuggestionClient}
           onClientsOpen={onClientsOpen}
+          onClientCreated={onClientCreated}
           onAccept={onAccept}
         />
       ) : null}
@@ -644,6 +674,12 @@ export function OutlookDigest({
     Record<string, string>
   >(() => Object.fromEntries(items.map((i) => [i.id, i.relevance])));
   const [itemBusy, setItemBusy] = React.useState<Record<string, boolean>>({});
+  // Emails mis à la corbeille pendant la session. Écarter et supprimer ne se
+  // valent pas : un email écarté reste consultable sous « écartés », un email
+  // supprimé n'existe plus et ne doit réapparaître nulle part.
+  const [deletedItems, setDeletedItems] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const [showExcluded, setShowExcluded] = React.useState(false);
 
   // Locally-attached client per item (feature: rattacher un email à un dossier).
@@ -667,9 +703,21 @@ export function OutlookDigest({
   // in the pickers without reloading the page.
   const [clientDirectory, setClientDirectory] =
     React.useState<Record<string, string>>(clientNames);
+  // Type par dossier — sert à distinguer une compagnie d'un assuré dans les
+  // sélecteurs. Séparé de l'annuaire des noms, qui vient du serveur en
+  // Record<id, nom> et que l'on ne veut pas remodeler pour autant.
+  const [clientTypes, setClientTypes] = React.useState<Record<string, string>>(
+    {},
+  );
   React.useEffect(() => {
     setClientDirectory((prev) => ({ ...prev, ...clientNames }));
   }, [clientNames]);
+
+  // Miroir synchrone de l'annuaire : voir registerClient.
+  const clientNamesRef = React.useRef<Record<string, string>>({});
+  React.useEffect(() => {
+    clientNamesRef.current = clientDirectory;
+  }, [clientDirectory]);
 
   const lastClientFetch = React.useRef(0);
   const refreshClients = React.useCallback(async (force = false) => {
@@ -687,15 +735,39 @@ export function OutlookDigest({
       for (const c of data.clients!) next[c.id] = c.name;
       return next;
     });
+    setClientTypes((prev) => {
+      const next = { ...prev };
+      for (const c of data.clients!) if (c.type) next[c.id] = c.type;
+      return next;
+    });
   }, []);
 
   const clientOptions = React.useMemo(
     () =>
       Object.entries(clientDirectory)
-        .map(([id, name]) => ({ id, name }))
+        .map(([id, name]) => ({ id, name, type: clientTypes[id] }))
         .sort((a, b) => a.name.localeCompare(b.name, "fr")),
-    [clientDirectory],
+    [clientDirectory, clientTypes],
   );
+
+  /**
+   * Un dossier vient d'être créé depuis un sélecteur.
+   *
+   * Le rangement s'enchaîne dans la foulée, dans le même tick : un `setState`
+   * n'aurait pas encore pris effet quand il cherchera le nom du dossier. D'où
+   * le miroir en `ref`, lu par les actions qui suivent immédiatement.
+   */
+  const registerClient = React.useCallback((client: CreatedClient) => {
+    // Copie, jamais une mutation : la ref partage l'objet avec l'état.
+    clientNamesRef.current = {
+      ...clientNamesRef.current,
+      [client.id]: client.name,
+    };
+    setClientDirectory((prev) => ({ ...prev, [client.id]: client.name }));
+    if (client.type) {
+      setClientTypes((prev) => ({ ...prev, [client.id]: client.type! }));
+    }
+  }, []);
 
   const clientNameFor = React.useCallback(
     (item: BrokerEmailItemRow): string | null => {
@@ -751,7 +823,9 @@ export function OutlookDigest({
         return;
       }
       setAttachedClient((m) => ({ ...m, [itemId]: clientId }));
-      toast.success(`Rattaché à ${clientDirectory[clientId] ?? "ce dossier"}.`);
+      const name =
+        clientNamesRef.current[clientId] ?? clientDirectory[clientId];
+      toast.success(name ? `Rattaché à ${name}.` : "Rattaché au dossier.");
     } finally {
       setAttachBusy((m) => ({ ...m, [itemId]: false }));
     }
@@ -780,7 +854,8 @@ export function OutlookDigest({
   }
 
   const matchesAddress = (i: BrokerEmailItemRow) =>
-    !addressFilter || i.mailbox_address === addressFilter;
+    !deletedItems.has(i.id) &&
+    (!addressFilter || i.mailbox_address === addressFilter);
 
   const relevantItems = items.filter(
     (i) =>
@@ -1064,6 +1139,10 @@ export function OutlookDigest({
                     setPickedClient((m) => ({ ...m, [s.id]: clientId }))
                   }
                   onClientsOpen={() => void refreshClients()}
+                  onClientCreated={registerClient}
+                  onDeleted={() =>
+                    setDeletedItems((prev) => new Set(prev).add(item.id))
+                  }
                   statuses={statuses}
                   onAccept={(s) => resolve(s, "accept")}
                   onReject={(s) => resolve(s, "reject")}
@@ -1172,6 +1251,10 @@ export function OutlookDigest({
                       setPickedClient((m) => ({ ...m, [s.id]: clientId }))
                     }
                     onClientsOpen={() => void refreshClients()}
+                    onClientCreated={registerClient}
+                    onDeleted={() =>
+                      setDeletedItems((prev) => new Set(prev).add(item.id))
+                    }
                     statuses={statuses}
                     onAccept={(s) => resolve(s, "accept")}
                     onReject={(s) => resolve(s, "reject")}

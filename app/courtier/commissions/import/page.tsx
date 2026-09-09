@@ -18,7 +18,11 @@ export default async function BrokerCommissionImportPage() {
   const canEdit = canCreateWorkspaceRecords(context.membership?.role);
 
   const [clients, contracts] = await Promise.all([
-    getBrokerClients(organizationId, { limit: 2000, includeArchived: true }),
+    getBrokerClients(organizationId, {
+      limit: 2000,
+      includeArchived: true,
+      scope: "all",
+    }),
     getBrokerContracts(organizationId, { limit: 2000 }),
   ]);
 

@@ -10,7 +10,7 @@ import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import { BROKER_OFFERING_CUSTOM, getBrokerOffering } from "@/lib/broker/access";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import {
-  getBrokerClients,
+  getBrokerClientDirectory,
   getEmailDigestDetail,
   getLatestEmailDigest,
 } from "@/lib/broker/data";
@@ -134,10 +134,9 @@ export default async function CourtierInboxPage() {
     organizationId,
     digest.id,
   );
-  const clients = await getBrokerClients(organizationId, {
-    limit: 2000,
-    includeArchived: true,
-  });
+  // Le briefing doit pouvoir ranger un email dans un dossier compagnie autant
+  // que chez un assuré : l'annuaire les contient tous les deux.
+  const clients = await getBrokerClientDirectory(organizationId);
   const clientNames: Record<string, string> = {};
   for (const c of clients) clientNames[c.id] = brokerClientDisplayName(c);
 

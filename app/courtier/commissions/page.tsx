@@ -50,7 +50,11 @@ export default async function BrokerCommissionsPage() {
   const [statements, commissions, clients, contracts] = await Promise.all([
     getBrokerCommissionStatements(organizationId, { limit: 200 }),
     getBrokerCommissions(organizationId, { limit: 5000 }),
-    getBrokerClients(organizationId, { limit: 5000, includeArchived: true }),
+    getBrokerClients(organizationId, {
+      limit: 5000,
+      includeArchived: true,
+      scope: "all",
+    }),
     getBrokerContracts(organizationId, { limit: 5000 }),
   ]);
 

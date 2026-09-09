@@ -13,6 +13,9 @@ import type { MailboxMessage } from "@/app/api/courtier/mailbox/route";
  * Sans ça, seul le briefing pouvait classer du courrier : tout ce que
  * l'assistant n'avait pas analysé — ou avait écarté — restait sans rattachement
  * possible. Le courtier tranche lui-même, sans attendre une analyse.
+ *
+ * Le dossier peut aussi être créé ici, pré-rempli avec l'expéditeur : un email
+ * d'un contact inconnu se classe sans quitter la boîte.
  */
 export function LinkEmailButton({
   message,
@@ -114,6 +117,15 @@ export function LinkEmailButton({
       }
       onOpen={() => void loadClients()}
       onPick={(clientId) => void link(clientId)}
+      createDefaults={{
+        name: message.from || undefined,
+        email: message.fromEmail || undefined,
+      }}
+      onCreated={(client) =>
+        setClients((prev) =>
+          prev.some((c) => c.id === client.id) ? prev : [...prev, client],
+        )
+      }
     />
   );
 }

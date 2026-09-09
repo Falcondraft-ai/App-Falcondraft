@@ -53,7 +53,11 @@ export default async function BrokerRenewalsPage() {
 
   const [renewals, clients] = await Promise.all([
     getBrokerUpcomingRenewals(organizationId, RENEWAL_HORIZON_DAYS),
-    getBrokerClients(organizationId, { limit: 2000, includeArchived: true }),
+    getBrokerClients(organizationId, {
+      limit: 2000,
+      includeArchived: true,
+      scope: "all",
+    }),
   ]);
 
   const clientNames = new Map(

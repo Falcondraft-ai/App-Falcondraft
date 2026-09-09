@@ -154,6 +154,7 @@ export default async function QuoteValidationPage({
             <DocumentDownloadButton
               clientId={clientId}
               documentId={sourceDocument.id}
+              title={sourceDocument.title}
             />
           </div>
         ) : null}

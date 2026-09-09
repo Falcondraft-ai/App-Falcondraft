@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "magic:mcp": "npx @21st-dev/magic@latest"
+    "magic:mcp": "npx @21st-dev/magic@latest",
+    "verify:documents": "node scripts/verify-broker-documents.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.108.0",

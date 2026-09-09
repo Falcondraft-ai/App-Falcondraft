@@ -616,3 +616,34 @@ export async function getOutlookMessageBody(
     html: isHtml ? raw : null,
   };
 }
+
+
+/**
+ * Met un message à la corbeille Microsoft (« Éléments supprimés »).
+ *
+ * DELETE sur Graph ne détruit pas : il déplace. Le message reste récupérable
+ * dans le dossier Éléments supprimés, purgé ensuite selon la rétention du
+ * locataire — 30 jours par défaut. Le scope Mail.ReadWrite, déjà accordé pour
+ * les brouillons, couvre l'opération : aucun consentement supplémentaire à
+ * redemander au courtier.
+ */
+export async function deleteOutlookMessage(
+  accessToken: string,
+  messageId: string,
+): Promise<boolean> {
+  const res = await fetch(
+    `${GRAPH}/me/messages/${encodeURIComponent(messageId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  ).catch(() => null);
+
+  // 404 = le message n'est plus là : l'intention de l'appelant est satisfaite.
+  if (res?.status === 404) return true;
+  if (!res || !res.ok) {
+    console.error("[outlook] suppression refusée:", res?.status ?? "réseau");
+    return false;
+  }
+  return true;
+}

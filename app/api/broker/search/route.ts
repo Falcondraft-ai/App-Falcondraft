@@ -9,7 +9,12 @@ import { getBrokerClients } from "@/lib/broker/data";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { BrokerClientRow } from "@/types/database";
 
-export type BrokerSearchType = "client" | "contract" | "document";
+export type BrokerSearchType =
+  | "client"
+  | "contract"
+  | "document"
+  | "quote"
+  | "claim";
 
 export type BrokerSearchResult = {
   id: string;
@@ -68,11 +73,40 @@ export async function GET(request: NextRequest) {
           .limit(5)
       : Promise.resolve({ data: [] });
 
-    const [clients, contractsRes, documentsRes] = await Promise.all([
-      clientsPromise,
-      contractsPromise,
-      documentsPromise,
-    ]);
+    // Devis compagnie — cherchés par compagnie, produit ou référence. Ils
+    // manquaient à l'appel : un devis se retrouvait par le nom du client, mais
+    // jamais par celui de la compagnie qui l'a émis.
+    const quotesPromise = admin
+      ? admin
+          .from("broker_quotes")
+          .select("id, client_id, insurer_name, product_name")
+          .eq("organization_id", organizationId)
+          .or(`insurer_name.ilike.${like},product_name.ilike.${like}`)
+          .limit(5)
+      : Promise.resolve({ data: [] });
+
+    // Sinistres — par nature, référence ou description.
+    const claimsPromise = admin
+      ? admin
+          .from("broker_claims")
+          .select(
+            "id, client_id, claim_type, reference, description, insurer_name, status",
+          )
+          .eq("organization_id", organizationId)
+          .or(
+            `claim_type.ilike.${like},reference.ilike.${like},description.ilike.${like},insurer_name.ilike.${like}`,
+          )
+          .limit(5)
+      : Promise.resolve({ data: [] });
+
+    const [clients, contractsRes, documentsRes, quotesRes, claimsRes] =
+      await Promise.all([
+        clientsPromise,
+        contractsPromise,
+        documentsPromise,
+        quotesPromise,
+        claimsPromise,
+      ]);
 
     const contracts = (contractsRes.data ?? []) as {
       id: string;
@@ -89,12 +123,29 @@ export async function GET(request: NextRequest) {
       file_name: string;
       category: string;
     }[];
+    const quotes = (quotesRes.data ?? []) as {
+      id: string;
+      client_id: string;
+      insurer_name: string | null;
+      product_name: string | null;
+    }[];
+    const claims = (claimsRes.data ?? []) as {
+      id: string;
+      client_id: string;
+      claim_type: string | null;
+      reference: string | null;
+      description: string | null;
+      insurer_name: string | null;
+      status: string;
+    }[];
 
     // Resolve client names for contract/document subtitles in one query.
     const extraClientIds = [
       ...new Set([
         ...contracts.map((c) => c.client_id),
         ...documents.map((d) => d.client_id),
+        ...quotes.map((q) => q.client_id),
+        ...claims.map((c) => c.client_id),
       ]),
     ];
     const namesById = new Map<string, string>();
@@ -158,6 +209,36 @@ export async function GET(request: NextRequest) {
         href: `/courtier/clients/${doc.client_id}`,
         title: doc.title || doc.file_name,
         subtitle: `Document · ${clientName}`,
+      });
+    }
+
+    for (const quote of quotes) {
+      const clientName = namesById.get(quote.client_id) ?? "Client";
+      const title = quote.insurer_name || quote.product_name || "Devis";
+      results.push({
+        id: `quote-${quote.id}`,
+        type: "quote",
+        // Le devis a sa propre page : on y va directement, le dossier reste à
+        // un clic par le fil d'Ariane.
+        href: `/courtier/clients/${quote.client_id}/quotes/${quote.id}`,
+        title,
+        subtitle: [clientName, quote.product_name]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+
+    for (const claim of claims) {
+      const clientName = namesById.get(claim.client_id) ?? "Client";
+      const title = claim.claim_type || claim.reference || "Sinistre";
+      results.push({
+        id: `claim-${claim.id}`,
+        type: "claim",
+        href: `/courtier/clients/${claim.client_id}/claims/${claim.id}`,
+        title,
+        subtitle: [clientName, claim.reference ? `N° ${claim.reference}` : null]
+          .filter(Boolean)
+          .join(" · "),
       });
     }
 

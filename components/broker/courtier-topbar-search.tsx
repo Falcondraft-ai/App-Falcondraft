@@ -3,10 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { FileText, Loader2, ScrollText, Search, Users } from "lucide-react";
+import {
+  FileSignature,
+  FileText,
+  Loader2,
+  ScrollText,
+  Search,
+  ShieldAlert,
+  Users,
+} from "lucide-react";
 import { BrokerStatusBadge } from "@/components/broker/broker-status-badge";
 
-type SearchType = "client" | "contract" | "document";
+type SearchType = "client" | "contract" | "document" | "quote" | "claim";
 
 type SearchResult = {
   id: string;
@@ -32,6 +40,14 @@ const typeMeta: Record<
   document: {
     label: "Document",
     icon: <FileText className="size-3.5" strokeWidth={1.75} />,
+  },
+  quote: {
+    label: "Devis",
+    icon: <FileSignature className="size-3.5" strokeWidth={1.75} />,
+  },
+  claim: {
+    label: "Sinistre",
+    icon: <ShieldAlert className="size-3.5" strokeWidth={1.75} />,
   },
 };
 

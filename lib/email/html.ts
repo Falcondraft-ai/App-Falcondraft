@@ -7,34 +7,26 @@ import sanitizeHtml from "sanitize-html";
  *
  * Un email est du contenu envoyé par un inconnu : le rendre tel quel dans
  * l'application reviendrait à exécuter le code de l'expéditeur dans la session
- * du courtier. Trois menaces, trois réponses :
+ * du courtier. Deux menaces, deux réponses :
  *
  *   1. Script et gestionnaires d'événements → supprimés (liste blanche stricte
  *      de balises et d'attributs, aucun `on*`, aucune URL `javascript:`).
- *   2. Pixels de suivi et images distantes → neutralisés par défaut. Ouvrir un
- *      email ne doit pas signaler à l'expéditeur qu'il a été lu. Le courtier
- *      les affiche d'un clic quand il le décide.
- *   3. Cadres et objets embarqués → supprimés.
+ *   2. Cadres et objets embarqués → supprimés.
  *
  * Le résultat est ensuite rendu dans une iframe `sandbox`, qui bloque à nouveau
  * script, formulaires et navigation : deux barrières valent mieux qu'une.
+ *
+ * Les images distantes, elles, se chargent normalement — comme dans n'importe
+ * quel logiciel de messagerie. Un email illisible parce que sa mise en page est
+ * amputée coûte plus au courtier que ne lui rapporte le fait de masquer
+ * l'accusé de lecture à un expéditeur.
  */
-
-/** Attribut où l'on met de côté la source d'une image bloquée. */
-const DEFERRED_SRC = "data-blocked-src";
 
 export type SanitizedEmail = {
   html: string;
-  /** Nombre d'images distantes neutralisées, pour proposer de les afficher. */
-  blockedImages: number;
 };
 
-export function sanitizeEmailHtml(
-  raw: string,
-  options?: { allowRemoteImages?: boolean },
-): SanitizedEmail {
-  let blockedImages = 0;
-
+export function sanitizeEmailHtml(raw: string): SanitizedEmail {
   const clean = sanitizeHtml(raw, {
     allowedTags: [
       "p", "br", "div", "span", "strong", "b", "em", "i", "u", "s",
@@ -45,7 +37,7 @@ export function sanitizeEmailHtml(
     ],
     allowedAttributes: {
       a: ["href", "title", "target", "rel"],
-      img: ["src", "alt", "title", "width", "height", DEFERRED_SRC],
+      img: ["src", "alt", "title", "width", "height"],
       "*": ["style", "align", "colspan", "rowspan"],
     },
     // `style` reste autorisé mais borné : une mise en forme d'email tient dans
@@ -82,19 +74,6 @@ export function sanitizeEmailHtml(
           rel: "noopener noreferrer nofollow",
         },
       }),
-      img: (tagName, attribs) => {
-        const src = attribs.src ?? "";
-        const remote = /^https?:/i.test(src);
-        if (remote && !options?.allowRemoteImages) {
-          blockedImages += 1;
-          // La source part dans un attribut inerte : l'image ne se charge pas,
-          // mais on garde la trace pour pouvoir la rétablir sur demande.
-          const rest = { ...attribs };
-          delete rest.src;
-          return { tagName, attribs: { ...rest, [DEFERRED_SRC]: src } };
-        }
-        return { tagName, attribs };
-      },
     },
     // Les commentaires conditionnels d'Outlook contiennent du balisage entier :
     // on ne les garde pas.
@@ -102,5 +81,5 @@ export function sanitizeEmailHtml(
     disallowedTagsMode: "discard",
   });
 
-  return { html: clean, blockedImages };
+  return { html: clean };
 }

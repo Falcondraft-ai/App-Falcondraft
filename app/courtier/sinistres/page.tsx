@@ -31,7 +31,11 @@ export default async function BrokerClaimsPage() {
 
   const [claims, clients] = await Promise.all([
     getBrokerClaims(organizationId, { limit: 1000 }),
-    getBrokerClients(organizationId, { limit: 2000, includeArchived: true }),
+    getBrokerClients(organizationId, {
+      limit: 2000,
+      includeArchived: true,
+      scope: "all",
+    }),
   ]);
 
   const clientNames = new Map(

@@ -25,6 +25,18 @@ export type BrokerClientListOptions = {
   search?: string;
   includeArchived?: boolean;
   limit?: number;
+  /**
+   * Quels dossiers lire.
+   *
+   *   "clients"  — les assurés seuls (DÉFAUT). Portefeuille, compteurs, exports.
+   *   "carriers" — les compagnies et fournisseurs seuls.
+   *   "all"      — tout, pour résoudre un nom ou proposer un rangement.
+   *
+   * Le défaut est volontairement le plus restrictif : un nouvel appel qui
+   * oublie l'option ne gonflera pas les chiffres du cabinet avec des dossiers
+   * qui ne sont pas des clients.
+   */
+  scope?: "clients" | "carriers" | "all";
 };
 
 export async function getBrokerClients(
@@ -42,6 +54,13 @@ export async function getBrokerClients(
 
   if (!options?.includeArchived) {
     query = query.is("archived_at", null);
+  }
+
+  const scope = options?.scope ?? "clients";
+  if (scope === "clients") {
+    query = query.neq("client_type", "carrier");
+  } else if (scope === "carriers") {
+    query = query.eq("client_type", "carrier");
   }
 
   if (options?.status) {
@@ -71,6 +90,42 @@ export async function getBrokerClients(
   }
 
   return (data ?? []) as BrokerClientRow[];
+}
+
+/** Juste de quoi afficher un nom de dossier dans une liste déroulante. */
+export type BrokerClientDirectoryEntry = Pick<
+  BrokerClientRow,
+  "id" | "client_type" | "first_name" | "last_name" | "company_name"
+>;
+
+/**
+ * Annuaire léger des dossiers, pour les sélecteurs.
+ *
+ * `getBrokerClients` fait un `select("*")` : sur un cabinet qui a deux mille
+ * dossiers, cela transportait chaque note interne et chaque besoin structuré
+ * pour n'en afficher que le nom. Ici on ne lit que les colonnes qui composent
+ * le libellé — et l'annuaire sert à RANGER, donc il contient tout, compagnies
+ * comprises.
+ */
+export async function getBrokerClientDirectory(
+  organizationId: string,
+  limit = 2000,
+): Promise<BrokerClientDirectoryEntry[]> {
+  const supabase = await getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("broker_clients")
+    .select("id, client_type, first_name, last_name, company_name")
+    .eq("organization_id", organizationId)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[broker] Failed to fetch client directory:", error.message);
+    return [];
+  }
+  return (data ?? []) as BrokerClientDirectoryEntry[];
 }
 
 export async function getBrokerIntroducers(

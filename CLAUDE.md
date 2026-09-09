@@ -548,6 +548,18 @@ Flux : le PDF du devoir de conseil est rendu avec un tag invisible `{{Signature;
 - **Expiration** — `DOCUSEAL_SIGNATURE_EXPIRY_DAYS` (défaut 30). Régénérer une demande archive la précédente (l'ancien lien cesse de fonctionner).
 - **UI** [`advice-signature-panel.tsx`](components/broker/advice-signature-panel.tsx) — timeline préparée → ouverte → signée, **copie** du lien (jamais d'ouverture par le courtier : elle serait comptée comme celle du client), relance, annulation, accès au document signé et à la preuve. Le nom « DocuSeal » n'apparaît **jamais** côté client (§2).
 
+### Types de dossier et périmètre du portefeuille
+
+`broker_clients.client_type` vaut `individual`, `company` **ou** `carrier` (migration `0061`). Les deux premiers sont des **assurés** ; `carrier` est un **correspondant** (compagnie, plateforme, fournisseur) : même GED, mêmes emails rattachés, même historique, mais ni contrat, ni devis, ni devoir de conseil, ni conformité, ni sinistre, ni commission.
+
+**Invariant à respecter :** toute lecture de `broker_clients` passe par `getBrokerClients` ([`lib/broker/data.ts`](lib/broker/data.ts)) et son option `scope` — défaut `"clients"` (assurés seuls), `"carriers"`, ou `"all"` pour résoudre un nom ou proposer un rangement. Le défaut est le plus restrictif volontairement : un nouvel appel qui oublie l'option ne gonflera pas les compteurs du cabinet. Les requêtes brutes qui comptent (export client, `get_stats` du copilote) portent un `.neq("client_type", "carrier")` explicite. Helpers : `isPortfolioClient`, `isNamedByCompany`, `brokerClientTypeLabel` ([`lib/broker/clients.ts`](lib/broker/clients.ts)).
+
+### Suppression d'email
+
+`MailboxClient.deleteMessage()` ([`lib/email/mailbox.ts`](lib/email/mailbox.ts)) met un message à la **corbeille du fournisseur** — `DELETE /me/messages/{id}` côté Graph, `messageMove` vers le dossier `\Trash` côté IMAP (repli sur `messageDelete` si le serveur n'expose aucune corbeille). Jamais de corbeille maison : elle divergerait de la vraie boîte, et c'est la rétention du serveur mail qui purge (30 jours par défaut chez Microsoft). `DELETE /api/courtier/mailbox/message?id=` écarte au passage les lignes `broker_email_items` du message, pour que le briefing cesse de proposer des actions sur un email disparu.
+
+Ne pas confondre avec « Écarter » du briefing, qui ne masque que la ligne et laisse l'email en boîte.
+
 ### Manques connus (priorisés)
 1. **Extraction auto des devis** — `extraction_status` existe mais l'analyse PDF n'est pas branchée (saisie 100% manuelle dans `quote-validation-form`).
 2. **Signature d'autres documents** — seul le devoir de conseil est signable ; brancher la GED (mandat, bulletin d'adhésion, SEPA) est prévu et le moteur est déjà conçu pour.
