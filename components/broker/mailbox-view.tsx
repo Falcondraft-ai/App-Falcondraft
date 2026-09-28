@@ -5,6 +5,8 @@ import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
+  ChevronDown,
+  ChevronUp,
   CornerUpRight,
   Download,
   FolderInput,
@@ -408,10 +410,23 @@ export function MailboxView() {
   );
 }
 
+/** Hauteur, en px, de la bande près d'un bord où la liste défile pendant un glisser. */
+const DRAG_SCROLL_EDGE = 72;
+/** Vitesse maximale de ce défilement, en px par image (tout contre le bord). */
+const DRAG_SCROLL_MAX = 16;
+
 /**
  * Les dossiers, en cibles de dépôt. Pendant un glisser on ne peut pas taper :
  * le dossier du correspondant vient donc en tête, puis tous les dossiers par
- * ordre alphabétique (la liste défile d'elle-même quand on approche du bord).
+ * ordre alphabétique.
+ *
+ * Et on ne peut pas faire défiler non plus : le navigateur ne fait pas
+ * défiler une liste intérieure pendant un glisser (Safari jamais, Chrome à
+ * peine), si bien que les dossiers du bas étaient hors d'atteinte. La liste
+ * défile donc d'elle-même quand le pointeur approche d'un bord, d'autant plus
+ * vite qu'il en est près ; une flèche signale qu'il reste des dossiers de ce
+ * côté. Le défilement s'arrête dès que le pointeur quitte la liste : plus
+ * aucun `dragover` ne la relance.
  */
 function DossierDropPanel({
   message,
@@ -425,6 +440,59 @@ function DossierDropPanel({
   const [over, setOver] = React.useState<string | null>(null);
   const suggested = message.knownSender ?? message.linkedClient ?? null;
   const rest = suggested ? dossiers.filter((d) => d.id !== suggested.id) : dossiers;
+
+  const scroller = React.useRef<HTMLDivElement>(null);
+  const speed = React.useRef(0);
+  const lastOver = React.useRef(0);
+  const frame = React.useRef<number | null>(null);
+  const [more, setMore] = React.useState({ up: false, down: false });
+
+  const measure = React.useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const up = el.scrollTop > 1;
+    const down = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    setMore((cur) => (cur.up === up && cur.down === down ? cur : { up, down }));
+  }, []);
+
+  React.useEffect(() => {
+    measure();
+    return () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    };
+  }, [measure, dossiers.length]);
+
+  /** `now` : l'horodatage de l'image, sur la même horloge que celui des événements. */
+  function step(now: number) {
+    const el = scroller.current;
+    // `dragover` tombe en continu tant que le pointeur est sur la liste :
+    // s'il ne vient plus, le pointeur est ailleurs — on s'arrête.
+    if (!el || speed.current === 0 || now - lastOver.current > 150) {
+      frame.current = null;
+      return;
+    }
+    el.scrollTop += speed.current;
+    frame.current = requestAnimationFrame(step);
+  }
+
+  function followPointer(e: React.DragEvent<HTMLDivElement>) {
+    const el = scroller.current;
+    if (!el || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+    const rect = el.getBoundingClientRect();
+    const fromTop = e.clientY - rect.top;
+    const fromBottom = rect.bottom - e.clientY;
+    const edge = Math.min(DRAG_SCROLL_EDGE, rect.height / 3);
+    lastOver.current = e.timeStamp;
+    speed.current =
+      fromTop < edge
+        ? -Math.ceil(((edge - fromTop) / edge) * DRAG_SCROLL_MAX)
+        : fromBottom < edge
+          ? Math.ceil(((edge - fromBottom) / edge) * DRAG_SCROLL_MAX)
+          : 0;
+    if (speed.current !== 0 && frame.current === null) {
+      frame.current = requestAnimationFrame(step);
+    }
+  }
 
   function target(dossier: Dossier, highlight?: boolean) {
     const active = over === dossier.id;
@@ -491,25 +559,57 @@ function DossierDropPanel({
           Lâchez « {message.subject} » sur le dossier du client.
         </p>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-        {suggested ? (
-          <>
-            <p className="fd-eyebrow mb-1.5 px-1">
-              {message.direction === "sent" ? "Destinataire" : "Expéditeur"}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scroller}
+          onDragOver={followPointer}
+          onScroll={measure}
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+        >
+          {suggested ? (
+            <>
+              <p className="fd-eyebrow mb-1.5 px-1">
+                {message.direction === "sent" ? "Destinataire" : "Expéditeur"}
+              </p>
+              <ul className="mb-4">{target(suggested, true)}</ul>
+            </>
+          ) : null}
+          <p className="fd-eyebrow mb-1.5 px-1">Tous les dossiers</p>
+          {rest.length > 0 ? (
+            <ul className="space-y-1.5">{rest.map((d) => target(d))}</ul>
+          ) : (
+            <p className="px-1 text-[12.5px] text-[var(--fg-3)]">
+              Chargement des dossiers…
             </p>
-            <ul className="mb-4">{target(suggested, true)}</ul>
-          </>
-        ) : null}
-        <p className="fd-eyebrow mb-1.5 px-1">Tous les dossiers</p>
-        {rest.length > 0 ? (
-          <ul className="space-y-1.5">{rest.map((d) => target(d))}</ul>
-        ) : (
-          <p className="px-1 text-[12.5px] text-[var(--fg-3)]">
-            Chargement des dossiers…
-          </p>
-        )}
+          )}
+        </div>
+        {/* Il reste des dossiers de ce côté : approcher le bord les amène. */}
+        {more.up ? <ScrollHint side="up" /> : null}
+        {more.down ? <ScrollHint side="down" /> : null}
       </div>
     </motion.div>
+  );
+}
+
+/**
+ * Bord de la liste des dossiers pendant un glisser : un fondu et une flèche,
+ * là où approcher le pointeur fait défiler. Sans effet sur le pointeur.
+ */
+function ScrollHint({ side }: { side: "up" | "down" }) {
+  const Icon = side === "up" ? ChevronUp : ChevronDown;
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-x-0 flex h-9 justify-center",
+        side === "up" ? "top-0 items-start pt-1" : "bottom-0 items-end pb-1",
+      )}
+      style={{
+        background: `linear-gradient(to ${side === "up" ? "bottom" : "top"}, var(--bg-surface) 30%, transparent)`,
+      }}
+    >
+      <Icon className="size-4 text-[var(--fg-3)]" strokeWidth={1.75} />
+    </div>
   );
 }
 
