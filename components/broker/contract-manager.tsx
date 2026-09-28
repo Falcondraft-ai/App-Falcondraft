@@ -98,6 +98,7 @@ export function ContractManager({
                     <DeleteRowButton
                       endpoint={`/api/broker/clients/${clientId}/contracts/${contract.id}`}
                       label="Supprimer le contrat"
+                      itemName={contractDisplayLabel(contract)}
                       successMessage="Contrat supprimé."
                     />
                   </span>

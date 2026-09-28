@@ -114,29 +114,32 @@ export default async function BrokerContractsPage() {
           </div>
 
           {contracts.length > 0 ? (
-            <div className="-mx-px overflow-x-auto">
-              <Table className="min-w-[720px]">
+            // Même règle que la page Documents : la ligne tient dans l'écran,
+            // les textes longs sont tronqués et les colonnes secondaires se
+            // replient sous le contrat quand la place manque.
+            <div>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow
                     className="hover:bg-transparent"
                     style={{ background: "var(--bg-sunken)" }}
                   >
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <TableHead className="w-[30%] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] lg:w-[24%]">
                       Client
                     </TableHead>
                     <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
                       Contrat
                     </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <TableHead className="hidden w-[16%] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] lg:table-cell">
                       Prime
                     </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <TableHead className="hidden w-[120px] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] md:table-cell">
                       Échéance
                     </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
+                    <TableHead className="hidden w-[148px] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] sm:table-cell">
                       Statut
                     </TableHead>
-                    {canDelete ? <TableHead className="h-10" /> : null}
+                    {canDelete ? <TableHead className="h-10 w-[52px]" /> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -148,26 +151,37 @@ export default async function BrokerContractsPage() {
                         key={contract.id}
                         className="duration-100 hover:bg-[rgba(14,34,56,0.025)]"
                       >
-                        <TableCell>
+                        <TableCell className="overflow-hidden">
                           <Link
                             href={`/courtier/clients/${contract.client_id}/contracts/${contract.id}`}
-                            className="text-[13px] font-semibold text-[var(--fg-1)] transition-colors hover:text-[var(--brand-navy-800)]"
+                            className="block truncate text-[13px] font-semibold text-[var(--fg-1)] transition-colors hover:text-[var(--brand-navy-800)]"
+                            title={clientNames.get(contract.client_id) ?? "Client"}
                           >
                             {clientNames.get(contract.client_id) ?? "Client"}
                           </Link>
                         </TableCell>
-                        <TableCell>
-                          <p className="text-[13px] text-[var(--fg-1)]">
+                        <TableCell className="overflow-hidden">
+                          <p
+                            className="truncate text-[13px] text-[var(--fg-1)]"
+                            title={contractDisplayLabel(contract)}
+                          >
                             {contractDisplayLabel(contract)}
                           </p>
-                          <p className="mt-0.5 text-[11.5px] text-[var(--fg-3)]">
+                          <p className="mt-0.5 truncate text-[11.5px] text-[var(--fg-3)]">
                             {insuranceTypeLabel(contract.insurance_type)}
+                            {/* Ce que les colonnes masquées auraient dit. */}
+                            <span className="lg:hidden"> · {formatContractPremium(contract)}</span>
+                            {contract.renewal_date ? (
+                              <span className="md:hidden">
+                                {" "}· Échéance {formatDate(contract.renewal_date)}
+                              </span>
+                            ) : null}
                           </p>
                         </TableCell>
-                        <TableCell className="text-[13px] text-[var(--fg-2)]">
+                        <TableCell className="hidden truncate text-[13px] text-[var(--fg-2)] lg:table-cell">
                           {formatContractPremium(contract)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {contract.renewal_date ? (
                             <span
                               className="inline-flex items-center rounded-full border px-2 py-[3px] font-mono text-[11.5px]"
@@ -183,14 +197,15 @@ export default async function BrokerContractsPage() {
                             <span className="text-[12px] text-[var(--fg-4)]">—</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <ContractStatusBadge status={contract.status} />
                         </TableCell>
                         {canDelete ? (
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             <DeleteRowButton
                               endpoint={`/api/broker/clients/${contract.client_id}/contracts/${contract.id}`}
                               label="Supprimer le contrat"
+                              itemName={contractDisplayLabel(contract)}
                               successMessage="Contrat supprimé."
                             />
                           </TableCell>

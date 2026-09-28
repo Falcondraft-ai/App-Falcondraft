@@ -97,63 +97,79 @@ export default async function CourtierDocumentsPage() {
           }}
         >
           {documents.length > 0 ? (
-            <div className="-mx-px overflow-x-auto">
-              <Table className="min-w-[680px]">
-                <TableHeader>
-                  <TableRow
-                    className="hover:bg-transparent"
-                    style={{ background: "var(--bg-sunken)" }}
-                  >
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Document
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Dossier
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Type
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Taille
-                    </TableHead>
-                    <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
-                      Ajouté
-                    </TableHead>
-                    <TableHead className="h-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documents.map((doc) => (
+            // table-fixed : la ligne tient toujours dans la largeur de l'écran.
+            // Un titre long est tronqué (complet au survol) au lieu d'étirer sa
+            // colonne, et sur écran étroit les colonnes secondaires se replient
+            // sous le titre plutôt que d'imposer un défilement horizontal.
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow
+                  className="hover:bg-transparent"
+                  style={{ background: "var(--bg-sunken)" }}
+                >
+                  <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">Document</TableHead>
+                  <TableHead className="hidden w-[24%] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] sm:table-cell lg:w-[20%]">
+                    Dossier
+                  </TableHead>
+                  <TableHead className="hidden w-[15%] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] lg:table-cell">
+                    Type
+                  </TableHead>
+                  <TableHead className="hidden w-[84px] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] lg:table-cell">
+                    Taille
+                  </TableHead>
+                  <TableHead className="hidden w-[104px] h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)] md:table-cell">
+                    Ajouté
+                  </TableHead>
+                  <TableHead className={canEdit ? "h-10 w-[128px]" : "h-10 w-[96px]"} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {documents.map((doc) => {
+                  const dossierName = clientNameById.get(doc.client_id) ?? "Dossier";
+                  return (
                     <TableRow key={doc.id} className="duration-100">
-                      <TableCell>
-                        <span className="flex items-center gap-2.5">
+                      <TableCell className="overflow-hidden">
+                        <span className="flex min-w-0 items-center gap-2.5">
                           <FileText
                             className="size-4 shrink-0 text-[var(--brand-navy-700)]"
                             strokeWidth={1.75}
                           />
-                          <span className="truncate text-[13px] font-medium text-[var(--fg-1)]">
-                            {doc.title}
+                          <span className="min-w-0">
+                            <span
+                              className="block truncate text-[13px] font-medium text-[var(--fg-1)]"
+                              title={doc.title}
+                            >
+                              {doc.title}
+                            </span>
+                            {/* Ce que les colonnes masquées auraient dit. */}
+                            <span className="block truncate text-[11.5px] leading-5 text-[var(--fg-3)] lg:hidden">
+                              <span className="sm:hidden">{dossierName} · </span>
+                              {documentCategoryLabel(doc.category)} ·{" "}
+                              {formatBytes(doc.size_bytes)}
+                              <span className="md:hidden"> · {formatDate(doc.created_at)}</span>
+                            </span>
                           </span>
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden overflow-hidden sm:table-cell">
                         <Link
                           href={`/courtier/clients/${doc.client_id}`}
-                          className="text-[13px] text-[var(--brand-navy-700)] transition-colors hover:text-[var(--brand-navy-800)] hover:underline"
+                          className="block truncate text-[13px] text-[var(--brand-navy-700)] transition-colors hover:text-[var(--brand-navy-800)] hover:underline"
+                          title={dossierName}
                         >
-                          {clientNameById.get(doc.client_id) ?? "Dossier"}
+                          {dossierName}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-[13px] text-[var(--fg-2)]">
+                      <TableCell className="hidden truncate text-[13px] text-[var(--fg-2)] lg:table-cell">
                         {documentCategoryLabel(doc.category)}
                       </TableCell>
-                      <TableCell className="fd-numeric text-[12.5px] text-[var(--fg-2)]">
+                      <TableCell className="fd-numeric hidden text-[12.5px] text-[var(--fg-2)] lg:table-cell">
                         {formatBytes(doc.size_bytes)}
                       </TableCell>
-                      <TableCell className="font-mono text-[12px] text-[var(--fg-3)]">
+                      <TableCell className="hidden font-mono text-[12px] text-[var(--fg-3)] md:table-cell">
                         {formatDate(doc.created_at)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="px-2 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <DocumentDownloadButton
                             clientId={doc.client_id}
@@ -164,16 +180,17 @@ export default async function CourtierDocumentsPage() {
                             <DeleteRowButton
                               endpoint={`/api/broker/clients/${doc.client_id}/documents/${doc.id}`}
                               label="Supprimer le document"
+                              itemName={doc.title || doc.file_name}
                               successMessage="Document supprimé."
                             />
                           ) : null}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  );
+                })}
+              </TableBody>
+            </Table>
           ) : (
             <div className="p-5">
               <EmptyState
