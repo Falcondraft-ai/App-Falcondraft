@@ -255,6 +255,86 @@ export class ImapMailboxClient implements MailboxClient {
     this.client = null;
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* Opérations publiques : une à la fois sur la session                      */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * File des opérations. Une session IMAP ne travaille que sur UN dossier, et
+   * son verrou reste pris jusqu'au changement suivant (`open`). Deux
+   * opérations lancées ensemble qui visent deux dossiers s'attendaient
+   * l'une l'autre pour toujours : ouvrir un email ENVOYÉ lance la lecture du
+   * corps et celle des pièces jointes en parallèle, chacune le cherche dans
+   * la réception puis dans les envoyés, et la seconde réclamait un verrou que
+   * la première ne rend qu'à l'opération suivante — la requête pendait
+   * jusqu'au délai maximal (« Ce message n'a pas pu être chargé »). Les deux
+   * créaient aussi chacune leur connexion (`connect`), dont une jamais
+   * refermée. Une opération à la fois : la seconde trouve le message en cache.
+   * À l'intérieur d'une opération, les téléchargements d'un même dossier
+   * restent parallèles. `close()` reste hors file : il doit pouvoir couper
+   * une opération qui traîne.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+
+  private serial<T>(run: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(run, run);
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  listInbox(
+    sinceIso: string,
+    max: number,
+    options?: { order?: "asc" | "desc" },
+  ): Promise<MailboxPage> {
+    return this.serial(() => this.listInboxNow(sinceIso, max, options));
+  }
+
+  /** Messages envoyés depuis `sinceIso`, du plus ancien au plus récent. */
+  listSent(
+    sinceIso: string,
+    max: number,
+    options?: { order?: "asc" | "desc" },
+  ): Promise<MailboxPage> {
+    return this.serial(() => this.listSentNow(sinceIso, max, options));
+  }
+
+  getBody(messageId: string): Promise<MailMessageBody | null> {
+    return this.serial(() => this.getBodyNow(messageId));
+  }
+
+  listAttachments(messageId: string): Promise<MailAttachmentMeta[]> {
+    return this.serial(() => this.listAttachmentsNow(messageId));
+  }
+
+  getAttachmentBytes(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ name: string; contentType: string; contentBase64: string } | null> {
+    return this.serial(() => this.getAttachmentBytesNow(messageId, attachmentId));
+  }
+
+  deleteMessage(messageId: string): Promise<boolean> {
+    return this.serial(() => this.deleteMessageNow(messageId));
+  }
+
+  /** La boîte propose-t-elle une corbeille ? Sinon, supprimer est définitif. */
+  hasTrashFolder(): Promise<boolean> {
+    return this.serial(() => this.hasTrashFolderNow());
+  }
+
+  searchForClient(
+    criteria: MailSearchCriteria,
+    query?: string,
+    max = 30,
+  ): Promise<MailMessage[]> {
+    return this.serial(() => this.searchForClientNow(criteria, query, max));
+  }
+
+  createDraft(draft: MailDraft): Promise<MailDraftResult> {
+    return this.serial(() => this.createDraftNow(draft));
+  }
+
   private toMessage(
     msg: FetchMessageObject,
     mailbox = "INBOX",
@@ -296,7 +376,7 @@ export class ImapMailboxClient implements MailboxClient {
     };
   }
 
-  listInbox(
+  private listInboxNow(
     sinceIso: string,
     max: number,
     options?: { order?: "asc" | "desc" },
@@ -304,8 +384,7 @@ export class ImapMailboxClient implements MailboxClient {
     return this.listFolder("INBOX", sinceIso, max, options);
   }
 
-  /** Messages envoyés depuis `sinceIso`, du plus ancien au plus récent. */
-  async listSent(
+  private async listSentNow(
     sinceIso: string,
     max: number,
     options?: { order?: "asc" | "desc" },
@@ -461,7 +540,7 @@ export class ImapMailboxClient implements MailboxClient {
     }
   }
 
-  async getBody(messageId: string): Promise<MailMessageBody | null> {
+  private async getBodyNow(messageId: string): Promise<MailMessageBody | null> {
     const entry = await this.resolve(messageId);
     if (!entry) return null;
 
@@ -489,7 +568,7 @@ export class ImapMailboxClient implements MailboxClient {
     };
   }
 
-  async listAttachments(messageId: string): Promise<MailAttachmentMeta[]> {
+  private async listAttachmentsNow(messageId: string): Promise<MailAttachmentMeta[]> {
     const entry = await this.resolve(messageId);
     if (!entry) return [];
 
@@ -507,7 +586,7 @@ export class ImapMailboxClient implements MailboxClient {
     }));
   }
 
-  async getAttachmentBytes(
+  private async getAttachmentBytesNow(
     messageId: string,
     attachmentId: string,
   ): Promise<{ name: string; contentType: string; contentBase64: string } | null> {
@@ -552,7 +631,7 @@ export class ImapMailboxClient implements MailboxClient {
     }
   }
 
-  async deleteMessage(messageId: string): Promise<boolean> {
+  private async deleteMessageNow(messageId: string): Promise<boolean> {
     const entry = await this.resolve(messageId);
     if (!entry) return false;
 
@@ -577,8 +656,7 @@ export class ImapMailboxClient implements MailboxClient {
     }
   }
 
-  /** La boîte propose-t-elle une corbeille ? Sinon, supprimer est définitif. */
-  async hasTrashFolder(): Promise<boolean> {
+  private async hasTrashFolderNow(): Promise<boolean> {
     try {
       const client = await this.connect();
       return (await this.findTrashPath(client)) !== null;
@@ -587,7 +665,7 @@ export class ImapMailboxClient implements MailboxClient {
     }
   }
 
-  async searchForClient(
+  private async searchForClientNow(
     criteria: MailSearchCriteria,
     query?: string,
     max = 30,
@@ -687,7 +765,7 @@ export class ImapMailboxClient implements MailboxClient {
    * lui-même : la règle « rien ne part sans vous » est identique à celle du
    * connecteur Microsoft.
    */
-  async createDraft(draft: MailDraft): Promise<MailDraftResult> {
+  private async createDraftNow(draft: MailDraft): Promise<MailDraftResult> {
     const client = await this.connect();
 
     const raw = await buildMimeMessage({
