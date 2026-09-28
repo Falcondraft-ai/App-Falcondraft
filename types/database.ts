@@ -57,6 +57,11 @@ export type BrokerProfileRow = {
   role_label: string | null;
   sort_order: number;
   is_active: boolean;
+  /**
+   * Fiche cabinet de la société sous laquelle ce profil exerce (même forme que
+   * broker_settings.compliance). NULL = fiche de l'organisation.
+   */
+  cabinet: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -391,6 +396,12 @@ export type BrokerEmailItemRow = {
   suggested_client_id: string | null;
   has_attachments: boolean;
   status: "pending" | "reviewed" | "dismissed" | string;
+  /** Sens de l'échange du point de vue du cabinet (0063). */
+  direction: "received" | "sent" | string;
+  /** Destinataires (To + Cc), en minuscules — surtout utile pour un envoi. */
+  to_emails: string[];
+  /** Email déposé en fichier (.eml / .msg) : sa copie dans la GED. */
+  document_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -591,6 +602,8 @@ export type EmailConnectionRow = {
   smtp_secure: boolean;
   username: string | null;
   last_verified_at: string | null;
+  /** Jusqu'où les envoyés de la boîte ont été parcourus (0063). */
+  sent_synced_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -1074,6 +1087,7 @@ export type Database = {
           smtp_secure?: boolean;
           username?: string | null;
           last_verified_at?: string | null;
+          sent_synced_at?: string | null;
           created_at?: string;
           updated_at?: string;
         }
@@ -1436,6 +1450,7 @@ export type Database = {
           role_label?: string | null;
           sort_order?: number;
           is_active?: boolean;
+          cabinet?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         },
@@ -1445,6 +1460,7 @@ export type Database = {
           role_label?: string | null;
           sort_order?: number;
           is_active?: boolean;
+          cabinet?: Record<string, unknown> | null;
           updated_at?: string;
         }
       >;
@@ -1815,6 +1831,9 @@ export type Database = {
           suggested_client_id?: string | null;
           has_attachments?: boolean;
           status?: string;
+          direction?: string;
+          to_emails?: string[];
+          document_id?: string | null;
           created_at?: string;
           updated_at?: string;
         },

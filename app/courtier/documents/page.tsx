@@ -3,6 +3,7 @@ import { FileText, HardDrive } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
+import { DeleteRowButton } from "@/components/broker/delete-row-button";
 import { DocumentDownloadButton } from "@/components/broker/document-download-button";
 import {
   Table,
@@ -13,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
+import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import { documentCategoryLabel } from "@/lib/broker/documents";
 import { getBrokerClients, getBrokerDocuments } from "@/lib/broker/data";
@@ -26,6 +28,7 @@ export default async function CourtierDocumentsPage() {
   const context = await requireActiveWorkspaceContext();
   const organization = context.organization!;
   const organizationId = organization.id;
+  const canEdit = canCreateWorkspaceRecords(context.membership?.role);
 
   const [documents, clients] = await Promise.all([
     getBrokerDocuments(organizationId, { limit: 300 }),
@@ -151,11 +154,20 @@ export default async function CourtierDocumentsPage() {
                         {formatDate(doc.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <DocumentDownloadButton
-                          clientId={doc.client_id}
-                          documentId={doc.id}
-                          title={doc.title || doc.file_name}
-                        />
+                        <div className="flex items-center justify-end gap-1">
+                          <DocumentDownloadButton
+                            clientId={doc.client_id}
+                            documentId={doc.id}
+                            title={doc.title || doc.file_name}
+                          />
+                          {canEdit ? (
+                            <DeleteRowButton
+                              endpoint={`/api/broker/clients/${doc.client_id}/documents/${doc.id}`}
+                              label="Supprimer le document"
+                              successMessage="Document supprimé."
+                            />
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

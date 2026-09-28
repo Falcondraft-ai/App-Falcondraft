@@ -214,10 +214,16 @@ function PropositionSection({ data }: { data: AdviceDocumentData }) {
       id="sec-3"
     >
       {/* No proposition yet → the whole block is dropped, lead-in sentence
-          included. A contract description is never announced then left empty. */}
+          included. A contract description is never announced then left empty.
+          Never wrap={false} here: a real quote (20 guarantees + vigilance
+          points) is taller than a page, and react-pdf then squashes every row
+          onto the space left — the lines print on top of each other. The
+          lead-in is kept with the first rows via minPresenceAhead instead. */}
       {proposition ? (
-        <View wrap={false}>
-          <Text style={styles.subLabel}>Description du contrat proposé</Text>
+        <View>
+          <Text style={styles.subLabel} minPresenceAhead={80}>
+            Description du contrat proposé
+          </Text>
           <Paragraph>
             {`En considération des exigences et des besoins que vous avez exprimés, nous vous proposons le(s) contrat(s) suivant(s) :`}
           </Paragraph>
@@ -239,8 +245,12 @@ function PropositionSection({ data }: { data: AdviceDocumentData }) {
       ) : null}
 
       {proposition && data.justification.trim().length > 0 ? (
-        <View style={{ marginTop: 12 }} wrap={false}>
-          {propIntro ? <Paragraph>{propIntro}</Paragraph> : null}
+        <View style={{ marginTop: 12 }}>
+          {propIntro ? (
+            <Text style={styles.paragraph} minPresenceAhead={40}>
+              {propIntro}
+            </Text>
+          ) : null}
           <View style={{ marginTop: 5 }}>
             <Justification text={data.justification} />
           </View>

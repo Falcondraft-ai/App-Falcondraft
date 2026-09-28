@@ -1,5 +1,5 @@
 import { StyleSheet } from "@react-pdf/renderer";
-import { SIGNATURE_BOX } from "./signature-area";
+import { A4_HEIGHT, SIGNATURE_BOX } from "./signature-area";
 
 /**
  * Design tokens for the generated legal PDFs (devoir de conseil, entrée en
@@ -137,7 +137,9 @@ export const styles = StyleSheet.create({
   // --- Bullets ---
   bulletRow: { flexDirection: "row", marginBottom: 3, paddingLeft: 2 },
   bulletDot: { width: 14, color: PDF.gold, fontFamily: "Helvetica-Bold" },
-  bulletText: { flex: 1, textAlign: "left", lineHeight: 1.4 },
+  // No explicit lineHeight here: set on a flex:1 Text inside a row, react-pdf
+  // roughly doubles the line pitch. The page-level 1.4 is inherited anyway.
+  bulletText: { flex: 1, textAlign: "left" },
 
   // --- Callout card ---
   card: {
@@ -205,9 +207,12 @@ export const styles = StyleSheet.create({
   },
 
   // --- Footer ---
+  // Placed with `top`, not `bottom`: on a `fixed` node react-pdf resolves
+  // `bottom` against the whole flow, so the footer only surfaced — at the top —
+  // on the last page. The box is ~16pt tall; its bottom edge sits 28pt up.
   footer: {
     position: "absolute",
-    bottom: 28,
+    top: A4_HEIGHT - 44,
     left: 48,
     right: 48,
     borderTopWidth: 0.75,

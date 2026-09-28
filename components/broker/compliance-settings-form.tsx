@@ -3,7 +3,17 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-import { Check, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  FileText,
+  ImageIcon,
+  Loader2,
+  ShieldCheck,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +25,18 @@ import {
   type CabinetFieldGroup,
 } from "@/lib/broker/compliance";
 
+type AssetKey = "logoUrl" | "annexEntreeEnRelation" | "annexMentions";
+
+/** One company the documents can be issued under: the cabinet, or a profile. */
+export type CabinetEntity = {
+  profileId: string | null;
+  label: string;
+  fiche: CabinetComplianceInfo;
+  hasOwnFiche: boolean;
+  /** Viewable links for the filed assets (null = nothing filed). */
+  assets: Record<AssetKey, string | null>;
+};
+
 const groups: {
   key: CabinetFieldGroup;
   title: string;
@@ -22,8 +44,8 @@ const groups: {
 }[] = [
   {
     key: "identity",
-    title: "Identité du cabinet",
-    description: "Les informations légales de votre cabinet de courtage.",
+    title: "Identité de la société",
+    description: "Les informations légales imprimées en en-tête et en pied de page.",
   },
   {
     key: "regulatory",
@@ -35,7 +57,7 @@ const groups: {
     key: "recourse",
     title: "Réclamation & médiation",
     description:
-      "Le service réclamation du cabinet et le médiateur compétent en cas de litige.",
+      "Le service réclamation et le médiateur compétent en cas de litige.",
   },
   {
     key: "rgpd",
@@ -45,14 +67,57 @@ const groups: {
   },
 ];
 
+const assetRows: {
+  kind: "logo" | "annexEntreeEnRelation" | "annexMentions";
+  key: AssetKey;
+  title: string;
+  hint: string;
+  accept: string;
+  icon: typeof ImageIcon;
+}[] = [
+  {
+    kind: "logo",
+    key: "logoUrl",
+    title: "Logo",
+    hint: "En-tête du devoir de conseil — PNG ou JPEG, 2 Mo max.",
+    accept: "image/png,image/jpeg",
+    icon: ImageIcon,
+  },
+  {
+    kind: "annexEntreeEnRelation",
+    key: "annexEntreeEnRelation",
+    title: "Document d’entrée en relation",
+    hint: "Joint à l’email du devoir de conseil — PDF.",
+    accept: "application/pdf",
+    icon: FileText,
+  },
+  {
+    kind: "annexMentions",
+    key: "annexMentions",
+    title: "Mentions d’information",
+    hint: "Joint à l’email du devoir de conseil — PDF.",
+    accept: "application/pdf",
+    icon: FileText,
+  },
+];
+
+/** Asset paths are never edited from the form — the upload route owns them. */
+const ASSET_KEYS = new Set<keyof CabinetComplianceInfo>([
+  "logoUrl",
+  "annexEntreeEnRelation",
+  "annexMentions",
+]);
+
 function SectionCard({
   title,
   description,
   children,
+  grid = true,
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
+  grid?: boolean;
 }) {
   return (
     <section
@@ -67,55 +132,68 @@ function SectionCard({
           {description}
         </p>
       ) : null}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">{children}</div>
+      <div className={grid ? "mt-4 grid gap-4 sm:grid-cols-2" : "mt-4"}>
+        {children}
+      </div>
     </section>
   );
 }
 
-export function ComplianceSettingsForm({
-  initial,
-  initialEnabled,
+function entityKey(entity: CabinetEntity) {
+  return entity.profileId ?? "cabinet";
+}
+
+export function CabinetSettingsForm({
+  entities,
   canEdit,
 }: {
-  initial: CabinetComplianceInfo;
-  initialEnabled: boolean;
+  entities: CabinetEntity[];
   canEdit: boolean;
 }) {
   const router = useRouter();
-  const [form, setForm] = React.useState<CabinetComplianceInfo>(initial);
+  const [selectedKey, setSelectedKey] = React.useState(() =>
+    entityKey(entities.find((e) => e.profileId && e.hasOwnFiche) ?? entities[0]),
+  );
+  const entity =
+    entities.find((e) => entityKey(e) === selectedKey) ?? entities[0];
+  const cabinet = entities.find((e) => e.profileId === null) ?? entities[0];
+
+  const [form, setForm] = React.useState<CabinetComplianceInfo>(entity.fiche);
+  const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [enabled, setEnabled] = React.useState(initialEnabled);
-  const [togglingModule, setTogglingModule] = React.useState(false);
+  const [assetBusy, setAssetBusy] = React.useState<AssetKey | null>(null);
+  const fileInputs = React.useRef<Partial<Record<AssetKey, HTMLInputElement | null>>>({});
+
+  function select(next: CabinetEntity) {
+    if (entityKey(next) === selectedKey) return;
+    if (
+      dirty &&
+      !window.confirm("Les modifications non enregistrées de cette fiche seront perdues.")
+    ) {
+      return;
+    }
+    setSelectedKey(entityKey(next));
+    setForm(next.fiche);
+    setDirty(false);
+  }
 
   function update(key: keyof CabinetComplianceInfo, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+    setDirty(true);
   }
 
-  async function toggleModule(next: boolean) {
-    if (togglingModule || !canEdit) return;
-    setEnabled(next);
-    setTogglingModule(true);
-    try {
-      const res = await fetch("/api/courtier/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ complianceEnabled: next }),
-      }).catch(() => null);
-      if (!res?.ok) {
-        setEnabled(!next);
-        toast.error("Action impossible.");
-        return;
+  /** Starts a company's fiche from the cabinet's: mediator, ACPR… are shared. */
+  function copyFromCabinet() {
+    setForm((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(cabinet.fiche) as (keyof CabinetComplianceInfo)[]) {
+        if (ASSET_KEYS.has(key)) continue;
+        if (!next[key]?.trim()) next[key] = cabinet.fiche[key];
       }
-      toast.success(
-        next ? "Module Conformité activé." : "Module Conformité désactivé.",
-      );
-      router.refresh();
-    } finally {
-      setTogglingModule(false);
-    }
+      return next;
+    });
+    setDirty(true);
   }
-
-  const complete = isCabinetComplianceComplete(form);
 
   async function save() {
     if (saving || !canEdit) return;
@@ -124,7 +202,10 @@ export function ComplianceSettingsForm({
       const res = await fetch("/api/courtier/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ compliance: form }),
+        body: JSON.stringify({
+          compliance: form,
+          ...(entity.profileId ? { profileId: entity.profileId } : {}),
+        }),
       }).catch(() => null);
 
       const result = (await res?.json().catch(() => null)) as
@@ -137,48 +218,113 @@ export function ComplianceSettingsForm({
         });
         return;
       }
-      toast.success("Fiche d’information enregistrée.");
+      setDirty(false);
+      toast.success("Fiche enregistrée.");
       router.refresh();
     } finally {
       setSaving(false);
     }
   }
 
+  async function uploadAsset(row: (typeof assetRows)[number], file: File) {
+    setAssetBusy(row.key);
+    try {
+      const body = new FormData();
+      body.append("kind", row.kind);
+      body.append("file", file);
+      if (entity.profileId) body.append("profileId", entity.profileId);
+      const res = await fetch("/api/courtier/settings/cabinet-asset", {
+        method: "POST",
+        body,
+      }).catch(() => null);
+      const result = (await res?.json().catch(() => null)) as
+        | { success?: boolean; message?: string }
+        | null;
+      if (!res?.ok || !result?.success) {
+        toast.error("Dépôt impossible.", {
+          description: result?.message ?? "Veuillez réessayer.",
+        });
+        return;
+      }
+      toast.success(`${row.title} enregistré.`);
+      router.refresh();
+    } finally {
+      setAssetBusy(null);
+    }
+  }
+
+  async function removeAsset(row: (typeof assetRows)[number]) {
+    if (!window.confirm(`Retirer « ${row.title} » de cette fiche ?`)) return;
+    setAssetBusy(row.key);
+    try {
+      const params = new URLSearchParams({ kind: row.kind });
+      if (entity.profileId) params.set("profileId", entity.profileId);
+      const res = await fetch(`/api/courtier/settings/cabinet-asset?${params}`, {
+        method: "DELETE",
+      }).catch(() => null);
+      if (!res?.ok) {
+        toast.error("Action impossible.");
+        return;
+      }
+      toast.success(`${row.title} retiré.`);
+      router.refresh();
+    } finally {
+      setAssetBusy(null);
+    }
+  }
+
+  const complete = isCabinetComplianceComplete(form);
+  const isProfile = entity.profileId !== null;
+
   return (
     <div className="space-y-5">
-      <div
-        className="flex items-center justify-between gap-4 rounded-lg border bg-[var(--bg-surface)] px-4 py-3.5"
-        style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
-      >
-        <div className="min-w-0">
-          <p className="text-[13.5px] font-semibold text-[var(--fg-1)]">
-            Module Conformité
+      {entities.length > 1 ? (
+        <div
+          className="rounded-lg border bg-[var(--bg-surface)] p-4"
+          style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
+        >
+          <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--fg-3)]">
+            Société
           </p>
-          <p className="mt-0.5 text-[12px] leading-5 text-[var(--fg-3)]">
-            Affiche le suivi DDA / LCB-FT / RGPD sur chaque dossier client.
-            Désactivez-le si votre cabinet n’en a pas l’usage.
+          <div className="mt-2.5 flex flex-wrap gap-2" role="tablist">
+            {entities.map((option) => {
+              const active = entityKey(option) === selectedKey;
+              return (
+                <button
+                  key={entityKey(option)}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => select(option)}
+                  className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-[13px] transition-colors duration-150"
+                  style={{
+                    borderColor: active ? "var(--brand-navy-800)" : "var(--border-1)",
+                    background: active ? "var(--brand-navy-800)" : "transparent",
+                    color: active ? "#FFFFFF" : "var(--fg-1)",
+                  }}
+                >
+                  <span className="font-medium">{option.label}</span>
+                  <span
+                    className="text-[11px]"
+                    style={{ color: active ? "rgba(255,255,255,0.72)" : "var(--fg-3)" }}
+                  >
+                    {option.hasOwnFiche
+                      ? option.fiche.legalName
+                      : option.profileId
+                        ? "fiche du cabinet"
+                        : "à compléter"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[12px] leading-5 text-[var(--fg-3)]">
+            {isProfile
+              ? `Les devoirs de conseil préparés par ${entity.label} sont émis au nom de cette société. Tant qu’aucune dénomination n’est renseignée, ils reprennent la fiche du cabinet.`
+              : "Fiche par défaut, utilisée pour les documents d’un profil qui n’a pas la sienne."}
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          aria-label="Activer le module Conformité"
-          disabled={!canEdit || togglingModule}
-          onClick={() => toggleModule(!enabled)}
-          className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50"
-          style={{
-            background: enabled
-              ? "var(--brand-navy-800)"
-              : "var(--border-strong, #d4d0c8)",
-          }}
-        >
-          <span
-            className="inline-block size-4 rounded-full bg-white shadow-sm transition-transform"
-            style={{ transform: enabled ? "translateX(22px)" : "translateX(3px)" }}
-          />
-        </button>
-      </div>
+      ) : null}
 
       <div
         className="flex items-start gap-3 rounded-lg border px-4 py-3.5"
@@ -200,17 +346,120 @@ export function ComplianceSettingsForm({
               : "var(--brand-amber-800, #92610f)",
           }}
         />
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-[var(--fg-1)]">
-            Fiche d’information précontractuelle (DDA)
+            Mentions légales du devoir de conseil
           </p>
           <p className="mt-0.5 text-[12px] leading-5 text-[var(--fg-3)]">
-            Ces informations alimentent la fiche d’information remise à chaque
-            client et le devoir de conseil. Renseignez au minimum la
-            dénomination, le n° ORIAS et l’assureur RCP.
+            Ces informations figurent en en-tête et en pied de page de chaque
+            devoir de conseil. Renseignez au minimum la dénomination, le n° ORIAS
+            et l’assureur RCP.
           </p>
         </div>
+        {isProfile && canEdit && cabinet.hasOwnFiche ? (
+          <button
+            type="button"
+            onClick={copyFromCabinet}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium text-[var(--fg-1)] transition-colors duration-150 hover:bg-[var(--bg-sunken)]"
+            style={{ borderColor: "var(--border-1)" }}
+          >
+            <Copy className="size-3.5" strokeWidth={2} />
+            Compléter depuis le cabinet
+          </button>
+        ) : null}
       </div>
+
+      <SectionCard
+        title="Logo et documents joints"
+        description="Propres à cette société : le logo de l’en-tête et les documents légaux joints à l’email du devoir de conseil."
+        grid={false}
+      >
+        <div className="divide-y" style={{ borderColor: "var(--border-1)" }}>
+          {assetRows.map((row) => {
+            const link = entity.assets[row.key];
+            const busy = assetBusy === row.key;
+            const Icon = row.icon;
+            return (
+              <div
+                key={row.key}
+                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                style={{ borderColor: "var(--border-1)" }}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <Icon className="size-4 shrink-0 text-[var(--fg-3)]" strokeWidth={1.75} />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-[var(--fg-1)]">
+                      {row.title}
+                      <span
+                        className="ml-2 text-[11px] font-normal"
+                        style={{ color: link ? "var(--success, #15803d)" : "var(--fg-3)" }}
+                      >
+                        {link ? "Déposé" : "Aucun"}
+                      </span>
+                    </p>
+                    <p className="text-[12px] text-[var(--fg-3)]">{row.hint}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {link ? (
+                    <a
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[12px] font-medium text-[var(--fg-2)] transition-colors duration-150 hover:bg-[var(--bg-sunken)]"
+                    >
+                      <ExternalLink className="size-3.5" strokeWidth={2} />
+                      Voir
+                    </a>
+                  ) : null}
+                  {canEdit ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => fileInputs.current[row.key]?.click()}
+                        className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[12px] font-medium text-[var(--fg-1)] transition-colors duration-150 hover:bg-[var(--bg-sunken)] disabled:opacity-50"
+                        style={{ borderColor: "var(--border-1)" }}
+                      >
+                        {busy ? (
+                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+                        ) : (
+                          <Upload className="size-3.5" strokeWidth={2} />
+                        )}
+                        {link ? "Remplacer" : "Déposer"}
+                      </button>
+                      {link ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => removeAsset(row)}
+                          aria-label={`Retirer ${row.title}`}
+                          className="inline-flex items-center rounded-md p-1.5 text-[var(--fg-3)] transition-colors duration-150 hover:bg-[var(--destructive-soft)] hover:text-[var(--destructive)] disabled:opacity-50"
+                        >
+                          <Trash2 className="size-3.5" strokeWidth={2} />
+                        </button>
+                      ) : null}
+                      <input
+                        ref={(el) => {
+                          fileInputs.current[row.key] = el;
+                        }}
+                        type="file"
+                        accept={row.accept}
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) void uploadAsset(row, file);
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SectionCard>
 
       {groups.map((group) => (
         <SectionCard

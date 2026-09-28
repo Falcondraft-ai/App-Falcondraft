@@ -216,7 +216,7 @@ function rowsToText(rows: string[][]): string {
   return out.join("\n");
 }
 
-async function xlsxToText(buffer: Buffer): Promise<string> {
+export async function xlsxToText(buffer: Buffer): Promise<string> {
   const wb = new ExcelJS.Workbook();
   // exceljs bundles its own (older) Buffer typing that conflicts with
   // @types/node's Buffer<ArrayBufferLike>; cast to exceljs' declared param type.

@@ -1,21 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
-import {
-  buildAdviceDocumentData,
-  type CabinetInfo,
-} from "@/lib/broker/advice-document";
+import { buildAdviceDocumentData } from "@/lib/broker/advice-document";
+import { loadCabinetLogoFor, resolveCabinet } from "@/lib/broker/cabinet";
 import { BROKER_FILES_BUCKET } from "@/lib/broker/documents";
-import {
-  loadCabinetLogo,
-  renderDevoirConseilPdf,
-} from "@/lib/broker/pdf/render";
+import { renderDevoirConseilPdf } from "@/lib/broker/pdf/render";
 import {
   adjustOrganizationStorage,
   logBrokerActivity,
   requireBrokerApiContext,
 } from "@/lib/broker/server";
-import { parseBrokerSettings } from "@/lib/broker/settings";
 import { computeStorageUsage } from "@/lib/broker/storage";
 import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
 
@@ -98,11 +92,14 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     .eq("client_id", clientId)
     .maybeSingle();
 
-  const settings = parseBrokerSettings(organization);
-  const cabinet: CabinetInfo = {
-    ...settings.compliance,
-    partnerInsurers: settings.partnerInsurers,
-  };
+  // The company that gives the advice: whoever prepared it, else the dossier's
+  // broker, else whoever is generating the PDF right now.
+  const { cabinet } = await resolveCabinet({
+    supabase: auth.adminSupabase,
+    organizationId: auth.organizationId,
+    organization,
+    profileIds: [advice.profile_id, client.profile_id, auth.profileId],
+  });
 
   const data = buildAdviceDocumentData({
     cabinet,
@@ -117,7 +114,11 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
 
   let pdf: Buffer;
   try {
-    const logo = await loadCabinetLogo(cabinet);
+    const logo = await loadCabinetLogoFor(
+      cabinet,
+      auth.adminSupabase,
+      auth.organizationId,
+    );
     pdf = await renderDevoirConseilPdf(data, logo);
   } catch (error) {
     console.error("[broker] devoir de conseil PDF render failed:", error);

@@ -201,7 +201,11 @@ export async function listRecentInboxMessages(
   accessToken: string,
   sinceIso: string,
   max = 40,
-  options?: { order?: "asc" | "desc" },
+  options?: {
+    order?: "asc" | "desc";
+    /** Well-known Graph folder: the inbox by default, `sentitems` for sent mail. */
+    folder?: "inbox" | "sentitems";
+  },
 ): Promise<InboxPage> {
   const limit = Math.max(max, 1);
   const order = options?.order ?? "asc";
@@ -214,7 +218,7 @@ export async function listRecentInboxMessages(
   });
 
   let url: string | null =
-    `${GRAPH}/me/mailFolders/inbox/messages?${params.toString()}`;
+    `${GRAPH}/me/mailFolders/${options?.folder ?? "inbox"}/messages?${params.toString()}`;
   const collected: OutlookMessage[] = [];
   let truncated = false;
 

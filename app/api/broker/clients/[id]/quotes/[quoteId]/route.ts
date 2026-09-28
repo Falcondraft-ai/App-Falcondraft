@@ -16,7 +16,7 @@ const schema = z.object({
   premiumAnnual: z.number().nonnegative().nullable().optional(),
   currency: z.string().trim().max(8).optional(),
   coverageSummary: z.string().trim().max(5000).optional().nullable(),
-  deductible: z.string().trim().max(255).optional().nullable(),
+  deductible: z.string().trim().max(2000).optional().nullable(),
   vigilancePoints: z.string().trim().max(5000).optional().nullable(),
   otherInfo: z.string().trim().max(5000).optional().nullable(),
   notes: z.string().trim().max(5000).optional().nullable(),

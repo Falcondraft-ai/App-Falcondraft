@@ -79,6 +79,12 @@ export interface MailboxClient {
     options?: { order?: "asc" | "desc" },
   ): Promise<MailboxPage>;
 
+  /**
+   * Messages ENVOYÉS depuis `sinceIso`, du plus ancien au plus récent. Sert à
+   * rattacher aux dossiers ce que le cabinet a écrit à ses clients. Une boîte
+   * sans dossier d'envoyés identifiable renvoie une page vide.
+   */
+  listSent(sinceIso: string, max: number): Promise<MailboxPage>;
   /** Corps complet, HTML converti en texte. */
   getBody(messageId: string): Promise<MailMessageBody | null>;
 

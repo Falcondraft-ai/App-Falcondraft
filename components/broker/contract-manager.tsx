@@ -6,6 +6,7 @@ import { Plus, ShieldCheck } from "lucide-react";
 import { ContractForm } from "@/components/broker/contract-form";
 import { ContractImporter } from "@/components/broker/contract-importer";
 import { ContractStatusBadge } from "@/components/broker/contract-status-badge";
+import { DeleteRowButton } from "@/components/broker/delete-row-button";
 import { Button } from "@/components/ui/button";
 import type { BrokerInsuranceType } from "@/lib/broker/clients";
 import {
@@ -23,6 +24,7 @@ export function ContractManager({
   branches,
   insurers,
   canEdit,
+  canDelete = false,
   storageFull,
 }: {
   clientId: string;
@@ -30,6 +32,8 @@ export function ContractManager({
   branches: BrokerInsuranceType[];
   insurers: string[];
   canEdit: boolean;
+  /** Deleting a contract is a manager's call (same rule as the API). */
+  canDelete?: boolean;
   storageFull: boolean;
 }) {
   const [adding, setAdding] = React.useState(false);
@@ -45,11 +49,14 @@ export function ContractManager({
             const urgency = renewalUrgency(contract);
             const tone = renewalUrgencyTone[urgency];
             return (
-              <li key={contract.id}>
+              <li
+                key={contract.id}
+                className="flex items-center"
+                style={{ background: "var(--bg-surface)" }}
+              >
                 <Link
                   href={`/courtier/clients/${clientId}/contracts/${contract.id}`}
-                  className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[rgba(14,34,56,0.025)]"
-                  style={{ background: "var(--bg-surface)" }}
+                  className="flex min-w-0 flex-1 items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[rgba(14,34,56,0.025)]"
                 >
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-lg"
@@ -86,6 +93,15 @@ export function ContractManager({
                   ) : null}
                   <ContractStatusBadge status={contract.status} />
                 </Link>
+                {canDelete ? (
+                  <span className="shrink-0 pr-2">
+                    <DeleteRowButton
+                      endpoint={`/api/broker/clients/${clientId}/contracts/${contract.id}`}
+                      label="Supprimer le contrat"
+                      successMessage="Contrat supprimé."
+                    />
+                  </span>
+                ) : null}
               </li>
             );
           })}

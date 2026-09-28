@@ -1,18 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
+import { buildAdviceDocumentData } from "@/lib/broker/advice-document";
 import {
-  buildAdviceDocumentData,
-  type CabinetInfo,
-} from "@/lib/broker/advice-document";
+  loadCabinetAnnexes,
+  loadCabinetLogoFor,
+  resolveCabinet,
+} from "@/lib/broker/cabinet";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import { BROKER_FILES_BUCKET } from "@/lib/broker/documents";
-import { loadCabinetLegalAnnexes } from "@/lib/broker/legal-annexes";
-import {
-  loadCabinetLogo,
-  renderDevoirConseilPdf,
-} from "@/lib/broker/pdf/render";
+import { renderDevoirConseilPdf } from "@/lib/broker/pdf/render";
 import { logBrokerActivity, requireBrokerApiContext } from "@/lib/broker/server";
-import { parseBrokerSettings } from "@/lib/broker/settings";
 import { getMailboxClient } from "@/lib/email/mailbox-resolver";
 import type { MailDraftAttachment } from "@/lib/email/mailbox";
 import type { BrokerClientRow, BrokerQuoteRow } from "@/types/database";
@@ -89,11 +86,12 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
   }
 
   const name = brokerClientDisplayName(typedClient);
-  const settings = parseBrokerSettings(auth.context.organization);
-  const cabinet: CabinetInfo = {
-    ...settings.compliance,
-    partnerInsurers: settings.partnerInsurers,
-  };
+  const { cabinet } = await resolveCabinet({
+    supabase: auth.adminSupabase,
+    organizationId: auth.organizationId,
+    organization: auth.context.organization,
+    profileIds: [advice.profile_id, typedClient.profile_id, auth.profileId],
+  });
 
   // Resolve the quote backing this advice (for the regenerated PDF).
   let quote: BrokerQuoteRow | null = null;
@@ -158,7 +156,11 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
         birthCountry: typedClient.birth_country,
         date: advice.generated_at,
       });
-      const logo = await loadCabinetLogo(cabinet);
+      const logo = await loadCabinetLogoFor(
+        cabinet,
+        auth.adminSupabase,
+        auth.organizationId,
+      );
       const pdf = await renderDevoirConseilPdf(data, logo);
       attachments.push({
         filename: `Devoir de conseil — ${name}.pdf`,
@@ -169,7 +171,13 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
       console.error("[broker] devoir de conseil PDF for email failed:", error);
     }
   }
-  attachments.push(...(await loadCabinetLegalAnnexes()));
+  attachments.push(
+    ...(await loadCabinetAnnexes(
+      cabinet,
+      auth.adminSupabase,
+      auth.organizationId,
+    )),
+  );
 
   const signatureBlock = awaitingSignature
     ? `Vous pouvez le consulter et le signer en ligne, en quelques instants :\n${advice.signature_url}\n\n`

@@ -3,6 +3,11 @@ import { Image, Text, View } from "@react-pdf/renderer";
 import { styles } from "./theme";
 import type { CabinetInfo } from "@/lib/broker/advice-document";
 
+/** react-pdf needs the format spelled out; JPEG files start with FF D8. */
+function imageFormat(bytes: Buffer): "jpg" | "png" {
+  return bytes[0] === 0xff && bytes[1] === 0xd8 ? "jpg" : "png";
+}
+
 /** Cabinet header band: logo (or wordmark) on the left, coordinates on the right. */
 export function Header({
   cabinet,
@@ -21,7 +26,7 @@ export function Header({
     <View style={styles.header} fixed>
       {logo ? (
         /* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image (PDF, not HTML) */
-        <Image style={styles.logo} src={{ data: logo, format: "png" }} />
+        <Image style={styles.logo} src={{ data: logo, format: imageFormat(logo) }} />
       ) : (
         <View>
           <Text style={styles.headerName}>{cabinet.legalName || "Cabinet"}</Text>

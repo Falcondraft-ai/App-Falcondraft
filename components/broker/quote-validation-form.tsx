@@ -292,11 +292,12 @@ export function QuoteValidationForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="deductible">Franchise</Label>
-        <Input
+        <Textarea
           id="deductible"
           value={form.deductible}
           onChange={(e) => update("deductible", e.target.value)}
           placeholder="Ex. 150 € par sinistre"
+          rows={2}
           disabled={disabled}
         />
       </div>

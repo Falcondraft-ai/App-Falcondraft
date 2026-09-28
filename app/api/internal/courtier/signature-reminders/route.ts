@@ -7,7 +7,7 @@ import {
   resendSignatureRequest,
 } from "@/lib/broker/docuseal";
 import { logBrokerActivity } from "@/lib/broker/server";
-import { parseBrokerSettings } from "@/lib/broker/settings";
+import { resolveAdviceCabinet } from "@/lib/broker/cabinet";
 import {
   applyAdviceSignatureState,
   buildReminderMessage,
@@ -35,13 +35,14 @@ const MAX_PER_RUN = 200;
 // Declared as a const so TypeScript keeps the literal type PostgREST needs to
 // infer the row shape (an inline concatenation would widen it to `string`).
 const PENDING_ADVICE_FIELDS =
-  "id, organization_id, client_id, created_by, status, signature_status, signature_viewed_at, signed_document_id, docuseal_submission_id, docuseal_submitter_id, signature_sent_at, signature_last_reminder_at, signature_reminder_count, signature_expires_at";
+  "id, organization_id, client_id, profile_id, created_by, status, signature_status, signature_viewed_at, signed_document_id, docuseal_submission_id, docuseal_submitter_id, signature_sent_at, signature_last_reminder_at, signature_reminder_count, signature_expires_at";
 
 type PendingAdvice = Pick<
   BrokerAdviceRow,
   | "id"
   | "organization_id"
   | "client_id"
+  | "profile_id"
   | "created_by"
   | "status"
   | "signature_status"
@@ -197,10 +198,15 @@ async function handle(request: NextRequest) {
     // An organization that lost the feature stops getting reminders.
     if (!organization || !hasFeature(organization, "esign")) continue;
 
-    const settings = parseBrokerSettings(organization);
+    const { cabinet } = await resolveAdviceCabinet({
+      supabase: admin,
+      organizationId: advice.organization_id,
+      organization,
+      advice,
+    });
     const sent = await resendSignatureRequest(
       advice.docuseal_submitter_id,
-      buildReminderMessage(settings.compliance.legalName),
+      buildReminderMessage(cabinet.legalName),
     );
     if (!sent) continue;
 

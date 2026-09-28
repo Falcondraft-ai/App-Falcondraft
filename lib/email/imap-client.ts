@@ -43,6 +43,8 @@ export type ImapConfig = {
 };
 
 type CachedMessage = {
+  /** Dossier IMAP du message : un UID n'a de sens que dans son dossier. */
+  mailbox: string;
   uid: number;
   /** Structure MIME, conservée pour cibler le corps et les pièces jointes
    *  sans retélécharger le message entier. */
@@ -154,6 +156,10 @@ export class ImapMailboxClient implements MailboxClient {
 
   private client: ImapFlow | null = null;
   private lock: { release: () => void } | null = null;
+  /** Dossier actuellement sélectionné (et verrouillé) sur la session. */
+  private currentPath: string | null = null;
+  /** Dossier des envoyés : undefined = pas encore cherché, null = aucun. */
+  private sentPath: string | null | undefined = undefined;
   private readonly config: ImapConfig;
   private readonly cache = new Map<string, CachedMessage>();
 
@@ -185,8 +191,53 @@ export class ImapMailboxClient implements MailboxClient {
 
     await client.connect();
     this.lock = await client.getMailboxLock("INBOX");
+    this.currentPath = "INBOX";
     this.client = client;
     return client;
+  }
+
+  /**
+   * Sélectionne un dossier. IMAP travaille sur UN dossier à la fois : pour lire
+   * les envoyés, on relâche la réception, on verrouille l'autre dossier, et
+   * l'appel suivant qui a besoin de la réception la reprend.
+   */
+  private async open(path: string): Promise<ImapFlow> {
+    const client = await this.connect();
+    if (this.currentPath === path) return client;
+    this.lock?.release();
+    this.lock = null;
+    // Nul pendant l'acquisition : si le dossier n'existe pas, le prochain
+    // open() reprend proprement au lieu de croire la session encore sélectionnée.
+    this.currentPath = null;
+    this.lock = await client.getMailboxLock(path);
+    this.currentPath = path;
+    return client;
+  }
+
+  /**
+   * Retrouve le dossier des envoyés. Même problème que la corbeille : son nom
+   * change selon l'hébergeur et la langue ; SPECIAL-USE d'abord, les noms
+   * courants ensuite, jamais une supposition.
+   */
+  private async findSentPath(): Promise<string | null> {
+    if (this.sentPath !== undefined) return this.sentPath;
+    const client = await this.connect();
+    try {
+      const boxes = await client.list();
+      const special = boxes.find((b) => b.specialUse === "\\Sent");
+      const known =
+        special ??
+        boxes.find((b) =>
+          /^(inbox[./])?(sent|sent items|sent messages|sent mail|envoy[ée]s|messages envoy[ée]s|[ée]l[ée]ments envoy[ée]s|enviados)$/i.test(
+            b.path,
+          ),
+        );
+      this.sentPath = known?.path ?? null;
+    } catch (error) {
+      console.error("[imap] liste des dossiers impossible:", error);
+      this.sentPath = null;
+    }
+    return this.sentPath;
   }
 
   async close(): Promise<void> {
@@ -204,7 +255,10 @@ export class ImapMailboxClient implements MailboxClient {
     this.client = null;
   }
 
-  private toMessage(msg: FetchMessageObject): MailMessage | null {
+  private toMessage(
+    msg: FetchMessageObject,
+    mailbox = "INBOX",
+  ): MailMessage | null {
     const envelope = msg.envelope;
     if (!envelope) return null;
 
@@ -216,6 +270,7 @@ export class ImapMailboxClient implements MailboxClient {
     const id = envelope.messageId?.trim() || `imap:${msg.uid}`;
 
     this.cache.set(id, {
+      mailbox,
       uid: msg.uid,
       parts,
       textPart: pickPart(parts, "text/plain"),
@@ -241,12 +296,33 @@ export class ImapMailboxClient implements MailboxClient {
     };
   }
 
-  async listInbox(
+  listInbox(
     sinceIso: string,
     max: number,
     options?: { order?: "asc" | "desc" },
   ): Promise<MailboxPage> {
-    const client = await this.connect();
+    return this.listFolder("INBOX", sinceIso, max, options);
+  }
+
+  /** Messages envoyés depuis `sinceIso`, du plus ancien au plus récent. */
+  async listSent(sinceIso: string, max: number): Promise<MailboxPage> {
+    const path = await this.findSentPath();
+    if (!path) return { messages: [], truncated: false };
+    try {
+      return await this.listFolder(path, sinceIso, max);
+    } catch (error) {
+      console.error("[imap] lecture des envoyés impossible:", error);
+      return { messages: [], truncated: false };
+    }
+  }
+
+  private async listFolder(
+    path: string,
+    sinceIso: string,
+    max: number,
+    options?: { order?: "asc" | "desc" },
+  ): Promise<MailboxPage> {
+    const client = await this.open(path);
     const limit = Math.min(Math.max(max, 1), HARD_MAX);
     const since = new Date(sinceIso);
 
@@ -278,7 +354,7 @@ export class ImapMailboxClient implements MailboxClient {
           { uid: true, envelope: true, bodyStructure: true, internalDate: true },
           { uid: true },
         )) {
-          const mapped = this.toMessage(msg);
+          const mapped = this.toMessage(msg, path);
           if (!mapped) continue;
           if (new Date(mapped.receivedDateTime).getTime() < since.getTime()) {
             continue;
@@ -300,7 +376,7 @@ export class ImapMailboxClient implements MailboxClient {
         { uid: true, envelope: true, bodyStructure: true, internalDate: true },
         { uid: true },
       )) {
-        const mapped = this.toMessage(msg);
+        const mapped = this.toMessage(msg, path);
         if (!mapped) continue;
         if (new Date(mapped.receivedDateTime).getTime() < since.getTime()) continue;
         collected.push(mapped);
@@ -332,33 +408,44 @@ export class ImapMailboxClient implements MailboxClient {
     const cached = this.cache.get(messageId);
     if (cached) return cached;
 
-    const client = await this.connect();
-    try {
-      const uids = await client.search(
-        { header: { "message-id": messageId } },
-        { uid: true },
-      );
-      const uid = Array.isArray(uids) ? uids[uids.length - 1] : undefined;
-      if (!uid) return null;
+    // Réception d'abord, envoyés ensuite : un email ouvert depuis un dossier
+    // client peut être une réponse du cabinet.
+    const sent = await this.findSentPath();
+    for (const path of sent ? ["INBOX", sent] : ["INBOX"]) {
+      try {
+        const client = await this.open(path);
+        const uids = await client.search(
+          { header: { "message-id": messageId } },
+          { uid: true },
+        );
+        const uid = Array.isArray(uids) ? uids[uids.length - 1] : undefined;
+        if (!uid) continue;
 
-      const msg = await client.fetchOne(
-        String(uid),
-        { uid: true, envelope: true, bodyStructure: true, internalDate: true },
-        { uid: true },
-      );
-      if (!msg) return null;
-      this.toMessage(msg);
-      return this.cache.get(messageId) ?? null;
-    } catch (error) {
-      console.error("[imap] resolve failed:", error);
-      return null;
+        const msg = await client.fetchOne(
+          String(uid),
+          { uid: true, envelope: true, bodyStructure: true, internalDate: true },
+          { uid: true },
+        );
+        if (!msg) continue;
+        this.toMessage(msg, path);
+        const entry = this.cache.get(messageId);
+        if (entry) return entry;
+      } catch (error) {
+        console.error("[imap] resolve failed:", error);
+      }
     }
+    return null;
   }
 
-  private async downloadPart(uid: number, part: string): Promise<Buffer | null> {
-    const client = await this.connect();
+  private async downloadPart(
+    entry: CachedMessage,
+    part: string,
+  ): Promise<Buffer | null> {
     try {
-      const { content } = await client.download(String(uid), part, { uid: true });
+      const client = await this.open(entry.mailbox);
+      const { content } = await client.download(String(entry.uid), part, {
+        uid: true,
+      });
       const chunks: Buffer[] = [];
       for await (const chunk of content) {
         chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
@@ -378,8 +465,8 @@ export class ImapMailboxClient implements MailboxClient {
     // texte pour l'analyse. Un email n'a pas toujours les deux — on dérive
     // alors l'un de l'autre plutôt que de rendre un message vide.
     const [htmlRaw, textRaw] = await Promise.all([
-      entry.htmlPart ? this.downloadPart(entry.uid, entry.htmlPart) : null,
-      entry.textPart ? this.downloadPart(entry.uid, entry.textPart) : null,
+      entry.htmlPart ? this.downloadPart(entry, entry.htmlPart) : null,
+      entry.textPart ? this.downloadPart(entry, entry.textPart) : null,
     ]);
 
     const html = htmlRaw?.toString("utf8") ?? null;
@@ -425,7 +512,7 @@ export class ImapMailboxClient implements MailboxClient {
     const part = entry.parts.find((p) => p.part === attachmentId);
     if (!part) return null;
 
-    const buffer = await this.downloadPart(entry.uid, attachmentId);
+    const buffer = await this.downloadPart(entry, attachmentId);
     if (!buffer) return null;
 
     return {
@@ -465,8 +552,8 @@ export class ImapMailboxClient implements MailboxClient {
     const entry = await this.resolve(messageId);
     if (!entry) return false;
 
-    const client = await this.connect();
     try {
+      const client = await this.open(entry.mailbox);
       const trash = await this.findTrashPath(client);
       if (trash) {
         await client.messageMove(String(entry.uid), trash, { uid: true });
@@ -477,7 +564,7 @@ export class ImapMailboxClient implements MailboxClient {
         // est alors définitive.
         await client.messageDelete(String(entry.uid), { uid: true });
       }
-      // Le cache pointerait un UID qui n'existe plus dans INBOX.
+      // Le cache pointerait un UID qui n'existe plus dans son dossier.
       this.cache.delete(messageId);
       return true;
     } catch (error) {
@@ -501,8 +588,6 @@ export class ImapMailboxClient implements MailboxClient {
     query?: string,
     max = 30,
   ): Promise<MailMessage[]> {
-    const client = await this.connect();
-
     // Une recherche IMAP par critère, fusionnée ensuite : le protocole ne sait
     // pas exprimer un OU sur des champs différents de façon fiable d'un serveur
     // à l'autre, et enchaîner des recherches simples est plus robuste.
@@ -527,6 +612,32 @@ export class ImapMailboxClient implements MailboxClient {
     }
     if (searches.length === 0) return [];
 
+    // Réception ET envoyés : un dossier client montre la conversation entière,
+    // ce que l'assuré a écrit comme ce que le cabinet lui a répondu.
+    const sent = await this.findSentPath();
+    const byId = new Map<string, MailMessage>();
+    for (const path of sent ? ["INBOX", sent] : ["INBOX"]) {
+      const found = await this.searchFolder(path, searches, query, max).catch(
+        (error: unknown) => {
+          console.error("[imap] search failed:", error);
+          return [] as MailMessage[];
+        },
+      );
+      for (const m of found) if (!byId.has(m.id)) byId.set(m.id, m);
+    }
+
+    return [...byId.values()]
+      .sort((a, b) => b.receivedDateTime.localeCompare(a.receivedDateTime))
+      .slice(0, max);
+  }
+
+  private async searchFolder(
+    path: string,
+    searches: Record<string, unknown>[],
+    query: string | undefined,
+    max: number,
+  ): Promise<MailMessage[]> {
+    const client = await this.open(path);
     const uids = new Set<number>();
     for (const criterion of searches.slice(0, 8)) {
       try {
@@ -553,7 +664,7 @@ export class ImapMailboxClient implements MailboxClient {
         { uid: true, envelope: true, bodyStructure: true, internalDate: true },
         { uid: true },
       )) {
-        const mapped = this.toMessage(msg);
+        const mapped = this.toMessage(msg, path);
         if (mapped) messages.push(mapped);
       }
     } catch (error) {

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 import {
@@ -7,6 +7,7 @@ import {
   type OutlookMessage,
 } from "@/lib/email/outlook-read";
 import { getBrokerProfiles } from "@/lib/broker/profiles";
+import { linkSentMailForOrganization } from "@/lib/broker/sent-mail-links";
 import { getMailboxClient } from "@/lib/email/mailbox-resolver";
 import type { MailboxClient } from "@/lib/email/mailbox";
 import type { BrokerClientRow } from "@/types/database";
@@ -34,6 +35,10 @@ export type ClientEmail = {
   direction: "received" | "sent";
   /** Destinataires, affichés à la place de l'expéditeur sur un email envoyé. */
   to: string[];
+  /** Boîte (profil) qui détient le message — pour l'ouvrir depuis un autre profil. */
+  profileId: string | null;
+  /** Email déposé en fichier : il se lit depuis la GED, pas depuis une boîte. */
+  documentId: string | null;
 };
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -83,7 +88,7 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   const { data: linkedItems } = await admin
     .from("broker_email_items")
     .select(
-      "graph_message_id, from_name, from_email, subject, received_at, web_link, has_attachments, summary",
+      "graph_message_id, from_name, from_email, subject, received_at, web_link, has_attachments, summary, profile_id, direction, to_emails, document_id",
     )
     .eq("organization_id", orgId)
     .eq("suggested_client_id", id)
@@ -110,10 +115,12 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
       hasAttachments: it.has_attachments ?? false,
       webLink: it.web_link || "",
       matchType: "linked",
-      // Le briefing ne lit que la boîte de réception : un item rattaché est
-      // toujours un email entrant.
-      direction: "received",
-      to: [],
+      // Reçu (briefing, rattachement manuel) ou envoyé (rattachement automatique
+      // des envois, email déposé) : la ligne le dit depuis la migration 0063.
+      direction: it.direction === "sent" ? "sent" : "received",
+      to: it.to_emails ?? [],
+      profileId: it.profile_id,
+      documentId: it.document_id,
     });
   }
   let linkedEmails: ClientEmail[] = [...linkedById.values()];
@@ -127,6 +134,12 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   const linkedIds = new Set(linkedEmails.map((e) => e.id));
 
   if (!live) {
+    // Les envois du cabinet se rangent dans leurs dossiers en tâche de fond :
+    // ce qui a été écrit à ce client apparaît à la prochaine ouverture, sans
+    // faire attendre celle-ci. Au plus un passage par boîte tous les quarts d'heure.
+    after(() =>
+      linkSentMailForOrganization(admin, orgId, { staleAfterMs: 15 * 60_000 }),
+    );
     return NextResponse.json({
       emails: linkedEmails,
       // Dit à l'interface qu'une recherche plus large reste possible.
@@ -159,7 +172,11 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   // dédoublonne par adresse pour ne pas chercher trois fois la même chose.
   const seenAddresses = new Set<string>();
   const mailboxes: MailboxClient[] = [];
-  for (const mb of resolved) {
+  // Le profil propriétaire de chaque boîte, dans le même ordre : un résultat
+  // doit pouvoir se rouvrir depuis la bonne boîte.
+  const mailboxProfiles: (string | null)[] = [];
+  const resolvedProfiles = [null, ...profiles.map((p) => p.id)];
+  for (const [index, mb] of resolved.entries()) {
     if (!mb) continue;
     if (seenAddresses.has(mb.address)) {
       await mb.close();
@@ -167,6 +184,7 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
     }
     seenAddresses.add(mb.address);
     mailboxes.push(mb);
+    mailboxProfiles.push(resolvedProfiles[index] ?? null);
   }
 
   // Adresses du cabinet, tous profils confondus : c'est ce qui permet de
@@ -246,8 +264,13 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
           ),
         );
         const byId = new Map<string, OutlookMessage>();
-        for (const list of perMailbox) {
-          for (const m of list) if (!byId.has(m.id)) byId.set(m.id, m);
+        const ownerById = new Map<string, string | null>();
+        for (const [index, list] of perMailbox.entries()) {
+          for (const m of list) {
+            if (byId.has(m.id)) continue;
+            byId.set(m.id, m);
+            ownerById.set(m.id, mailboxProfiles[index] ?? null);
+          }
         }
         const messages = [...byId.values()].sort((a, b) =>
           (b.receivedDateTime ?? "").localeCompare(a.receivedDateTime ?? ""),
@@ -284,6 +307,8 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
               to: sent
                 ? m.recipients.filter((r) => !mailboxAddresses.has(r))
                 : [],
+              profileId: ownerById.get(m.id) ?? null,
+              documentId: null,
             };
           });
       }

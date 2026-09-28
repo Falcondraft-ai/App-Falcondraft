@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CreditCard,
+  FileBadge,
   HardDrive,
   Mail,
   SlidersHorizontal,
@@ -14,6 +15,11 @@ import { cn } from "@/lib/utils";
 const baseTabs = [
   { href: "/courtier/settings", label: "Général", icon: SlidersHorizontal },
   { href: "/courtier/settings/equipe", label: "Équipe & accès", icon: Users },
+  {
+    href: "/courtier/settings/cabinet",
+    label: "Mentions légales",
+    icon: FileBadge,
+  },
   { href: "/courtier/settings/stockage", label: "Stockage", icon: HardDrive },
   { href: "/courtier/settings/integrations", label: "Intégrations", icon: Mail },
 ];

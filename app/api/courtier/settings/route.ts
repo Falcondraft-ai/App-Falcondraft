@@ -2,8 +2,39 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { canManageWorkspace } from "@/lib/auth/workspace-permissions";
 import { brokerInsuranceTypes } from "@/lib/broker/clients";
-import { emptyCabinetComplianceInfo } from "@/lib/broker/compliance";
+import {
+  emptyCabinetComplianceInfo,
+  type CabinetComplianceInfo,
+} from "@/lib/broker/compliance";
 import { requireBrokerApiContext } from "@/lib/broker/server";
+import { parseCabinetCompliance } from "@/lib/broker/settings";
+
+/**
+ * Paths to files (logo, legal annexes). Set only by the upload route, which
+ * checks what it stores — a fiche saved from the form keeps the stored values,
+ * so a crafted payload can't point the PDF renderer somewhere else.
+ */
+const ASSET_KEYS = new Set<keyof CabinetComplianceInfo>([
+  "logoUrl",
+  "annexEntreeEnRelation",
+  "annexMentions",
+]);
+
+function mergeFiche(
+  stored: CabinetComplianceInfo,
+  incoming: Partial<Record<keyof CabinetComplianceInfo, string>>,
+): CabinetComplianceInfo {
+  const merged = emptyCabinetComplianceInfo();
+  for (const key of Object.keys(merged) as (keyof CabinetComplianceInfo)[]) {
+    if (ASSET_KEYS.has(key)) {
+      merged[key] = stored[key];
+      continue;
+    }
+    const value = incoming[key];
+    if (typeof value === "string") merged[key] = value.trim();
+  }
+  return merged;
+}
 
 const complianceField = z.string().trim().max(600);
 
@@ -27,7 +58,6 @@ const schema = z.object({
       phone: complianceField,
       website: complianceField,
       manager: complianceField,
-      logoUrl: complianceField,
       oriasNumber: complianceField,
       oriasCategories: complianceField,
       adviceScope: complianceField,
@@ -50,6 +80,8 @@ const schema = z.object({
     })
     .partial()
     .optional(),
+  /** Save the fiche onto this profile (its own company) instead of the cabinet. */
+  profileId: z.string().uuid().optional(),
 });
 
 function jsonError(message: string, status: number, reason: string) {
@@ -74,6 +106,31 @@ export async function PATCH(request: NextRequest) {
     return jsonError("Paramètres invalides.", 400, "invalid_payload");
   }
 
+  if (parsed.data.profileId) {
+    if (parsed.data.compliance === undefined) {
+      return jsonError("Paramètres invalides.", 400, "invalid_payload");
+    }
+    const { data: profile } = await auth.adminSupabase
+      .from("broker_profiles")
+      .select("id, cabinet")
+      .eq("organization_id", auth.organizationId)
+      .eq("id", parsed.data.profileId)
+      .maybeSingle();
+    if (!profile) return jsonError("Profil introuvable.", 404, "profile_not_found");
+
+    const fiche = mergeFiche(
+      parseCabinetCompliance(profile.cabinet),
+      parsed.data.compliance,
+    );
+    const { error } = await auth.adminSupabase
+      .from("broker_profiles")
+      .update({ cabinet: fiche, updated_at: new Date().toISOString() })
+      .eq("organization_id", auth.organizationId)
+      .eq("id", profile.id);
+    if (error) return jsonError("Enregistrement impossible.", 500, error.message);
+    return NextResponse.json({ success: true });
+  }
+
   const current =
     (auth.context.organization?.broker_settings as Record<string, unknown>) ??
     {};
@@ -93,14 +150,10 @@ export async function PATCH(request: NextRequest) {
     next.introducersEnabled = parsed.data.introducersEnabled;
   }
   if (parsed.data.compliance !== undefined) {
-    const base = emptyCabinetComplianceInfo();
-    const incoming = parsed.data.compliance;
-    const merged = { ...base };
-    for (const key of Object.keys(base) as (keyof typeof base)[]) {
-      const value = incoming[key];
-      if (typeof value === "string") merged[key] = value.trim();
-    }
-    next.compliance = merged;
+    next.compliance = mergeFiche(
+      parseCabinetCompliance(current.compliance),
+      parsed.data.compliance,
+    );
   }
 
   const { error } = await auth.adminSupabase

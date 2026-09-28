@@ -1,20 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import { hasFeature } from "@/lib/billing/entitlements";
-import {
-  buildAdviceDocumentData,
-  type CabinetInfo,
-} from "@/lib/broker/advice-document";
+import { buildAdviceDocumentData } from "@/lib/broker/advice-document";
+import { loadCabinetLogoFor, resolveCabinet } from "@/lib/broker/cabinet";
 import { brokerClientDisplayName } from "@/lib/broker/clients";
 import {
   archiveSubmission,
   createSignatureRequest,
   getSubmissionState,
 } from "@/lib/broker/docuseal";
-import {
-  loadCabinetLogo,
-  renderDevoirConseilPdf,
-} from "@/lib/broker/pdf/render";
+import { renderDevoirConseilPdf } from "@/lib/broker/pdf/render";
 import {
   countPdfPages,
   signatureFieldArea,
@@ -25,7 +20,6 @@ import {
   logBrokerActivity,
   requireBrokerApiContext,
 } from "@/lib/broker/server";
-import { parseBrokerSettings } from "@/lib/broker/settings";
 import {
   applyAdviceSignatureState,
   signatureExpiryDays,
@@ -44,7 +38,7 @@ type BrokerAdviceUpdate =
 type RouteContext = { params: Promise<{ id: string; adviceId: string }> };
 
 const ADVICE_SIGNATURE_FIELDS =
-  "id, client_id, quote_id, content, requirements, generated_at, status, created_by, " +
+  "id, client_id, quote_id, content, requirements, generated_at, status, created_by, profile_id, " +
   "docuseal_submission_id, docuseal_submitter_id, signature_status, signature_url, " +
   "signature_viewed_at, signed_document_id";
 
@@ -98,6 +92,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     | "generated_at"
     | "status"
     | "created_by"
+    | "profile_id"
     | "docuseal_submission_id"
     | "docuseal_submitter_id"
     | "signature_status"
@@ -156,11 +151,12 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
   ]);
   const quote = (quoteRow as BrokerQuoteRow | null) ?? null;
 
-  const settings = parseBrokerSettings(organization);
-  const cabinet: CabinetInfo = {
-    ...settings.compliance,
-    partnerInsurers: settings.partnerInsurers,
-  };
+  const { cabinet } = await resolveCabinet({
+    supabase: auth.adminSupabase,
+    organizationId: auth.organizationId,
+    organization,
+    profileIds: [advice.profile_id, client.profile_id, auth.profileId],
+  });
   const clientName = brokerClientDisplayName(client);
 
   let pdfBase64: string;
@@ -176,7 +172,11 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
       pep: compliance ? (compliance.is_pep ? "Oui" : "Non") : null,
       date: advice.generated_at,
     });
-    const logo = await loadCabinetLogo(cabinet);
+    const logo = await loadCabinetLogoFor(
+      cabinet,
+      auth.adminSupabase,
+      auth.organizationId,
+    );
     const pdf = await renderDevoirConseilPdf(documentData, logo);
     pdfBase64 = pdf.toString("base64");
     // The signature block sits alone on the document's last page, so the field's

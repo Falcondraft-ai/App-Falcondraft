@@ -57,6 +57,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AgentChat } from "@/components/broker/agent-chat";
 import { CourtierNotifications } from "@/components/broker/courtier-notifications";
 import { CourtierTopbarSearch } from "@/components/broker/courtier-topbar-search";
+import {
+  WHATS_NEW_EVENT,
+  WhatsNewDialog,
+} from "@/components/broker/whats-new-dialog";
 import { type StorageUsage } from "@/lib/broker/storage";
 import { profileInitials } from "@/lib/broker/profile-format";
 import type { BrokerProfileRow } from "@/types/database";
@@ -876,6 +880,13 @@ function AccountBlock({
               Aide & support
             </a>
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => window.dispatchEvent(new Event(WHATS_NEW_EVENT))}
+            className="cursor-pointer rounded-lg px-2.5 py-2 text-[13px]"
+          >
+            <Sparkles className="size-4 text-[var(--fg-3)]" strokeWidth={1.75} />
+            Nouveautés
+          </DropdownMenuItem>
           <DropdownMenuSeparator className="my-1.5" />
           <DropdownMenuItem
             onSelect={onSignOut}
@@ -1215,8 +1226,11 @@ export function CourtierShell({
 
       {/* Content */}
       <div className="min-h-dvh transition-[padding] duration-200 ease-out lg:pl-[var(--sb-w)]">
+        {/* Les deux côtés partagent la place à parts égales (flex-1 basis-0) :
+            la recherche reste centrée tant qu'il y a de la place, puis c'est
+            elle qui rétrécit — jamais elle ne recouvre le nom du cabinet. */}
         <header
-          className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b px-4 sm:px-6"
+          className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b px-4 sm:px-6 md:gap-5"
           style={{
             backgroundColor: "#FFFFFF",
             borderBottomColor: "var(--border-1)",
@@ -1224,75 +1238,73 @@ export function CourtierShell({
             boxShadow: "0 1px 0 rgba(11,18,32,.02)",
           }}
         >
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <button
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors lg:hidden"
+          <div className="flex min-w-0 flex-1 basis-0 items-center gap-3 md:min-w-36">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <button
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors lg:hidden"
+                  style={{
+                    background: "var(--brand-navy-50)",
+                    border: "1px solid var(--border-1)",
+                    color: "var(--fg-2)",
+                  }}
+                  aria-label="Ouvrir le menu"
+                >
+                  <Menu className="size-4" strokeWidth={1.75} />
+                </button>
+              </SheetTrigger>
+              <SheetContent
+                side="left"
+                className="w-80 p-0"
                 style={{
-                  background: "var(--brand-navy-50)",
-                  border: "1px solid var(--border-1)",
-                  color: "var(--fg-2)",
+                  backgroundColor: "var(--sidebar-bg)",
+                  borderColor: "var(--sidebar-border)",
+                  color: "var(--sidebar-text)",
                 }}
-                aria-label="Ouvrir le menu"
               >
-                <Menu className="size-4" strokeWidth={1.75} />
-              </button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              className="w-80 p-0"
-              style={{
-                backgroundColor: "var(--sidebar-bg)",
-                borderColor: "var(--sidebar-border)",
-                color: "var(--sidebar-text)",
-              }}
-            >
-              <SheetHeader className="sr-only">
-                <SheetTitle>Navigation</SheetTitle>
-                <SheetDescription>Menu de l’espace courtier</SheetDescription>
-              </SheetHeader>
-              <div className="flex h-full flex-col">
-                <SidebarContent
-                  sections={navSections}
-                  pathname={pathname}
-                  search={searchString}
-                  collapsed={false}
-                  usage={usage}
-                  user={user}
-                  profilePhotoUrl={profilePhotoUrl}
-                  openGroups={openGroups}
-                  onToggleGroup={toggleGroup}
-                  onSignOut={signOut}
-                  profiles={profiles}
-                  activeProfileId={activeProfileId}
-                  onNavigate={() => setMobileOpen(false)}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Navigation</SheetTitle>
+                  <SheetDescription>Menu de l’espace courtier</SheetDescription>
+                </SheetHeader>
+                <div className="flex h-full flex-col">
+                  <SidebarContent
+                    sections={navSections}
+                    pathname={pathname}
+                    search={searchString}
+                    collapsed={false}
+                    usage={usage}
+                    user={user}
+                    profilePhotoUrl={profilePhotoUrl}
+                    openGroups={openGroups}
+                    onToggleGroup={toggleGroup}
+                    onSignOut={signOut}
+                    profiles={profiles}
+                    activeProfileId={activeProfileId}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
 
-          <div className="hidden min-w-0 shrink-0 md:block md:w-[200px]">
-            <p
-              className="truncate text-[13px] font-semibold"
-              style={{ color: "var(--fg-1)" }}
-            >
-              {organizationName}
-            </p>
-            <p className="text-[11px]" style={{ color: "var(--fg-3)" }}>
-              Espace courtier
-            </p>
-          </div>
-
-          <div
-            className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 md:block md:w-[460px] lg:w-[520px]"
-            style={{ top: "50%", transform: "translate(-50%, -50%)" }}
-          >
-            <div className="pointer-events-auto">
-              <CourtierTopbarSearch placeholder="Rechercher un client, une compagnie, un RIB, une adresse…" />
+            <div className="hidden min-w-0 md:block">
+              <p
+                className="truncate text-[13px] font-semibold"
+                style={{ color: "var(--fg-1)" }}
+                title={organizationName}
+              >
+                {organizationName}
+              </p>
+              <p className="truncate text-[11px]" style={{ color: "var(--fg-3)" }}>
+                Espace courtier
+              </p>
             </div>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="hidden min-w-0 flex-[0_1_32.5rem] md:block">
+            <CourtierTopbarSearch placeholder="Rechercher un client, une compagnie, un RIB, une adresse…" />
+          </div>
+
+          <div className="flex flex-1 basis-0 items-center justify-end gap-2 sm:gap-3">
             <CourtierNotifications label="Notifications" />
             <Link
               href="/courtier/clients/new"
@@ -1319,6 +1331,7 @@ export function CourtierShell({
       </div>
 
       <AgentChat userName={user.name} />
+      <WhatsNewDialog profileId={activeProfileId} />
     </div>
   );
 }

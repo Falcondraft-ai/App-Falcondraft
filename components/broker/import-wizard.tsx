@@ -63,6 +63,11 @@ const directoryInputProps = {
   directory: "",
 } as unknown as React.InputHTMLAttributes<HTMLInputElement>;
 
+/** File-picker filter for loose documents — the same formats the analysis reads. */
+const LOOSE_FILES_ACCEPT = Object.keys(MIME_BY_EXT)
+  .map((ext) => `.${ext}`)
+  .join(",");
+
 /** Whether we can upload this file (supported extension). */
 function isSupported(name: string): boolean {
   return Boolean(MIME_BY_EXT[extOf(name)]);
@@ -212,6 +217,7 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
 
   const folderInputRef = React.useRef<HTMLInputElement>(null);
   const zipInputRef = React.useRef<HTMLInputElement>(null);
+  const filesInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadBatches = React.useCallback(async () => {
     setLoadingHome(true);
@@ -401,10 +407,56 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
     }
   }
 
+  /**
+   * Loose documents (a PDF, a photo, a Word file…), no folder around them.
+   * Staged as a flat folder: with no sub-folder name to go by, the grouping
+   * step names each dossier from what it reads in the documents themselves.
+   */
+  function importLooseFiles(list: File[]) {
+    if (list.length === 0) return;
+    const entries: StagedEntry[] = list.map((f) => ({
+      blob: f,
+      name: f.name,
+      path: f.name,
+    }));
+    void startImport(entries, "folder");
+  }
+
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const list = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    importLooseFiles(list);
+  }
+
+  /** Drop on the home card: a single .zip keeps its tree, anything else is loose. */
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    if (busy || storageFull) return;
+    const items = Array.from(e.dataTransfer.items ?? []);
+    const hasFolder = items.some(
+      (item) => item.webkitGetAsEntry?.()?.isDirectory === true,
+    );
+    if (hasFolder) {
+      toast.info("Pour un dossier entier, utilisez « Choisir un dossier ».", {
+        description: "Le glisser-déposer accepte des fichiers ou un .zip.",
+      });
+      return;
+    }
+    const list = Array.from(e.dataTransfer.files ?? []);
+    if (list.length === 1 && extOf(list[0].name) === "zip") {
+      void importZip(list[0]);
+      return;
+    }
+    importLooseFiles(list);
+  }
+
   async function handleZip(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    await importZip(file);
+  }
+
+  async function importZip(file: File) {
     setBusy(true);
     try {
       const { default: JSZip } = await import("jszip");
@@ -646,9 +698,12 @@ export function ImportWizard({ storageFull }: { storageFull: boolean }) {
         batches={batches}
         folderInputRef={folderInputRef}
         zipInputRef={zipInputRef}
+        filesInputRef={filesInputRef}
         onPickFolder={() => void chooseFolder()}
         onFolder={handleFolder}
         onZip={handleZip}
+        onFiles={handleFiles}
+        onDrop={handleDrop}
         onResume={async (b) => {
           setBatchId(b.id);
           if (b.status === "review") {
@@ -800,9 +855,12 @@ function HomeScreen({
   batches,
   folderInputRef,
   zipInputRef,
+  filesInputRef,
   onPickFolder,
   onFolder,
   onZip,
+  onFiles,
+  onDrop,
   onResume,
   onDiscard,
 }: {
@@ -812,12 +870,18 @@ function HomeScreen({
   batches: BrokerImportBatchRow[];
   folderInputRef: React.RefObject<HTMLInputElement | null>;
   zipInputRef: React.RefObject<HTMLInputElement | null>;
+  filesInputRef: React.RefObject<HTMLInputElement | null>;
   onPickFolder: () => void;
   onFolder: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onZip: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onFiles: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onResume: (b: BrokerImportBatchRow) => void;
   onDiscard: (id: string) => void;
 }) {
+  const [dragging, setDragging] = React.useState(false);
+  const canDrop = !busy && !storageFull;
+
   return (
     <div className="space-y-6">
       {storageFull ? (
@@ -835,8 +899,30 @@ function HomeScreen({
       ) : null}
 
       <div
-        className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center"
-        style={{ ...cardStyle, borderStyle: "dashed" }}
+        className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center transition-colors duration-150"
+        style={{
+          ...cardStyle,
+          borderStyle: "dashed",
+          ...(dragging
+            ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+            : null),
+        }}
+        onDragOver={(e) => {
+          if (!canDrop) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          // Ignore leaves into a child element of the card.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          onDrop(e);
+        }}
       >
         <div
           className="flex size-12 items-center justify-center rounded-full"
@@ -846,7 +932,7 @@ function HomeScreen({
         </div>
         <div>
           <h2 className="text-[16px] font-semibold text-[var(--fg-1)]">
-            Déposez vos dossiers clients
+            Déposez vos dossiers ou vos documents clients
           </h2>
           <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-6 text-[var(--fg-3)]">
             Déposez une archive{" "}
@@ -857,6 +943,11 @@ function HomeScreen({
               reprend le nom de chaque sous-dossier comme nom du dossier client
             </strong>
             .
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-[13px] leading-6 text-[var(--fg-3)]">
+            Un seul document suffit aussi — contrat, devis, avis d’échéance,
+            pièce d’identité, carte grise : glissez-le ici, l’assistant en
+            extrait le client.
           </p>
         </div>
         <div className="flex flex-col items-center gap-2">
@@ -878,6 +969,13 @@ function HomeScreen({
             >
               <FolderInput className="size-3.5" strokeWidth={2} />
               Choisir un dossier
+            </GhostButton>
+            <GhostButton
+              onClick={() => filesInputRef.current?.click()}
+              disabled={busy || storageFull}
+            >
+              <FileText className="size-3.5" strokeWidth={2} />
+              Choisir des fichiers
             </GhostButton>
           </div>
           <span
@@ -914,6 +1012,14 @@ function HomeScreen({
           type="file"
           accept=".zip,application/zip"
           onChange={onZip}
+          className="hidden"
+        />
+        <input
+          ref={filesInputRef}
+          type="file"
+          multiple
+          accept={LOOSE_FILES_ACCEPT}
+          onChange={onFiles}
           className="hidden"
         />
       </div>

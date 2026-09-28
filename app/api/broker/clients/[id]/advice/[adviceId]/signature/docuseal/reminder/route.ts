@@ -6,7 +6,7 @@ import {
   logBrokerActivity,
   requireBrokerApiContext,
 } from "@/lib/broker/server";
-import { parseBrokerSettings } from "@/lib/broker/settings";
+import { resolveAdviceCabinet } from "@/lib/broker/cabinet";
 import {
   buildReminderMessage,
   REMINDER_MIN_INTERVAL_MS,
@@ -51,7 +51,7 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
   const { data: advice } = await auth.adminSupabase
     .from("broker_advice")
     .select(
-      "id, client_id, status, signature_status, docuseal_submitter_id, signature_last_reminder_at, signature_reminder_count, signature_expires_at",
+      "id, client_id, profile_id, status, signature_status, docuseal_submitter_id, signature_last_reminder_at, signature_reminder_count, signature_expires_at",
     )
     .eq("organization_id", auth.organizationId)
     .eq("id", adviceId)
@@ -99,10 +99,16 @@ export async function POST(_request: NextRequest, ctx: RouteContext) {
     );
   }
 
-  const settings = parseBrokerSettings(organization);
+  const { cabinet } = await resolveAdviceCabinet({
+    supabase: auth.adminSupabase,
+    organizationId: auth.organizationId,
+    organization,
+    advice,
+    activeProfileId: auth.profileId,
+  });
   const sent = await resendSignatureRequest(
     advice.docuseal_submitter_id,
-    buildReminderMessage(settings.compliance.legalName),
+    buildReminderMessage(cabinet.legalName),
   );
   if (!sent) {
     return jsonError(

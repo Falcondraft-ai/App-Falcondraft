@@ -144,6 +144,13 @@ export type CabinetComplianceInfo = {
   manager: string;
   /** Chemin/URL du logo cabinet (asset public ou Storage). Non éditable ici. */
   logoUrl: string;
+  /**
+   * Annexes légales jointes au devoir de conseil envoyé par email — propres à
+   * chaque société. Même règle que le logo : asset public ou chemin Storage de
+   * l'organisation, déposé via /api/courtier/settings/cabinet-asset.
+   */
+  annexEntreeEnRelation: string;
+  annexMentions: string;
   // Immatriculation & garanties
   oriasNumber: string;
   oriasCategories: string;
@@ -393,6 +400,8 @@ export function emptyCabinetComplianceInfo(): CabinetComplianceInfo {
     website: "",
     manager: "",
     logoUrl: "",
+    annexEntreeEnRelation: "",
+    annexMentions: "",
     oriasNumber: "",
     oriasCategories: "",
     adviceScope: "",

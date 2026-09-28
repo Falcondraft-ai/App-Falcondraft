@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { PageTransition } from "@/components/common/page-transition";
 import { ContractStatusBadge } from "@/components/broker/contract-status-badge";
+import { DeleteRowButton } from "@/components/broker/delete-row-button";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
+import { canManageWorkspace } from "@/lib/auth/workspace-permissions";
 import {
   brokerClientDisplayName,
   insuranceTypeLabel,
@@ -39,6 +41,7 @@ export const revalidate = 0;
 export default async function BrokerContractsPage() {
   const context = await requireActiveWorkspaceContext();
   const organizationId = context.organization!.id;
+  const canDelete = canManageWorkspace(context.membership?.role);
 
   const [contracts, clients] = await Promise.all([
     getBrokerContracts(organizationId, { limit: 1000 }),
@@ -133,6 +136,7 @@ export default async function BrokerContractsPage() {
                     <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--fg-3)]">
                       Statut
                     </TableHead>
+                    {canDelete ? <TableHead className="h-10" /> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -182,6 +186,15 @@ export default async function BrokerContractsPage() {
                         <TableCell>
                           <ContractStatusBadge status={contract.status} />
                         </TableCell>
+                        {canDelete ? (
+                          <TableCell className="text-right">
+                            <DeleteRowButton
+                              endpoint={`/api/broker/clients/${contract.client_id}/contracts/${contract.id}`}
+                              label="Supprimer le contrat"
+                              successMessage="Contrat supprimé."
+                            />
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     );
                   })}

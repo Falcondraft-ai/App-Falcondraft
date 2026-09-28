@@ -6,16 +6,19 @@ import {
   CornerUpRight,
   Loader2,
   MailOpen,
+  MailPlus,
   Inbox,
   Mail,
   Paperclip,
   Search,
 } from "lucide-react";
+import { toast } from "sonner";
 import { BrokerAvatar } from "@/components/broker/broker-avatar";
 import {
   EmailReaderDialog,
   type EmailReaderTarget,
 } from "@/components/broker/email-reader-dialog";
+import { importEmailFile } from "@/lib/broker/upload-client";
 import { formatDateTime } from "@/lib/format";
 import type { ClientEmail } from "@/app/api/broker/clients/[id]/emails/route";
 
@@ -25,8 +28,18 @@ type State =
   | { kind: "not_connected" }
   | { kind: "ready"; emails: ClientEmail[] };
 
-export function ClientEmails({ clientId }: { clientId: string }) {
+export function ClientEmails({
+  clientId,
+  canEdit = false,
+}: {
+  clientId: string;
+  /** Déposer des emails (.eml / .msg) dans le dossier. */
+  canEdit?: boolean;
+}) {
   const [query, setQuery] = React.useState("");
+  const [dragging, setDragging] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [state, setState] = React.useState<State>({ kind: "loading" });
 
   const [searchingMailbox, setSearchingMailbox] = React.useState(false);
@@ -41,6 +54,8 @@ export function ClientEmails({ clientId }: { clientId: string }) {
           : email.from,
       fromEmail: email.fromEmail || null,
       receivedAt: email.receivedAt || null,
+      profileId: email.profileId,
+      documentId: email.documentId,
     });
   }, []);
 
@@ -81,6 +96,38 @@ export function ClientEmails({ clientId }: { clientId: string }) {
     return () => clearTimeout(t);
   }, [query, load]);
 
+  /**
+   * Emails glissés depuis le logiciel de messagerie — y compris d'anciens
+   * échanges qu'aucune boîte connectée ne contient plus. Un par un : chaque
+   * fichier passe par le Storage puis par la lecture serveur.
+   */
+  async function importFiles(files: File[]) {
+    const emails = files.filter((f) => /\.(eml|msg)$/i.test(f.name));
+    if (emails.length === 0) {
+      toast.error("Déposez des emails (.eml ou .msg).", {
+        description: "Glissez un message depuis Outlook directement sur cette zone.",
+      });
+      return;
+    }
+    setImporting(true);
+    let imported = 0;
+    try {
+      for (const file of emails) {
+        const result = await importEmailFile(clientId, file);
+        if (result.ok) imported += 1;
+        else toast.error(file.name, { description: result.message });
+      }
+    } finally {
+      setImporting(false);
+    }
+    if (imported > 0) {
+      toast.success(
+        imported === 1 ? "Email ajouté au dossier." : `${imported} emails ajoutés au dossier.`,
+      );
+      void load(query, false);
+    }
+  }
+
   const groups = React.useMemo(() => {
     if (state.kind !== "ready") return { linked: [], direct: [], mention: [] };
     const linked: ClientEmail[] = [];
@@ -100,9 +147,40 @@ export function ClientEmails({ clientId }: { clientId: string }) {
 
   return (
     <section
-      className="rounded-xl border bg-[var(--bg-surface)]"
-      style={{ borderColor: "var(--border-1)", boxShadow: "var(--shadow-sm)" }}
+      className="relative rounded-xl border bg-[var(--bg-surface)] transition-colors duration-150"
+      style={{
+        borderColor: dragging ? "var(--accent)" : "var(--border-1)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+      onDragOver={(e) => {
+        if (!canEdit || importing) return;
+        if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!canEdit) return;
+        e.preventDefault();
+        setDragging(false);
+        void importFiles(Array.from(e.dataTransfer.files ?? []));
+      }}
     >
+      {dragging ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl"
+          style={{ background: "var(--accent-soft)" }}
+        >
+          <p className="flex items-center gap-2 text-[13px] font-medium text-[var(--accent-foreground)]">
+            <MailPlus className="size-4" strokeWidth={1.75} />
+            Déposez l’email pour l’ajouter au dossier
+          </p>
+        </div>
+      ) : null}
       <div
         className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3.5"
         style={{ borderColor: "var(--border-1)" }}
@@ -117,6 +195,37 @@ export function ClientEmails({ clientId }: { clientId: string }) {
           </h2>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
+          {canEdit ? (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-sunken)] disabled:opacity-60"
+                style={{ borderColor: "var(--border-1)" }}
+                title="Ajouter un email enregistré (.eml, .msg) — ou glissez-le sur cette zone"
+              >
+                {importing ? (
+                  <Loader2 className="size-3.5 animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <MailPlus className="size-3.5" strokeWidth={1.75} />
+                )}
+                {importing ? "Ajout…" : "Ajouter un email"}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".eml,.msg,message/rfc822,application/vnd.ms-outlook"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  e.target.value = "";
+                  void importFiles(files);
+                }}
+              />
+            </>
+          ) : null}
           {/* Fouille des boîtes à la demande : trois connexions IMAP et
               plusieurs recherches chacune, ce serait long à chaque ouverture
               de dossier alors que les emails déjà rangés suffisent souvent. */}
@@ -180,7 +289,9 @@ export function ClientEmails({ clientId }: { clientId: string }) {
             hint={
               query
                 ? "Essayez d’autres mots-clés."
-                : "Les messages concernant ce client apparaîtront ici : ce qu’il vous écrit, ce que vous lui envoyez, et les emails qui le citent."
+                : canEdit
+                  ? "Ce que le client vous écrit et ce que vous lui envoyez apparaît ici. Pour un ancien échange, glissez l’email depuis Outlook sur cette zone."
+                  : "Les messages concernant ce client apparaîtront ici : ce qu’il vous écrit, ce que vous lui envoyez, et les emails qui le citent."
             }
           />
         ) : (

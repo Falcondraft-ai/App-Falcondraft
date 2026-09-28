@@ -19,7 +19,19 @@ export type EmailReaderTarget = {
   from: string;
   fromEmail: string | null;
   receivedAt: string | null;
+  /** Boîte (profil) qui détient le message, quand ce n'est pas celle du profil actif. */
+  profileId?: string | null;
+  /** Email déposé en fichier : lu depuis la GED. */
+  documentId?: string | null;
 };
+
+/** Où lire le message : la boîte du bon profil, ou le fichier déposé. */
+function sourceParams(target: EmailReaderTarget): string {
+  const params = new URLSearchParams({ id: target.id });
+  if (target.documentId) params.set("document", target.documentId);
+  else if (target.profileId) params.set("profile", target.profileId);
+  return params.toString();
+}
 
 /**
  * Lecture d'un email sans quitter l'outil.
@@ -52,7 +64,7 @@ export function EmailReaderDialog({
     setDetail(null);
     void (async () => {
       const res = await fetch(
-        `/api/courtier/mailbox/message?id=${encodeURIComponent(target.id)}`,
+        `/api/courtier/mailbox/message?${sourceParams(target)}`,
       ).catch(() => null);
       const data = (await res?.json().catch(() => null)) as
         | (MailboxMessageDetail & { message?: string })
@@ -114,7 +126,7 @@ export function EmailReaderDialog({
                         {detail.attachments.map((a) => (
                           <li key={a.id}>
                             <a
-                              href={`/api/courtier/mailbox/attachment?id=${encodeURIComponent(target.id)}&attachment=${encodeURIComponent(a.id)}`}
+                              href={`/api/courtier/mailbox/attachment?${sourceParams(target)}&attachment=${encodeURIComponent(a.id)}`}
                               className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] transition-colors hover:bg-[var(--bg-sunken)]"
                               style={{ borderColor: "var(--border-1)" }}
                             >

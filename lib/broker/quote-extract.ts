@@ -172,7 +172,7 @@ export async function extractQuote(input: {
       premium_annual: num(raw.premium_annual),
       currency: str(raw.currency, 8),
       coverage_summary: str(raw.coverage_summary, 5000),
-      deductible: str(raw.deductible, 255),
+      deductible: str(raw.deductible, 2000),
       vigilance_points: str(raw.vigilance_points, 5000),
       other_info: str(raw.other_info, 5000),
     },

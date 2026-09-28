@@ -1,10 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getActiveBrokerProfile } from "@/lib/broker/profiles";
+import { loadFiledEmail, openEmailMailbox } from "@/lib/broker/email-source";
 import { requireBrokerApiContext } from "@/lib/broker/server";
-import { getMailboxClient } from "@/lib/email/mailbox-resolver";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+function fileResponse(name: string, contentType: string, bytes: Buffer) {
+  // Le nom de fichier vient de l'email : il est nettoyé avant d'entrer dans
+  // un en-tête HTTP, où un retour à la ligne permettrait d'en injecter un autre.
+  const safeName = name.replace(/[^\w .()\-À-ÿ]/g, "_").slice(0, 120);
+  return new NextResponse(new Uint8Array(bytes), {
+    headers: {
+      "Content-Type": contentType || "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${safeName}"`,
+      "Content-Length": String(bytes.length),
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
 
 /**
  * Sert une pièce jointe depuis la boîte, sans l'archiver.
@@ -27,13 +40,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Requête invalide." }, { status: 400 });
   }
 
-  const profile = await getActiveBrokerProfile(auth.organizationId);
-  const mailbox = await getMailboxClient({
-    organizationId: auth.organizationId,
-    userId: auth.user.id,
-    profileId: profile?.id ?? null,
-    adminSupabase: auth.adminSupabase,
-  });
+  // Pièce jointe d'un email déposé en fichier : relue depuis la GED.
+  const documentId = params.get("document")?.trim();
+  if (documentId) {
+    const filed = await loadFiledEmail(auth, documentId);
+    const attachment = filed?.attachments[Number(attachmentId)];
+    if (!attachment) {
+      return NextResponse.json({ message: "Pièce jointe introuvable." }, { status: 404 });
+    }
+    return fileResponse(attachment.name, attachment.contentType, attachment.content);
+  }
+
+  const mailbox = await openEmailMailbox(auth, params.get("profile"));
   if (!mailbox) {
     return NextResponse.json({ message: "Boîte non connectée." }, { status: 409 });
   }
@@ -47,19 +65,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const bytes = Buffer.from(file.contentBase64, "base64");
-    // Le nom de fichier vient de l'email : il est nettoyé avant d'entrer dans
-    // un en-tête HTTP, où un retour à la ligne permettrait d'en injecter un autre.
-    const safeName = file.name.replace(/[^\w .()\-À-ÿ]/g, "_").slice(0, 120);
-
-    return new NextResponse(new Uint8Array(bytes), {
-      headers: {
-        "Content-Type": file.contentType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${safeName}"`,
-        "Content-Length": String(bytes.length),
-        "Cache-Control": "private, no-store",
-      },
-    });
+    return fileResponse(
+      file.name,
+      file.contentType,
+      Buffer.from(file.contentBase64, "base64"),
+    );
   } catch (error) {
     console.error("[mailbox] pièce jointe illisible:", error);
     return NextResponse.json(

@@ -22,6 +22,7 @@ import { QuoteStatusBadge } from "@/components/broker/quote-status-badge";
 import { requireActiveWorkspaceContext } from "@/lib/auth/session";
 import {
   canCreateWorkspaceRecords,
+  canManageWorkspace,
   isWorkspaceManager,
 } from "@/lib/auth/workspace-permissions";
 import { hasProposalAutomation } from "@/lib/billing/entitlements";
@@ -254,6 +255,7 @@ export default async function BrokerClientDetailPage({
                   branches={brokerSettings.enabledBranches}
                   insurers={brokerSettings.partnerInsurers}
                   canEdit={canEdit}
+                  canDelete={canManageWorkspace(context.membership?.role)}
                   storageFull={storageFull}
                 />
               </Card>
@@ -432,7 +434,7 @@ export default async function BrokerClientDetailPage({
 
           {/* Rail — emails (utile, prend la largeur), commissions, historique discret */}
           <div className="space-y-5">
-            <ClientEmails clientId={client.id} />
+            <ClientEmails clientId={client.id} canEdit={canEdit} />
 
             {saasModules && !isCarrier && commissions.length > 0 ? (
               <Card

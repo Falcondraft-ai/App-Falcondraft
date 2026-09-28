@@ -4,14 +4,17 @@ import { reasoningParams } from "@/lib/ai/model";
 
 // Per-file classification for the portfolio import. Reads a PDF/image with the
 // vision model (same pattern & cost stance as lib/broker/quote-extract.ts) to
-// extract who the file belongs to + what kind of document it is. Formats the
-// model can't read (docx/xlsx) fall back to a filename/path heuristic. Never
+// extract who the file belongs to + what kind of document it is. Word (.docx)
+// and Excel (.xlsx) files are turned into text first; formats we can't read at
+// all (legacy .doc/.xls, HEIC) fall back to a filename/path heuristic. Never
 // throws — always returns a usable extraction so the batch keeps moving.
 
+import JSZip from "jszip";
 import {
   brokerInsuranceTypes,
   type BrokerInsuranceType,
 } from "@/lib/broker/clients";
+import { xlsxToText } from "@/lib/broker/commission-extract";
 import {
   normalizeImportDocCategory,
   normalizeInsuranceType,
@@ -21,6 +24,52 @@ import {
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const IMPORT_MODEL = process.env.COURTIER_IMPORT_MODEL || "gpt-5.5";
+
+/** Enough for any identity/contract page; a runaway export is cut here. */
+const MAX_DOCUMENT_TEXT_CHARS = 30_000;
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+/** Plain text of a .docx body: paragraphs → lines, tabs kept, markup dropped. */
+async function docxToText(buffer: Buffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buffer);
+  const xml = await zip.file("word/document.xml")?.async("string");
+  if (!xml) return "";
+  return decodeXmlEntities(
+    xml
+      .replace(/<w:tab\/>/g, "\t")
+      .replace(/<w:br\/>|<\/w:p>/g, "\n")
+      .replace(/<[^>]+>/g, ""),
+  )
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Text of a Word/Excel file, or null when it can't be read (→ heuristic). */
+async function officeDocumentText(
+  buffer: Buffer,
+  kind: "docx" | "xlsx",
+): Promise<string | null> {
+  try {
+    const text =
+      kind === "docx" ? await docxToText(buffer) : await xlsxToText(buffer);
+    const trimmed = text.trim();
+    return trimmed ? trimmed.slice(0, MAX_DOCUMENT_TEXT_CHARS) : null;
+  } catch {
+    return null;
+  }
+}
 
 function str(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
@@ -110,8 +159,9 @@ function buildInstruction(fileName: string, folderHint: string): string {
 }
 
 /**
- * Classifies one staged file. PDF/images are read by the model; other formats
- * use a filename heuristic. Returns null-safe extraction (never throws).
+ * Classifies one staged file. PDF/images are read by the model, Word/Excel as
+ * extracted text; other formats use a filename heuristic. Returns null-safe
+ * extraction (never throws).
  */
 export async function classifyImportFile(input: {
   buffer: Buffer;
@@ -126,39 +176,55 @@ export async function classifyImportFile(input: {
   const isPdf = mime.includes("pdf") || name.endsWith(".pdf");
   const isImage =
     mime.startsWith("image/") || /\.(png|jpe?g|webp|gif|tiff?)$/.test(name);
+  const officeKind: "docx" | "xlsx" | null =
+    mime.includes("wordprocessingml") || name.endsWith(".docx")
+      ? "docx"
+      : mime.includes("spreadsheetml") || name.endsWith(".xlsx")
+        ? "xlsx"
+        : null;
 
   const apiKey = process.env.OPENAI_API_KEY;
   // No AI, unreadable format, or oversized file → heuristic.
   if (
     !apiKey ||
-    (!isPdf && !isImage) ||
+    (!isPdf && !isImage && !officeKind) ||
     input.buffer.byteLength > input.maxAiBytes
   ) {
     return heuristicExtraction(input.fileName, input.originalPath);
   }
 
-  const b64 = input.buffer.toString("base64");
   const instruction = buildInstruction(input.fileName, folderHint);
-  const userContent: unknown[] = isPdf
-    ? [
-        { type: "text", text: instruction },
-        {
-          type: "file",
-          file: {
-            filename: input.fileName || "document.pdf",
-            file_data: `data:application/pdf;base64,${b64}`,
+  let userContent: unknown[];
+  if (officeKind) {
+    const text = await officeDocumentText(input.buffer, officeKind);
+    if (!text) return heuristicExtraction(input.fileName, input.originalPath);
+    userContent = [
+      { type: "text", text: instruction },
+      { type: "text", text: `Contenu du document :\n${text}` },
+    ];
+  } else {
+    const b64 = input.buffer.toString("base64");
+    userContent = isPdf
+      ? [
+          { type: "text", text: instruction },
+          {
+            type: "file",
+            file: {
+              filename: input.fileName || "document.pdf",
+              file_data: `data:application/pdf;base64,${b64}`,
+            },
           },
-        },
-      ]
-    : [
-        { type: "text", text: instruction },
-        {
-          type: "image_url",
-          image_url: {
-            url: `data:${mime.startsWith("image/") ? mime : "image/png"};base64,${b64}`,
+        ]
+      : [
+          { type: "text", text: instruction },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mime.startsWith("image/") ? mime : "image/png"};base64,${b64}`,
+            },
           },
-        },
-      ];
+        ];
+  }
 
   let res: Response | null;
   try {
