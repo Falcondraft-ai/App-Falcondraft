@@ -23,7 +23,10 @@ export const changelogKindLabels: Record<ChangelogKind, string> = {
 
 export const courtierChangelog: ChangelogEntry[] = [
   {
-    id: "2026-09-28",
+    // « -2 » : une première version de cette note (avec l'import de fichiers
+    // email, retiré depuis) a été en ligne quelques heures — ceux qui l'ont vue
+    // doivent voir la version finale.
+    id: "2026-09-28-2",
     date: "28 septembre 2026",
     title: "Vos demandes de la semaine sont en ligne",
     items: [
