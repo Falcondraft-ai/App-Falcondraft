@@ -8,6 +8,49 @@ import { Button } from "@/components/ui/button";
 import type { MailboxMessage } from "@/app/api/courtier/mailbox/route";
 
 /**
+ * Range (ou retire, `clientId` nul) un email de la boîte dans un dossier, et le
+ * dit au courtier. Partagé par le bouton ci-dessous et le glisser-déposer de la
+ * boîte (components/broker/mailbox-view.tsx).
+ */
+export async function linkMailboxEmail(
+  message: MailboxMessage,
+  clientId: string | null,
+): Promise<
+  { ok: true; client: { id: string; name: string } | null } | { ok: false }
+> {
+  const res = await fetch("/api/courtier/mailbox/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messageId: message.id,
+      clientId,
+      from: message.fromEmail || undefined,
+      fromName: message.from || undefined,
+      subject: message.subject || undefined,
+      receivedAt: message.receivedAt || undefined,
+      hasAttachments: message.hasAttachments,
+      direction: message.direction,
+      to: message.to,
+    }),
+  }).catch(() => null);
+  const data = (await res?.json().catch(() => null)) as
+    | { success?: boolean; message?: string; client?: { id: string; name: string } | null }
+    | null;
+  if (!res?.ok || !data?.success) {
+    toast.error("Rattachement impossible.", {
+      description: data?.message ?? "Veuillez réessayer.",
+    });
+    return { ok: false };
+  }
+  toast.success(
+    data.client
+      ? `Email rattaché à ${data.client.name}.`
+      : "Email détaché du dossier.",
+  );
+  return { ok: true, client: data.client ?? null };
+}
+
+/**
  * Range un email dans un dossier client, depuis la boîte.
  *
  * Sans ça, seul le briefing pouvait classer du courrier : tout ce que
@@ -41,36 +84,9 @@ export function LinkEmailButton({
   async function link(clientId: string | null) {
     if (busy) return;
     setBusy(true);
-    const res = await fetch("/api/courtier/mailbox/link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messageId: message.id,
-        clientId,
-        from: message.fromEmail || undefined,
-        fromName: message.from || undefined,
-        subject: message.subject || undefined,
-        receivedAt: message.receivedAt || undefined,
-        hasAttachments: message.hasAttachments,
-      }),
-    }).catch(() => null);
-    const data = (await res?.json().catch(() => null)) as
-      | { success?: boolean; message?: string; client?: { id: string; name: string } | null }
-      | null;
+    const linked = await linkMailboxEmail(message, clientId);
     setBusy(false);
-
-    if (!res?.ok || !data?.success) {
-      toast.error("Rattachement impossible.", {
-        description: data?.message ?? "Veuillez réessayer.",
-      });
-      return;
-    }
-    onLinked(data.client ?? null);
-    toast.success(
-      data.client
-        ? `Email rattaché à ${data.client.name}.`
-        : "Email détaché du dossier.",
-    );
+    if (linked.ok) onLinked(linked.client);
   }
 
   if (message.linkedClient) {
@@ -117,10 +133,15 @@ export function LinkEmailButton({
       }
       onOpen={() => void loadClients()}
       onPick={(clientId) => void link(clientId)}
-      createDefaults={{
-        name: message.from || undefined,
-        email: message.fromEmail || undefined,
-      }}
+      createDefaults={
+        // Un envoi se range chez son destinataire, pas chez le cabinet.
+        message.direction === "sent"
+          ? { email: message.to[0] || undefined }
+          : {
+              name: message.from || undefined,
+              email: message.fromEmail || undefined,
+            }
+      }
       onCreated={(client) =>
         setClients((prev) =>
           prev.some((c) => c.id === client.id) ? prev : [...prev, client],

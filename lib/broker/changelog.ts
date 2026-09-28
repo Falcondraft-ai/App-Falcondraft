@@ -47,9 +47,21 @@ export const courtierChangelog: ChangelogEntry[] = [
       },
       {
         kind: "new",
-        title: "Glissez un ancien email dans un dossier",
+        title: "Un onglet « Envoyés » dans Vos emails",
         description:
-          "Faites glisser un message depuis Outlook sur la zone « Emails du dossier » : il est rangé avec ses pièces jointes et se relit sans quitter l’outil.",
+          "Vos emails affiche désormais vos messages reçus et vos messages envoyés, chacun dans son onglet.",
+      },
+      {
+        kind: "new",
+        title: "Rangez un email d’un glisser-déposer",
+        description:
+          "Dans Vos emails, faites glisser un message — reçu ou envoyé — sur le dossier du client : il y est rangé aussitôt. Le dossier du correspondant vous est proposé en premier.",
+      },
+      {
+        kind: "improved",
+        title: "Emails du dossier : Tous, Reçus, Envoyés",
+        description:
+          "Dans chaque dossier, affichez toute la conversation, seulement ce que le client vous a écrit, ou seulement ce que vous lui avez envoyé.",
       },
       {
         kind: "new",

@@ -52,9 +52,6 @@ export const allowedDocumentMimeTypes = new Set<string>([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  // Emails déposés dans un dossier (.eml / .msg) — voir lib/email/email-file.ts.
-  "message/rfc822",
-  "application/vnd.ms-outlook",
 ]);
 
 export function isAllowedDocumentMime(mime: string): boolean {

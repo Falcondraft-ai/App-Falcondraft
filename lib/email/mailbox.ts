@@ -84,7 +84,11 @@ export interface MailboxClient {
    * rattacher aux dossiers ce que le cabinet a écrit à ses clients. Une boîte
    * sans dossier d'envoyés identifiable renvoie une page vide.
    */
-  listSent(sinceIso: string, max: number): Promise<MailboxPage>;
+  listSent(
+    sinceIso: string,
+    max: number,
+    options?: { order?: "asc" | "desc" },
+  ): Promise<MailboxPage>;
   /** Corps complet, HTML converti en texte. */
   getBody(messageId: string): Promise<MailMessageBody | null>;
 

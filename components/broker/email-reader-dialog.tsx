@@ -21,15 +21,12 @@ export type EmailReaderTarget = {
   receivedAt: string | null;
   /** Boîte (profil) qui détient le message, quand ce n'est pas celle du profil actif. */
   profileId?: string | null;
-  /** Email déposé en fichier : lu depuis la GED. */
-  documentId?: string | null;
 };
 
-/** Où lire le message : la boîte du bon profil, ou le fichier déposé. */
+/** Où lire le message : la boîte du profil qui le détient. */
 function sourceParams(target: EmailReaderTarget): string {
   const params = new URLSearchParams({ id: target.id });
-  if (target.documentId) params.set("document", target.documentId);
-  else if (target.profileId) params.set("profile", target.profileId);
+  if (target.profileId) params.set("profile", target.profileId);
   return params.toString();
 }
 

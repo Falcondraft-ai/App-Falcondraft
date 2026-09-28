@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { loadFiledEmail, openEmailMailbox } from "@/lib/broker/email-source";
+import { openEmailMailbox } from "@/lib/broker/email-source";
 import { requireBrokerApiContext } from "@/lib/broker/server";
 
 export const runtime = "nodejs";
@@ -40,17 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Requête invalide." }, { status: 400 });
   }
 
-  // Pièce jointe d'un email déposé en fichier : relue depuis la GED.
-  const documentId = params.get("document")?.trim();
-  if (documentId) {
-    const filed = await loadFiledEmail(auth, documentId);
-    const attachment = filed?.attachments[Number(attachmentId)];
-    if (!attachment) {
-      return NextResponse.json({ message: "Pièce jointe introuvable." }, { status: 404 });
-    }
-    return fileResponse(attachment.name, attachment.contentType, attachment.content);
-  }
-
+  // La boîte qui détient le message — celle d'un collègue, le cas échéant.
   const mailbox = await openEmailMailbox(auth, params.get("profile"));
   if (!mailbox) {
     return NextResponse.json({ message: "Boîte non connectée." }, { status: 409 });

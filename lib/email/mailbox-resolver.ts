@@ -69,8 +69,13 @@ class OutlookMailboxClient implements MailboxClient {
     return listRecentInboxMessages(this.accessToken, sinceIso, max, options);
   }
 
-  listSent(sinceIso: string, max: number): Promise<MailboxPage> {
+  listSent(
+    sinceIso: string,
+    max: number,
+    options?: { order?: "asc" | "desc" },
+  ): Promise<MailboxPage> {
     return listRecentInboxMessages(this.accessToken, sinceIso, max, {
+      ...options,
       folder: "sentitems",
     });
   }

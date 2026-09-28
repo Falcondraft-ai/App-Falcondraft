@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { canCreateWorkspaceRecords } from "@/lib/auth/workspace-permissions";
 import { getActiveBrokerProfile } from "@/lib/broker/profiles";
 import { requireBrokerApiContext } from "@/lib/broker/server";
-import { loadFiledEmail, openEmailMailbox } from "@/lib/broker/email-source";
+import { openEmailMailbox } from "@/lib/broker/email-source";
 import { sanitizeEmailHtml } from "@/lib/email/html";
 import { getMailboxClient } from "@/lib/email/mailbox-resolver";
 
@@ -43,27 +43,7 @@ export async function GET(request: NextRequest) {
   const id = params.get("id")?.trim();
   if (!id) return jsonError("Email manquant.", 400, "invalid_input");
 
-  // Email déposé en fichier : il se lit depuis sa copie dans la GED.
-  const documentId = params.get("document")?.trim();
-  if (documentId) {
-    const filed = await loadFiledEmail(auth, documentId);
-    if (!filed) return jsonError("Email introuvable.", 404, "not_found");
-    const sanitized = filed.html ? sanitizeEmailHtml(filed.html) : null;
-    const detail: MailboxMessageDetail = {
-      id,
-      body: filed.text.slice(0, 6000),
-      html: sanitized?.html ?? null,
-      attachments: filed.attachments.map((a, index) => ({
-        id: String(index),
-        name: a.name,
-        contentType: a.contentType,
-        size: a.content.byteLength,
-      })),
-    };
-    return NextResponse.json(detail);
-  }
-
-  // Sinon la boîte qui détient le message — celle d'un collègue, le cas échéant.
+  // La boîte qui détient le message — celle d'un collègue, le cas échéant.
   const mailbox = await openEmailMailbox(auth, params.get("profile"));
   if (!mailbox) return jsonError("Boîte non connectée.", 409, "not_connected");
 

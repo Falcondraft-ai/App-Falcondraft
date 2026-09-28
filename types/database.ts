@@ -400,7 +400,10 @@ export type BrokerEmailItemRow = {
   direction: "received" | "sent" | string;
   /** Destinataires (To + Cc), en minuscules — surtout utile pour un envoi. */
   to_emails: string[];
-  /** Email déposé en fichier (.eml / .msg) : sa copie dans la GED. */
+  /**
+   * Colonne de la migration 0063, inutilisée : l'import de fichiers .eml/.msg
+   * a été abandonné au profit du rangement depuis la boîte (onglet Envoyés).
+   */
   document_id: string | null;
   created_at: string;
   updated_at: string;

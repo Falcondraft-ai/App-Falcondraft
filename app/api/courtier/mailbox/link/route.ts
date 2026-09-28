@@ -17,6 +17,9 @@ const schema = z.object({
   subject: z.string().trim().max(500).optional(),
   receivedAt: z.string().trim().max(64).optional(),
   hasAttachments: z.boolean().optional(),
+  /** Rangé depuis l'onglet « Envoyés » : le dossier doit le montrer comme un envoi. */
+  direction: z.enum(["received", "sent"]).optional(),
+  to: z.array(z.string().trim().max(320)).max(50).optional(),
 });
 
 function jsonError(message: string, status: number, reason: string) {
@@ -106,6 +109,8 @@ export async function POST(request: NextRequest) {
       suggested_client_id: input.clientId,
       has_attachments: input.hasAttachments ?? false,
       status: "reviewed",
+      direction: input.direction ?? "received",
+      to_emails: (input.to ?? []).map((a) => a.toLowerCase()),
       updated_at: now,
     });
     if (error) {

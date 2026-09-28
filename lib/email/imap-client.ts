@@ -305,11 +305,15 @@ export class ImapMailboxClient implements MailboxClient {
   }
 
   /** Messages envoyés depuis `sinceIso`, du plus ancien au plus récent. */
-  async listSent(sinceIso: string, max: number): Promise<MailboxPage> {
+  async listSent(
+    sinceIso: string,
+    max: number,
+    options?: { order?: "asc" | "desc" },
+  ): Promise<MailboxPage> {
     const path = await this.findSentPath();
     if (!path) return { messages: [], truncated: false };
     try {
-      return await this.listFolder(path, sinceIso, max);
+      return await this.listFolder(path, sinceIso, max, options);
     } catch (error) {
       console.error("[imap] lecture des envoyés impossible:", error);
       return { messages: [], truncated: false };

@@ -37,8 +37,6 @@ export type ClientEmail = {
   to: string[];
   /** Boîte (profil) qui détient le message — pour l'ouvrir depuis un autre profil. */
   profileId: string | null;
-  /** Email déposé en fichier : il se lit depuis la GED, pas depuis une boîte. */
-  documentId: string | null;
 };
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -88,7 +86,7 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
   const { data: linkedItems } = await admin
     .from("broker_email_items")
     .select(
-      "graph_message_id, from_name, from_email, subject, received_at, web_link, has_attachments, summary, profile_id, direction, to_emails, document_id",
+      "graph_message_id, from_name, from_email, subject, received_at, web_link, has_attachments, summary, profile_id, direction, to_emails",
     )
     .eq("organization_id", orgId)
     .eq("suggested_client_id", id)
@@ -115,12 +113,11 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
       hasAttachments: it.has_attachments ?? false,
       webLink: it.web_link || "",
       matchType: "linked",
-      // Reçu (briefing, rattachement manuel) ou envoyé (rattachement automatique
-      // des envois, email déposé) : la ligne le dit depuis la migration 0063.
+      // Reçu ou envoyé (rattachement automatique des envois, ou email glissé
+      // depuis l'onglet « Envoyés ») : la ligne le dit depuis la migration 0063.
       direction: it.direction === "sent" ? "sent" : "received",
       to: it.to_emails ?? [],
       profileId: it.profile_id,
-      documentId: it.document_id,
     });
   }
   let linkedEmails: ClientEmail[] = [...linkedById.values()];
@@ -308,7 +305,6 @@ export async function GET(request: NextRequest, ctx: RouteContext) {
                 ? m.recipients.filter((r) => !mailboxAddresses.has(r))
                 : [],
               profileId: ownerById.get(m.id) ?? null,
-              documentId: null,
             };
           });
       }

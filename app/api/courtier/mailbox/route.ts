@@ -22,10 +22,15 @@ export type MailboxMessage = {
   receivedAt: string;
   preview: string;
   hasAttachments: boolean;
+  /** Reçu (boîte de réception) ou envoyé (dossier des envoyés). */
+  direction: "received" | "sent";
+  /** Destinataires (To + Cc) — affichés à la place de l'expéditeur pour un envoi. */
+  to: string[];
   /** Dossier auquel cet email est rattaché, s'il l'est. */
   linkedClient: { id: string; name: string } | null;
   /**
-   * L'expéditeur correspond à un dossier du portefeuille, sans que l'email
+   * Le correspondant — l'expéditeur d'un email reçu, le destinataire d'un
+   * email envoyé — correspond à un dossier du portefeuille, sans que l'email
    * lui-même ait été rattaché. Distinction utile : « on connaît la personne »
    * n'est pas « c'est classé ».
    */
@@ -61,6 +66,8 @@ export async function GET(request: NextRequest) {
     MAX_LIMIT,
   );
   const query = params.get("q")?.trim().toLowerCase() || "";
+  // Onglet « Envoyés » : le dossier des envoyés de la même boîte.
+  const sentFolder = params.get("folder") === "sent";
 
   const profile = await getActiveBrokerProfile(auth.organizationId);
   const mailbox = await getMailboxClient({
@@ -78,7 +85,9 @@ export async function GET(request: NextRequest) {
     const since = new Date(Date.now() - days * 86_400_000).toISOString();
     // Ordre décroissant : une boîte mail se lit du plus récent au plus ancien.
     // Rien ne reprend derrière, donc pas besoin de l'ordre chronologique.
-    const page = await mailbox.listInbox(since, limit, { order: "desc" });
+    const page = sentFolder
+      ? await mailbox.listSent(since, limit, { order: "desc" })
+      : await mailbox.listInbox(since, limit, { order: "desc" });
     raw = page.messages;
   } catch (error) {
     console.error("[mailbox] lecture impossible:", error);
@@ -132,9 +141,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Adresses de la boîte : jamais prises pour le correspondant d'un envoi.
+  const own = new Set(mailbox.addresses);
   let messages: MailboxMessage[] = raw.map((m) => {
     const linkedId = linkedByMessage.get(m.id);
-    const known = clientByEmail.get(m.fromEmail) ?? null;
+    const to = m.recipients.filter((r) => !own.has(r));
+    const known = sentFolder
+      ? (to.map((r) => clientByEmail.get(r)).find(Boolean) ?? null)
+      : (clientByEmail.get(m.fromEmail) ?? null);
     return {
       id: m.id,
       from: m.fromName || m.fromEmail,
@@ -143,6 +157,8 @@ export async function GET(request: NextRequest) {
       receivedAt: m.receivedDateTime,
       preview: m.bodyPreview,
       hasAttachments: m.hasAttachments,
+      direction: sentFolder ? "sent" : "received",
+      to,
       linkedClient:
         linkedId && nameById.has(linkedId)
           ? { id: linkedId, name: nameById.get(linkedId)! }
@@ -156,7 +172,7 @@ export async function GET(request: NextRequest) {
   // serveur à l'autre. Sur une fenêtre déjà chargée, filtrer ici est immédiat.
   if (query) {
     messages = messages.filter((m) =>
-      [m.subject, m.from, m.fromEmail, m.preview].some((f) =>
+      [m.subject, m.from, m.fromEmail, m.preview, ...m.to].some((f) =>
         f.toLowerCase().includes(query),
       ),
     );
