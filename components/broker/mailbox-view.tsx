@@ -414,6 +414,12 @@ export function MailboxView() {
 const DRAG_SCROLL_EDGE = 72;
 /** Vitesse maximale de ce défilement, en px par image (tout contre le bord). */
 const DRAG_SCROLL_MAX = 16;
+/** La barre du haut de l'espace courtier, collée (`h-16`, courtier-shell). */
+const TOPBAR_HEIGHT = 64;
+/** Marge entre le panneau des dossiers et les bords de ce qui est visible. */
+const DROP_PANEL_MARGIN = 12;
+/** En dessous, le panneau déborde plutôt que de devenir une fente. */
+const DROP_PANEL_MIN_HEIGHT = 240;
 
 /**
  * Les dossiers, en cibles de dépôt. Pendant un glisser on ne peut pas taper :
@@ -422,11 +428,16 @@ const DRAG_SCROLL_MAX = 16;
  *
  * Et on ne peut pas faire défiler non plus : le navigateur ne fait pas
  * défiler une liste intérieure pendant un glisser (Safari jamais, Chrome à
- * peine), si bien que les dossiers du bas étaient hors d'atteinte. La liste
- * défile donc d'elle-même quand le pointeur approche d'un bord, d'autant plus
- * vite qu'il en est près ; une flèche signale qu'il reste des dossiers de ce
- * côté. Le défilement s'arrête dès que le pointeur quitte la liste : plus
- * aucun `dragover` ne la relance.
+ * peine). La liste défile donc d'elle-même quand le pointeur approche d'un
+ * bord, d'autant plus vite qu'il en est près ; une flèche signale qu'il reste
+ * des dossiers de ce côté. Le défilement s'arrête dès que le pointeur quitte
+ * la liste : plus aucun `dragover` ne la relance.
+ *
+ * Encore faut-il que ces bords soient à l'écran : le panneau recouvre la zone
+ * de lecture, haute de 70 % de l'écran et placée sous la barre d'outils — son
+ * bas tombait sous la fenêtre, là où le pointeur n'arrive jamais. Il est donc
+ * cadré sur la partie VISIBLE de la zone de lecture (sous la barre du haut,
+ * au-dessus du bas de la fenêtre), et suit si la page bouge pendant le glisser.
  */
 function DossierDropPanel({
   message,
@@ -441,11 +452,44 @@ function DossierDropPanel({
   const suggested = message.knownSender ?? message.linkedClient ?? null;
   const rest = suggested ? dossiers.filter((d) => d.id !== suggested.id) : dossiers;
 
+  const panel = React.useRef<HTMLDivElement>(null);
   const scroller = React.useRef<HTMLDivElement>(null);
   const speed = React.useRef(0);
-  const lastOver = React.useRef(0);
+  /** Un `dragover` est arrivé depuis la dernière image. */
+  const pointed = React.useRef(false);
+  /** L'image (son horodatage) où l'on a vu le dernier `dragover`. */
+  const lastSeen = React.useRef(0);
   const frame = React.useRef<number | null>(null);
   const [more, setMore] = React.useState({ up: false, down: false });
+  const [fit, setFit] = React.useState({ top: 0, bottom: 0 });
+
+  // Le panneau sur la partie visible de la zone de lecture qu'il recouvre.
+  React.useLayoutEffect(() => {
+    const host = panel.current?.parentElement;
+    if (!host) return;
+    const place = () => {
+      const r = host.getBoundingClientRect();
+      let top = Math.max(0, TOPBAR_HEIGHT + DROP_PANEL_MARGIN - r.top);
+      let bottom = Math.max(0, r.bottom - (window.innerHeight - DROP_PANEL_MARGIN));
+      const room = r.height - top - bottom;
+      if (room < DROP_PANEL_MIN_HEIGHT) {
+        // Zone presque sortie de l'écran : on rend de la hauteur par le bas
+        // d'abord, le haut du panneau (son titre) restant lisible.
+        const missing = Math.min(DROP_PANEL_MIN_HEIGHT, r.height) - room;
+        const fromBottom = Math.min(bottom, missing);
+        bottom -= fromBottom;
+        top = Math.max(0, top - (missing - fromBottom));
+      }
+      setFit((cur) => (cur.top === top && cur.bottom === bottom ? cur : { top, bottom }));
+    };
+    place();
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+    };
+  }, []);
 
   const measure = React.useCallback(() => {
     const el = scroller.current;
@@ -460,14 +504,18 @@ function DossierDropPanel({
     return () => {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     };
-  }, [measure, dossiers.length]);
+  }, [measure, dossiers.length, fit]);
 
-  /** `now` : l'horodatage de l'image, sur la même horloge que celui des événements. */
+  /** `now` : l'horodatage de l'image. Tout se compte sur cette horloge-là. */
   function step(now: number) {
     const el = scroller.current;
+    if (pointed.current) {
+      pointed.current = false;
+      lastSeen.current = now;
+    }
     // `dragover` tombe en continu tant que le pointeur est sur la liste :
     // s'il ne vient plus, le pointeur est ailleurs — on s'arrête.
-    if (!el || speed.current === 0 || now - lastOver.current > 150) {
+    if (!el || speed.current === 0 || now - lastSeen.current > 150) {
       frame.current = null;
       return;
     }
@@ -479,10 +527,14 @@ function DossierDropPanel({
     const el = scroller.current;
     if (!el || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
     const rect = el.getBoundingClientRect();
-    const fromTop = e.clientY - rect.top;
-    const fromBottom = rect.bottom - e.clientY;
-    const edge = Math.min(DRAG_SCROLL_EDGE, rect.height / 3);
-    lastOver.current = e.timeStamp;
+    // Les bords VISIBLES : si le panneau a dû déborder (zone presque sortie
+    // de l'écran), la bande de défilement reste à portée du pointeur.
+    const top = Math.max(rect.top, TOPBAR_HEIGHT);
+    const bottom = Math.min(rect.bottom, window.innerHeight);
+    const fromTop = e.clientY - top;
+    const fromBottom = bottom - e.clientY;
+    const edge = Math.min(DRAG_SCROLL_EDGE, (bottom - top) / 3);
+    pointed.current = true;
     speed.current =
       fromTop < edge
         ? -Math.ceil(((edge - fromTop) / edge) * DRAG_SCROLL_MAX)
@@ -543,12 +595,18 @@ function DossierDropPanel({
 
   return (
     <motion.div
+      ref={panel}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="absolute inset-0 z-10 flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-surface)]"
-      style={{ borderColor: "var(--accent)", boxShadow: "var(--shadow-lg)" }}
+      className="absolute inset-x-0 z-10 flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-surface)]"
+      style={{
+        top: fit.top,
+        bottom: fit.bottom,
+        borderColor: "var(--accent)",
+        boxShadow: "var(--shadow-lg)",
+      }}
     >
       <div className="border-b px-4 py-3" style={{ borderColor: "var(--border-1)" }}>
         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--fg-1)]">
